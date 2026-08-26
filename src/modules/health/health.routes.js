@@ -8,6 +8,7 @@ router.get('/health', (req, res) => {
   res.json({
     status: 'ok',
     app: env.app.name,
+    version: env.app.version,
     environment: env.app.nodeEnv,
   });
 });
@@ -19,6 +20,7 @@ router.get('/health/db', async (req, res) => {
     res.json({
       status: 'ok',
       database: env.db.connectionString ? 'neon/postgresql' : 'postgresql',
+      version: env.app.version,
       latencyMs: Date.now() - startedAt,
     });
   } catch (error) {

@@ -112,3 +112,18 @@ body { color: #252a34; }
   .session-date-block { width: 66px; min-width: 66px; min-height: 76px; }
   .session-topic-preview { max-width: 220px; }
 }
+
+/* v0.4.0 - lessons, assignments, grading and version */
+.app-footer { min-height: 34px; }
+.lesson-card { transition: transform .15s ease, box-shadow .15s ease; }
+.lesson-card:hover { transform: translateY(-2px); box-shadow: 0 10px 28px rgba(31, 38, 62, .08); }
+.lesson-unit { display: inline-flex; align-items: center; min-height: 28px; padding: 4px 10px; border-radius: 999px; background: var(--app-primary-soft); color: var(--app-primary); font-size: 12px; font-weight: 800; }
+.lesson-summary { min-height: 42px; }
+.lesson-content, .assignment-instructions, .submission-box, .teacher-feedback { white-space: pre-wrap; line-height: 1.65; }
+.material-type { display: inline-grid; place-items: center; min-width: 46px; height: 32px; padding: 0 9px; border-radius: 9px; background: #f1f3f8; color: #626a7a; font-size: 11px; font-weight: 800; letter-spacing: .04em; }
+.assignment-progress { width: 120px; height: 6px; }
+.assignment-student:last-child { border-bottom: 0 !important; }
+.submission-box { background: #f8f9fc; border: 1px solid var(--app-border); border-radius: 12px; padding: 12px 14px; max-width: 760px; }
+.teacher-feedback { background: #eef8f1; border: 1px solid #cfe9d8; border-radius: 12px; padding: 14px; color: #245b38; }
+.grade-form { width: min(320px, 100%); flex: 0 0 auto; }
+@media (max-width: 991.98px) { .grade-form { width: 100%; } .assignment-progress { width: 100px; } }

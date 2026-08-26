@@ -24,8 +24,8 @@
         <a class="nav-link <%= currentPath.startsWith('/classes') ? 'active' : '' %>" href="/classes">Lớp học</a>
         <a class="nav-link <%= currentPath.startsWith('/students') ? 'active' : '' %>" href="/students">Học viên</a>
         <a class="nav-link <%= currentPath.startsWith('/sessions') ? 'active' : '' %>" href="/sessions">Buổi học & điểm danh</a>
-        <a class="nav-link disabled" href="#">Bài học <span class="badge text-bg-light ms-auto">Soon</span></a>
-        <a class="nav-link disabled" href="#">Bài tập</a>
+        <a class="nav-link <%= currentPath.startsWith('/lessons') ? 'active' : '' %>" href="/lessons">Bài học & tài liệu</a>
+        <a class="nav-link <%= currentPath.startsWith('/assignments') ? 'active' : '' %>" href="/assignments">Bài tập & chấm bài</a>
         <a class="nav-link disabled" href="#">Kiểm tra</a>
         <a class="nav-link disabled" href="#">Báo cáo</a>
       <% } %>
@@ -49,6 +49,7 @@
       <div class="small text-secondary">Đăng nhập bởi</div>
       <div class="fw-semibold"><%= currentUser.fullName %></div>
       <div class="small text-secondary"><%= role %></div>
+      <div class="small text-secondary mt-1">Version <strong>v<%= appVersion %></strong></div>
       <form method="post" action="/logout" class="mt-2">
         <button class="btn btn-sm btn-outline-secondary w-100">Đăng xuất</button>
       </form>
@@ -65,6 +66,7 @@
       <div class="ms-auto d-flex align-items-center gap-2">
         <span class="<%= avatarClass %>"><%= currentUser.fullName.charAt(0) %></span>
         <span class="d-none d-sm-inline small fw-semibold"><%= currentUser.fullName %></span>
+        <span class="badge rounded-pill text-bg-light border d-none d-md-inline">v<%= appVersion %></span>
       </div>
     </nav>
 
@@ -80,6 +82,8 @@
             <a class="nav-link" href="/classes">Lớp học</a>
             <a class="nav-link" href="/students">Học viên</a>
             <a class="nav-link" href="/sessions">Buổi học & điểm danh</a>
+            <a class="nav-link" href="/lessons">Bài học & tài liệu</a>
+            <a class="nav-link" href="/assignments">Bài tập & chấm bài</a>
           <% } %>
           <% if (isStudent) { %>
             <a class="nav-link" href="/student">Trang chủ</a>

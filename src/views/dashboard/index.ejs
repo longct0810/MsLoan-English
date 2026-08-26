@@ -5,8 +5,9 @@
     <p class="text-secondary mb-0">Tổng quan hoạt động lớp học hôm nay.</p>
   </div>
   <div class="d-flex gap-2">
-    <a href="/classes" class="btn btn-outline-primary">Xem lớp học</a>
-    <a class="btn btn-primary" href="/sessions/new">+ Tạo buổi học</a>
+    <a href="/lessons/new" class="btn btn-outline-primary">+ Bài học</a>
+    <a href="/assignments/new" class="btn btn-outline-primary">+ Bài tập</a>
+    <a class="btn btn-primary" href="/sessions/new">+ Buổi học</a>
   </div>
 </div>
 
@@ -85,7 +86,7 @@
       <thead><tr><th>Bài tập</th><th>Lớp</th><th>Đã nộp</th><th>Hạn</th></tr></thead>
       <tbody>
       <% dashboard.assignments.forEach(a => { %>
-        <tr><td class="fw-semibold"><%= a.title %></td><td><%= a.className %></td><td><%= a.submitted %>/<%= a.total %></td><td><%= new Date(a.dueAt).toLocaleDateString('vi-VN') %></td></tr>
+        <tr><td class="fw-semibold"><a class="text-decoration-none text-reset" href="/assignments/<%= a.id %>"><%= a.title %></a></td><td><%= a.className %></td><td><%= a.submitted %>/<%= a.total %></td><td><%= a.dueAt ? new Date(a.dueAt).toLocaleDateString('vi-VN') : 'Không giới hạn' %></td></tr>
       <% }) %>
       </tbody>
     </table>

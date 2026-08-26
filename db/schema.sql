@@ -185,3 +185,49 @@ CREATE INDEX IF NOT EXISTS idx_teacher_notes_session
   ON teacher_notes(class_session_id, created_at DESC);
 
 COMMIT;
+
+-- v0.4.0 - Lessons, richer materials, assignment submission and grading workflow.
+BEGIN;
+
+CREATE TABLE IF NOT EXISTS lessons (
+  id BIGSERIAL PRIMARY KEY,
+  class_id BIGINT NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
+  title VARCHAR(250) NOT NULL,
+  unit_name VARCHAR(150),
+  summary TEXT,
+  content TEXT,
+  status VARCHAR(20) NOT NULL DEFAULT 'DRAFT'
+    CHECK (status IN ('DRAFT', 'PUBLISHED', 'ARCHIVED')),
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  created_by BIGINT REFERENCES users(id) ON DELETE SET NULL,
+  published_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE materials ADD COLUMN IF NOT EXISTS lesson_id BIGINT REFERENCES lessons(id) ON DELETE SET NULL;
+ALTER TABLE materials ADD COLUMN IF NOT EXISTS description TEXT;
+ALTER TABLE materials ADD COLUMN IF NOT EXISTS resource_url TEXT;
+ALTER TABLE materials ADD COLUMN IF NOT EXISTS status VARCHAR(20) NOT NULL DEFAULT 'PUBLISHED';
+ALTER TABLE materials ADD COLUMN IF NOT EXISTS created_by BIGINT REFERENCES users(id) ON DELETE SET NULL;
+
+ALTER TABLE assignments ADD COLUMN IF NOT EXISTS lesson_id BIGINT REFERENCES lessons(id) ON DELETE SET NULL;
+ALTER TABLE assignments ADD COLUMN IF NOT EXISTS instructions TEXT;
+ALTER TABLE assignments ADD COLUMN IF NOT EXISTS max_score NUMERIC(6,2) NOT NULL DEFAULT 10;
+ALTER TABLE assignments ADD COLUMN IF NOT EXISTS published_at TIMESTAMPTZ;
+
+ALTER TABLE assignment_submissions ADD COLUMN IF NOT EXISTS submission_text TEXT;
+ALTER TABLE assignment_submissions ADD COLUMN IF NOT EXISTS teacher_feedback TEXT;
+ALTER TABLE assignment_submissions ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+
+ALTER TABLE student_scores ADD COLUMN IF NOT EXISTS assignment_id BIGINT REFERENCES assignments(id) ON DELETE SET NULL;
+
+CREATE INDEX IF NOT EXISTS idx_lessons_class_status ON lessons(class_id, status, sort_order, id);
+CREATE INDEX IF NOT EXISTS idx_materials_lesson ON materials(lesson_id, published_at DESC);
+CREATE INDEX IF NOT EXISTS idx_assignments_lesson ON assignments(lesson_id);
+CREATE INDEX IF NOT EXISTS idx_assignment_submissions_student ON assignment_submissions(student_id, status);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_student_scores_assignment
+  ON student_scores(student_id, assignment_id)
+  WHERE assignment_id IS NOT NULL;
+
+COMMIT;

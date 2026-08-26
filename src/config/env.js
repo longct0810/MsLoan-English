@@ -1,4 +1,5 @@
 require('dotenv').config();
+const packageJson = require('../../package.json');
 
 function required(name) {
   const value = process.env[name];
@@ -40,6 +41,7 @@ function trustProxy(name) {
 const env = {
   app: {
     name: required('APP_NAME'),
+    version: optional('APP_VERSION', packageJson.version),
     shortName: required('APP_SHORT_NAME'),
     host: required('APP_HOST'),
     port: number('PORT'),

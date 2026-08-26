@@ -33,9 +33,9 @@
             <div class="task-icon"><%= a.type === 'QUIZ' ? 'Q' : (a.type === 'PRACTICE' ? 'P' : 'H') %></div>
             <div class="flex-grow-1">
               <div class="fw-semibold"><%= a.title %></div>
-              <div class="small text-secondary">Hạn: <%= new Date(a.dueAt).toLocaleString('vi-VN', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' }) %></div>
+              <div class="small text-secondary">Hạn: <%= a.dueAt ? new Date(a.dueAt).toLocaleString('vi-VN', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' }) : 'Không giới hạn' %></div>
             </div>
-            <span class="badge <%= a.statusMeta.className %>"><%= a.statusMeta.label %></span>
+            <div class="d-flex align-items-center gap-2"><span class="badge <%= a.statusMeta.className %>"><%= a.statusMeta.label %></span><a class="btn btn-sm btn-outline-primary" href="/student/assignments/<%= a.id %>">Mở</a></div>
           </div>
         <% }) %>
       </div>
@@ -64,7 +64,7 @@
           <thead><tr><th>Nội dung</th><th>Kỹ năng</th><th>Ngày</th><th>Điểm</th></tr></thead>
           <tbody>
           <% portal.latestScores.forEach(s => { %>
-            <tr><td class="fw-semibold"><%= s.title %></td><td><%= s.category %></td><td><%= new Date(s.recordedAt).toLocaleDateString('vi-VN') %></td><td><span class="score-badge <%= s.score >= 8 ? 'good' : (s.score < 7 ? 'warn' : '') %>"><%= s.score %></span></td></tr>
+            <tr><td class="fw-semibold"><%= s.title %></td><td><%= s.category %></td><td><%= new Date(s.recordedAt).toLocaleDateString('vi-VN') %></td><td><% const normalizedScore = s.maxScore ? (s.score / s.maxScore) * 10 : s.score; %><span class="score-badge <%= normalizedScore >= 8 ? 'good' : (normalizedScore < 7 ? 'warn' : '') %>"><%= s.score %><%= s.maxScore && s.maxScore !== 10 ? '/' + s.maxScore : '' %></span></td></tr>
           <% }) %>
           </tbody>
         </table>

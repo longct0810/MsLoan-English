@@ -1,0 +1,23 @@
+<%- include('../partials/app-start', { title }) %>
+<div class="d-flex align-items-start gap-3 mb-4"><a class="btn btn-outline-secondary" href="/student/assignments">←</a><div><div class="d-flex gap-2 flex-wrap mb-1"><span class="badge text-bg-light"><%= assignment.type %></span><span class="badge <%= assignment.submission.statusMeta.className %>"><%= assignment.submission.statusMeta.label %></span></div><h1 class="h3 mb-1"><%= assignment.title %></h1><p class="text-secondary mb-0"><%= assignment.className %><% if (assignment.lessonTitle) { %> • <%= assignment.lessonTitle %><% } %></p></div></div>
+<% if (submitted) { %><div class="alert alert-success">Đã nộp bài thành công.</div><% } %>
+<% if (error) { %><div class="alert alert-danger"><%= error %></div><% } %>
+
+<div class="row g-4">
+  <div class="col-xl-8">
+    <div class="card app-card mb-4"><div class="card-header"><strong>Đề bài</strong></div><div class="card-body p-4"><p><%= assignment.description || 'Không có mô tả.' %></p><h2 class="h6 mt-4">Yêu cầu</h2><div class="assignment-instructions"><%= assignment.instructions || 'Không có yêu cầu bổ sung.' %></div></div></div>
+    <div class="card app-card"><div class="card-header"><strong>Bài làm của tôi</strong></div><div class="card-body p-4">
+      <% if (assignment.submission.status === 'GRADED') { %>
+        <div class="alert alert-success">Bài đã được chấm. Điểm: <strong><%= assignment.submission.score %>/<%= assignment.maxScore %></strong></div>
+      <% } %>
+      <form method="post" action="/student/assignments/<%= assignment.id %>/submit">
+        <label class="form-label">Nội dung trả lời</label>
+        <textarea class="form-control" name="submissionText" rows="10" <%= assignment.submission.status === 'GRADED' ? 'disabled' : '' %> placeholder="Nhập bài làm tại đây..."><%= assignment.submission.submissionText || '' %></textarea>
+        <% if (assignment.submission.status !== 'GRADED') { %><button class="btn btn-primary mt-3">Nộp bài</button><% } %>
+      </form>
+      <% if (assignment.submission.teacherFeedback) { %><div class="teacher-feedback mt-4"><div class="fw-semibold mb-1">Nhận xét của giáo viên</div><%= assignment.submission.teacherFeedback %></div><% } %>
+    </div></div>
+  </div>
+  <div class="col-xl-4"><div class="card app-card"><div class="card-body p-4"><div class="small text-secondary">Hạn nộp</div><div class="fw-semibold mb-3"><%= assignment.dueAt ? new Date(assignment.dueAt).toLocaleString('vi-VN') : 'Không giới hạn' %></div><div class="small text-secondary">Điểm tối đa</div><div class="display-6 fw-bold"><%= assignment.maxScore %></div><% if (assignment.submission.submittedAt) { %><hr><div class="small text-secondary">Lần nộp gần nhất</div><div class="small fw-semibold"><%= new Date(assignment.submission.submittedAt).toLocaleString('vi-VN') %></div><% } %></div></div></div>
+</div>
+<%- include('../partials/app-end') %>

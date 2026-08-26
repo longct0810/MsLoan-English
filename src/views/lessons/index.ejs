@@ -1,0 +1,65 @@
+<%- include('../partials/app-start', { title }) %>
+<div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3 mb-4">
+  <div>
+    <h1 class="h3 mb-1">Bài học & tài liệu</h1>
+    <p class="text-secondary mb-0">Tạo nội dung học tập theo lớp, gắn tài liệu và liên kết bài tập.</p>
+  </div>
+  <a class="btn btn-primary" href="/lessons/new">+ Tạo bài học</a>
+</div>
+
+<div class="card app-card mb-4">
+  <div class="card-body">
+    <form class="row g-3 align-items-end" method="get" action="/lessons">
+      <div class="col-md-5">
+        <label class="form-label">Lớp học</label>
+        <select class="form-select" name="classId">
+          <option value="">Tất cả lớp</option>
+          <% classes.forEach(item => { %>
+            <option value="<%= item.id %>" <%= String(filters.classId || '') === String(item.id) ? 'selected' : '' %>><%= item.name %></option>
+          <% }) %>
+        </select>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">Trạng thái</label>
+        <select class="form-select" name="status">
+          <option value="">Tất cả</option>
+          <option value="DRAFT" <%= filters.status === 'DRAFT' ? 'selected' : '' %>>Bản nháp</option>
+          <option value="PUBLISHED" <%= filters.status === 'PUBLISHED' ? 'selected' : '' %>>Đã xuất bản</option>
+          <option value="ARCHIVED" <%= filters.status === 'ARCHIVED' ? 'selected' : '' %>>Lưu trữ</option>
+        </select>
+      </div>
+      <div class="col-md-3 d-flex gap-2">
+        <button class="btn btn-outline-primary flex-grow-1">Lọc</button>
+        <a class="btn btn-outline-secondary" href="/lessons">Xóa lọc</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="row g-3">
+  <% if (!lessons.length) { %>
+    <div class="col-12"><div class="alert alert-light border">Chưa có bài học phù hợp bộ lọc.</div></div>
+  <% } %>
+  <% lessons.forEach(lesson => { %>
+    <div class="col-md-6 col-xl-4">
+      <a href="/lessons/<%= lesson.id %>" class="text-decoration-none text-reset">
+        <div class="card app-card h-100 lesson-card">
+          <div class="card-body p-4">
+            <div class="d-flex justify-content-between align-items-start gap-2 mb-3">
+              <div class="lesson-unit"><%= lesson.unitName || `Khối ${lesson.grade}` %></div>
+              <span class="badge <%= lesson.status === 'PUBLISHED' ? 'text-bg-success' : (lesson.status === 'DRAFT' ? 'text-bg-warning' : 'text-bg-secondary') %>"><%= lesson.status === 'PUBLISHED' ? 'Đã xuất bản' : (lesson.status === 'DRAFT' ? 'Bản nháp' : 'Lưu trữ') %></span>
+            </div>
+            <h2 class="h5 mb-2"><%= lesson.title %></h2>
+            <div class="small text-secondary mb-3"><%= lesson.className %></div>
+            <p class="text-secondary small lesson-summary"><%= lesson.summary || 'Chưa có mô tả bài học.' %></p>
+            <div class="d-flex gap-3 small text-secondary mt-4 pt-3 border-top">
+              <span><strong><%= lesson.materialCount %></strong> tài liệu</span>
+              <span><strong><%= lesson.assignmentCount %></strong> bài tập</span>
+            </div>
+          </div>
+        </div>
+      </a>
+    </div>
+  <% }) %>
+</div>
+<%- include('../partials/app-end') %>

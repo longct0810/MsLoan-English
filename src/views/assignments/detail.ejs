@@ -1,0 +1,37 @@
+<%- include('../partials/app-start', { title }) %>
+<div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-start gap-3 mb-4">
+  <div class="d-flex gap-3 align-items-start"><a href="/assignments" class="btn btn-outline-secondary">←</a><div><div class="d-flex gap-2 align-items-center flex-wrap mb-1"><span class="badge text-bg-light"><%= assignment.type %></span><span class="badge <%= assignment.status === 'PUBLISHED' ? 'text-bg-success' : 'text-bg-warning' %>"><%= assignment.status === 'PUBLISHED' ? 'Đã giao' : 'Bản nháp' %></span></div><h1 class="h3 mb-1"><%= assignment.title %></h1><p class="text-secondary mb-0"><%= assignment.className %><% if (assignment.lessonTitle) { %> • <%= assignment.lessonTitle %><% } %></p></div></div>
+  <div class="d-flex gap-2 flex-wrap"><a class="btn btn-outline-secondary" href="/assignments/<%= assignment.id %>/edit">Sửa bài tập</a><% if (assignment.status !== 'PUBLISHED') { %><form method="post" action="/assignments/<%= assignment.id %>/publish"><button class="btn btn-primary">Giao bài cho lớp</button></form><% } %></div>
+</div>
+<% if (notice) { %><div class="alert alert-success"><%= notice %></div><% } %>
+<% if (error) { %><div class="alert alert-danger"><%= error %></div><% } %>
+
+<div class="row g-4 mb-4">
+  <div class="col-lg-8"><div class="card app-card h-100"><div class="card-header"><strong>Nội dung giao bài</strong></div><div class="card-body p-4"><p><%= assignment.description || 'Không có mô tả.' %></p><h3 class="h6 mt-4">Yêu cầu</h3><div class="assignment-instructions"><%= assignment.instructions || 'Không có yêu cầu bổ sung.' %></div></div></div></div>
+  <div class="col-lg-4"><div class="card app-card h-100"><div class="card-body p-4"><div class="small text-secondary mb-1">Hạn nộp</div><div class="fw-semibold mb-3"><%= assignment.dueAt ? new Date(assignment.dueAt).toLocaleString('vi-VN') : 'Không giới hạn' %></div><div class="small text-secondary mb-1">Điểm tối đa</div><div class="display-6 fw-bold"><%= assignment.maxScore %></div><div class="small text-secondary mt-3">Học viên: <strong><%= assignment.students.length %></strong></div></div></div></div>
+</div>
+
+<div class="card app-card">
+  <div class="card-header d-flex justify-content-between align-items-center"><strong>Bài nộp của học viên</strong><span class="badge text-bg-light"><%= assignment.students.filter(s => ['SUBMITTED','LATE','GRADED'].includes(s.submission.status)).length %>/<%= assignment.students.length %> đã nộp</span></div>
+  <div class="card-body p-0">
+    <% assignment.students.forEach(student => { %>
+      <div class="assignment-student p-3 p-lg-4 border-bottom" id="student-<%= student.id %>">
+        <div class="d-flex flex-column flex-lg-row gap-3 justify-content-between">
+          <div class="flex-grow-1">
+            <div class="d-flex align-items-center gap-2 flex-wrap"><strong><%= student.fullName %></strong><span class="badge <%= student.submission.statusMeta.className %>"><%= student.submission.statusMeta.label %></span></div>
+            <div class="small text-secondary mt-1"><%= student.school || '' %> <%= student.schoolClass ? '• ' + student.schoolClass : '' %><% if (student.submission.submittedAt) { %> • Nộp <%= new Date(student.submission.submittedAt).toLocaleString('vi-VN') %><% } %></div>
+            <% if (student.submission.submissionText) { %><div class="submission-box mt-3"><div class="small fw-semibold mb-1">Bài làm</div><%= student.submission.submissionText %></div><% } %>
+          </div>
+          <form method="post" action="/assignments/<%= assignment.id %>/submissions/<%= student.id %>/grade" class="grade-form">
+            <div class="row g-2">
+              <div class="col-4 col-lg-12"><label class="form-label small">Điểm</label><input class="form-control" name="score" type="number" min="0" max="<%= assignment.maxScore %>" step="0.25" required value="<%= student.submission.score !== null ? student.submission.score : '' %>"></div>
+              <div class="col-8 col-lg-12"><label class="form-label small">Phản hồi</label><textarea class="form-control" name="teacherFeedback" rows="2"><%= student.submission.teacherFeedback || '' %></textarea></div>
+              <div class="col-12"><button class="btn btn-sm btn-primary w-100">Lưu điểm</button></div>
+            </div>
+          </form>
+        </div>
+      </div>
+    <% }) %>
+  </div>
+</div>
+<%- include('../partials/app-end') %>

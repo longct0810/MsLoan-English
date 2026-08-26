@@ -1,0 +1,38 @@
+<%- include('../partials/app-start', { title }) %>
+<div class="d-flex align-items-center gap-3 mb-4"><a href="/assignments" class="btn btn-outline-secondary">←</a><div><h1 class="h3 mb-1">Giao bài tập</h1><p class="text-secondary mb-0">Tạo bài ở trạng thái nháp, kiểm tra rồi mới xuất bản.</p></div></div>
+<% if (error) { %><div class="alert alert-danger"><%= error %></div><% } %>
+<form method="post" action="/assignments" class="card app-card" id="assignmentForm">
+  <div class="card-body p-4">
+    <div class="row g-3">
+      <div class="col-lg-6"><label class="form-label">Lớp học *</label><select name="classId" class="form-select" required id="assignmentClass"><option value="">-- Chọn lớp --</option><% classes.forEach(item => { %><option value="<%= item.id %>" <%= String(values.classId || '') === String(item.id) ? 'selected' : '' %>><%= item.name %></option><% }) %></select></div>
+      <div class="col-lg-6"><label class="form-label">Bài học liên quan</label><select name="lessonId" class="form-select" id="assignmentLesson"><option value="">-- Không gắn bài học --</option><% lessons.forEach(item => { %><option value="<%= item.id %>" data-class-id="<%= item.classId %>" <%= String(values.lessonId || '') === String(item.id) ? 'selected' : '' %>><%= item.unitName ? item.unitName + ' • ' : '' %><%= item.title %></option><% }) %></select><div class="form-text">Nếu đổi lớp, hãy lưu lại hoặc mở trang từ nút “Giao bài tập” trong chi tiết bài học để lọc đúng lesson.</div></div>
+      <div class="col-12"><label class="form-label">Tên bài tập *</label><input class="form-control form-control-lg" name="title" required value="<%= values.title || '' %>" placeholder="Ví dụ: Unit 2 - Grammar Practice"></div>
+      <div class="col-md-4"><label class="form-label">Loại</label><select class="form-select" name="type"><option value="HOMEWORK" <%= values.type === 'HOMEWORK' ? 'selected' : '' %>>Homework</option><option value="PRACTICE" <%= values.type === 'PRACTICE' ? 'selected' : '' %>>Practice</option><option value="QUIZ" <%= values.type === 'QUIZ' ? 'selected' : '' %>>Quiz</option></select></div>
+      <div class="col-md-4"><label class="form-label">Hạn nộp</label><input class="form-control" name="dueAt" type="datetime-local" value="<%= values.dueAt || '' %>"></div>
+      <div class="col-md-4"><label class="form-label">Điểm tối đa</label><input class="form-control" name="maxScore" type="number" step="0.5" min="1" value="<%= values.maxScore || 10 %>"></div>
+      <div class="col-12"><label class="form-label">Mô tả</label><textarea class="form-control" name="description" rows="3"><%= values.description || '' %></textarea></div>
+      <div class="col-12"><label class="form-label">Yêu cầu làm bài</label><textarea class="form-control" name="instructions" rows="5" placeholder="Mô tả rõ yêu cầu học sinh cần thực hiện..."><%= values.instructions || '' %></textarea></div>
+    </div>
+  </div>
+  <div class="card-footer bg-white p-3 d-flex justify-content-end gap-2"><a href="/assignments" class="btn btn-outline-secondary">Hủy</a><button class="btn btn-primary">Lưu bản nháp</button></div>
+</form>
+<script>
+(() => {
+  const classSelect = document.getElementById('assignmentClass');
+  const lessonSelect = document.getElementById('assignmentLesson');
+  if (!classSelect || !lessonSelect) return;
+  const syncLessons = () => {
+    const classId = classSelect.value;
+    [...lessonSelect.options].forEach((option, index) => {
+      if (index === 0) return;
+      const visible = !classId || option.dataset.classId === classId;
+      option.hidden = !visible;
+      option.disabled = !visible;
+      if (!visible && option.selected) lessonSelect.value = '';
+    });
+  };
+  classSelect.addEventListener('change', syncLessons);
+  syncLessons();
+})();
+</script>
+<%- include('../partials/app-end') %>

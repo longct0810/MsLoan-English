@@ -28,7 +28,7 @@
       <div class="card-header"><strong>Lịch sử điểm</strong><div class="small text-secondary">Các bài đã được giáo viên ghi nhận</div></div>
       <div class="table-responsive">
         <table class="table align-middle mb-0"><thead><tr><th>Ngày</th><th>Bài</th><th>Kỹ năng</th><th>Điểm</th></tr></thead><tbody>
-          <% portal.scores.forEach(s => { %><tr><td><%= new Date(s.recordedAt).toLocaleDateString('vi-VN') %></td><td class="fw-semibold"><%= s.title %></td><td><%= s.category %></td><td><span class="score-badge <%= s.score >= 8 ? 'good' : (s.score < 7 ? 'warn' : '') %>"><%= s.score %></span></td></tr><% }) %>
+          <% portal.scores.forEach(s => { %><tr><td><%= new Date(s.recordedAt).toLocaleDateString('vi-VN') %></td><td class="fw-semibold"><%= s.title %></td><td><%= s.category %></td><td><% const normalizedScore = s.maxScore ? (s.score / s.maxScore) * 10 : s.score; %><span class="score-badge <%= normalizedScore >= 8 ? 'good' : (normalizedScore < 7 ? 'warn' : '') %>"><%= s.score %><%= s.maxScore && s.maxScore !== 10 ? '/' + s.maxScore : '' %></span></td></tr><% }) %>
         </tbody></table>
       </div>
     </div>

@@ -1,0 +1,46 @@
+<%- include('../partials/app-start', { title }) %>
+<div class="d-flex align-items-center gap-3 mb-4">
+  <a href="/lessons" class="btn btn-outline-secondary">←</a>
+  <div><h1 class="h3 mb-1">Tạo bài học</h1><p class="text-secondary mb-0">Tạo nội dung trước, sau đó thêm tài liệu và xuất bản.</p></div>
+</div>
+
+<% if (error) { %><div class="alert alert-danger"><%= error %></div><% } %>
+
+<form method="post" action="/lessons" class="card app-card">
+  <div class="card-body p-4">
+    <div class="row g-3">
+      <div class="col-lg-6">
+        <label class="form-label">Lớp học *</label>
+        <select name="classId" class="form-select" required>
+          <option value="">-- Chọn lớp --</option>
+          <% classes.forEach(item => { %><option value="<%= item.id %>" <%= String(values.classId || '') === String(item.id) ? 'selected' : '' %>><%= item.name %></option><% }) %>
+        </select>
+      </div>
+      <div class="col-lg-4">
+        <label class="form-label">Unit / Chủ đề</label>
+        <input name="unitName" class="form-control" value="<%= values.unitName || '' %>" placeholder="Ví dụ: Unit 2">
+      </div>
+      <div class="col-lg-2">
+        <label class="form-label">Thứ tự</label>
+        <input name="sortOrder" type="number" class="form-control" value="<%= values.sortOrder || 0 %>">
+      </div>
+      <div class="col-12">
+        <label class="form-label">Tên bài học *</label>
+        <input name="title" class="form-control form-control-lg" required value="<%= values.title || '' %>" placeholder="Ví dụ: Healthy Living">
+      </div>
+      <div class="col-12">
+        <label class="form-label">Mô tả ngắn</label>
+        <textarea name="summary" class="form-control" rows="3" placeholder="Mục tiêu và nội dung chính của bài..."><%= values.summary || '' %></textarea>
+      </div>
+      <div class="col-12">
+        <label class="form-label">Nội dung bài học</label>
+        <textarea name="content" class="form-control" rows="8" placeholder="Nội dung hướng dẫn, từ vựng, ngữ pháp, hoạt động trên lớp..."><%= values.content || '' %></textarea>
+      </div>
+    </div>
+  </div>
+  <div class="card-footer bg-white border-top p-3 d-flex justify-content-end gap-2">
+    <a href="/lessons" class="btn btn-outline-secondary">Hủy</a>
+    <button class="btn btn-primary">Lưu bản nháp</button>
+  </div>
+</form>
+<%- include('../partials/app-end') %>

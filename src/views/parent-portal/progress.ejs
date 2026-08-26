@@ -18,7 +18,7 @@
   <div class="col-xl-7">
     <div class="card app-card mb-4">
       <div class="card-header"><strong>Lịch sử điểm</strong></div>
-      <div class="table-responsive"><table class="table align-middle mb-0"><thead><tr><th>Ngày</th><th>Nội dung</th><th>Kỹ năng</th><th>Điểm</th></tr></thead><tbody><% p.scores.forEach(s => { %><tr><td><%= new Date(s.recordedAt).toLocaleDateString('vi-VN') %></td><td class="fw-semibold"><%= s.title %></td><td><%= s.category %></td><td><span class="score-badge <%= s.score >= 8 ? 'good' : (s.score < 7 ? 'warn' : '') %>"><%= s.score %></span></td></tr><% }) %></tbody></table></div>
+      <div class="table-responsive"><table class="table align-middle mb-0"><thead><tr><th>Ngày</th><th>Nội dung</th><th>Kỹ năng</th><th>Điểm</th></tr></thead><tbody><% p.scores.forEach(s => { %><tr><td><%= new Date(s.recordedAt).toLocaleDateString('vi-VN') %></td><td class="fw-semibold"><%= s.title %></td><td><%= s.category %></td><td><% const normalizedScore = s.maxScore ? (s.score / s.maxScore) * 10 : s.score; %><span class="score-badge <%= normalizedScore >= 8 ? 'good' : (normalizedScore < 7 ? 'warn' : '') %>"><%= s.score %><%= s.maxScore && s.maxScore !== 10 ? '/' + s.maxScore : '' %></span></td></tr><% }) %></tbody></table></div>
     </div>
     <div class="card app-card">
       <div class="card-header"><strong>Chuyên cần</strong></div>

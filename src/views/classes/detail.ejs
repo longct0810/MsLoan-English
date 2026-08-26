@@ -4,7 +4,7 @@
   <div class="d-flex flex-column flex-md-row gap-3 align-items-md-center">
     <span class="grade-pill large">G<%= classItem.grade %></span>
     <div class="flex-grow-1"><h1 class="h3 mb-1"><%= classItem.name %></h1><div class="text-secondary"><%= classItem.schedule %> • Năm học <%= classItem.schoolYear %></div></div>
-    <div class="d-flex flex-wrap gap-2"><a class="btn btn-outline-primary" href="/sessions?classId=<%= classItem.id %>">Lịch buổi học</a><a class="btn btn-primary" href="/sessions/new?classId=<%= classItem.id %>">+ Tạo buổi / Điểm danh</a></div>
+    <div class="d-flex flex-wrap gap-2"><a class="btn btn-outline-primary" href="/lessons?classId=<%= classItem.id %>">Bài học</a><a class="btn btn-outline-primary" href="/assignments?classId=<%= classItem.id %>">Bài tập</a><a class="btn btn-outline-primary" href="/sessions?classId=<%= classItem.id %>">Lịch buổi học</a><a class="btn btn-primary" href="/sessions/new?classId=<%= classItem.id %>">+ Tạo buổi / Điểm danh</a></div>
   </div>
 </div>
 

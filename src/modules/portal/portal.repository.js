@@ -12,12 +12,12 @@ function buildStudentSnapshot(studentId) {
 
   const classInfo = classForStudent(student);
   const assignments = demoStore.assignments
-    .filter((a) => student.classIds.includes(a.classId))
+    .filter((a) => student.classIds.includes(a.classId) && a.status === 'PUBLISHED')
     .map((a) => {
       const submission = demoStore.assignmentSubmissions.find(
         (s) => s.assignmentId === a.id && s.studentId === student.id,
       );
-      return { ...a, submission: submission || { status: 'NOT_STARTED', score: null, submittedAt: null } };
+      return { ...a, submission: submission || { status: 'NOT_STARTED', score: null, submittedAt: null, submissionText: '', teacherFeedback: '' } };
     })
     .sort((a, b) => new Date(a.dueAt) - new Date(b.dueAt));
 
@@ -55,7 +55,7 @@ function buildStudentSnapshot(studentId) {
   const attendance = [...attendanceByDate.values()]
     .sort((a, b) => new Date(b.date) - new Date(a.date));
   const materials = demoStore.materials
-    .filter((m) => student.classIds.includes(m.classId))
+    .filter((m) => student.classIds.includes(m.classId) && m.status !== 'DRAFT')
     .sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt));
 
   return { student, classInfo, assignments, scores, skills, notes, attendance, materials };
@@ -96,15 +96,21 @@ async function getStudentSnapshot(studentId) {
   const classInfo = classRows[0] || null;
 
   const { rows: assignments } = await pool.query(`
-    SELECT a.id, a.title, a.due_at AS "dueAt", COALESCE(a.type, 'HOMEWORK') AS type,
-           COALESCE(s.status, 'NOT_STARTED') AS "submissionStatus", s.score, s.submitted_at AS "submittedAt"
+    SELECT a.id, a.title, a.description, a.instructions,
+           a.due_at AS "dueAt", COALESCE(a.type, 'HOMEWORK') AS type,
+           COALESCE(a.max_score, 10)::float AS "maxScore",
+           COALESCE(s.status, 'NOT_STARTED') AS "submissionStatus", s.score::float AS score,
+           s.submitted_at AS "submittedAt", COALESCE(s.submission_text, '') AS "submissionText",
+           COALESCE(s.teacher_feedback, '') AS "teacherFeedback"
       FROM assignments a
       JOIN class_students cs ON cs.class_id = a.class_id AND cs.student_id = $1 AND cs.status = 'ACTIVE'
       LEFT JOIN assignment_submissions s ON s.assignment_id = a.id AND s.student_id = $1
      WHERE a.status = 'PUBLISHED'
      ORDER BY a.due_at`, [studentId]);
   assignments.forEach((a) => {
-    a.submission = { status: a.submissionStatus, score: a.score, submittedAt: a.submittedAt };
+    a.submission = { status: a.submissionStatus, score: a.score, submittedAt: a.submittedAt, submissionText: a.submissionText, teacherFeedback: a.teacherFeedback };
+    delete a.submissionText;
+    delete a.teacherFeedback;
     delete a.submissionStatus;
   });
 
@@ -150,9 +156,13 @@ async function getStudentSnapshot(studentId) {
     SELECT * FROM legacy_rows
     ORDER BY date DESC`, [studentId]);
   const { rows: materials } = await pool.query(`
-    SELECT m.id, m.unit_name AS unit, m.title, m.type, m.published_at AS "publishedAt"
+    SELECT m.id, m.unit_name AS unit, m.title, m.type, m.description,
+           m.resource_url AS "resourceUrl", m.status, m.published_at AS "publishedAt",
+           l.title AS "lessonTitle"
       FROM materials m
       JOIN class_students cs ON cs.class_id = m.class_id AND cs.student_id = $1 AND cs.status = 'ACTIVE'
+      LEFT JOIN lessons l ON l.id = m.lesson_id
+     WHERE COALESCE(m.status, 'PUBLISHED') = 'PUBLISHED'
      ORDER BY m.published_at DESC`, [studentId]);
 
   return { student, classInfo, assignments, scores, skills, notes, attendance, materials };

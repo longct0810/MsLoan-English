@@ -18,10 +18,10 @@
         <div class="task-icon large"><%= a.type === 'QUIZ' ? 'Q' : (a.type === 'PRACTICE' ? 'P' : 'H') %></div>
         <div class="flex-grow-1">
           <div class="d-flex flex-wrap align-items-center gap-2 mb-1"><strong><%= a.title %></strong><span class="badge <%= a.statusMeta.className %>"><%= a.statusMeta.label %></span></div>
-          <div class="small text-secondary"><%= a.type %> • Hạn <%= new Date(a.dueAt).toLocaleString('vi-VN') %></div>
-          <% if (a.submission.score !== null) { %><div class="small mt-1">Kết quả: <strong><%= a.submission.score %>/10</strong></div><% } %>
+          <div class="small text-secondary"><%= a.type %> • Hạn <%= a.dueAt ? new Date(a.dueAt).toLocaleString('vi-VN') : 'Không giới hạn' %></div>
+          <% if (a.submission.score !== null) { %><div class="small mt-1">Kết quả: <strong><%= a.submission.score %>/<%= a.maxScore || 10 %></strong></div><% } %>
         </div>
-        <button class="btn <%= ['SUBMITTED','GRADED'].includes(a.submission.status) ? 'btn-outline-secondary' : 'btn-primary' %>" disabled><%= ['SUBMITTED','GRADED'].includes(a.submission.status) ? 'Xem bài' : 'Làm bài' %></button>
+        <a href="/student/assignments/<%= a.id %>" class="btn <%= ['SUBMITTED','GRADED'].includes(a.submission.status) ? 'btn-outline-secondary' : 'btn-primary' %>"><%= ['SUBMITTED','GRADED'].includes(a.submission.status) ? 'Xem bài' : 'Làm bài' %></a>
       </div>
     <% }) %>
   </div>

@@ -12,13 +12,18 @@ async function getSummary() {
     return {
       classCount: demoStore.classes.length,
       studentCount: demoStore.students.length,
-      openAssignmentCount: demoStore.assignments.length,
+      openAssignmentCount: demoStore.assignments.filter((a) => a.status === 'PUBLISHED' && (!a.dueAt || new Date(a.dueAt) >= new Date())).length,
       averageScore: Number(avgScore.toFixed(1)),
       classes: demoStore.classes,
-      assignments: demoStore.assignments.map((a) => ({
-        ...a,
-        className: demoStore.classes.find((c) => c.id === a.classId)?.name || '',
-      })),
+      assignments: demoStore.assignments
+        .filter((a) => a.status === 'PUBLISHED')
+        .map((a) => {
+          const total = demoStore.students.filter((student) => student.classIds.includes(a.classId)).length;
+          const submitted = demoStore.assignmentSubmissions.filter((sub) => sub.assignmentId === a.id && ['SUBMITTED','LATE','GRADED'].includes(sub.status)).length;
+          return { ...a, total, submitted, className: demoStore.classes.find((c) => c.id === a.classId)?.name || '' };
+        })
+        .sort((a, b) => new Date(a.dueAt || '2999-12-31') - new Date(b.dueAt || '2999-12-31'))
+        .slice(0, 5),
       attention,
       sessions: demoStore.classSessions
         .map((session) => ({ ...session, className: demoStore.classes.find((c) => c.id === session.classId)?.name || '' }))
@@ -42,10 +47,20 @@ async function getSummary() {
       ORDER BY g.grade_no LIMIT 6
     `),
     pool.query(`
-      SELECT a.id, a.title, a.due_at AS "dueAt", c.name AS "className", 0 AS submitted, 0 AS total
-      FROM assignments a JOIN classes c ON c.id = a.class_id
-      WHERE a.status = 'PUBLISHED' AND a.due_at >= NOW()
-      ORDER BY a.due_at LIMIT 5
+      SELECT a.id,
+             a.title,
+             a.due_at AS "dueAt",
+             c.name AS "className",
+             COUNT(DISTINCT cs.student_id)::int AS total,
+             COUNT(DISTINCT sub.student_id) FILTER (WHERE sub.status IN ('SUBMITTED','LATE','GRADED'))::int AS submitted
+        FROM assignments a
+        JOIN classes c ON c.id = a.class_id
+        LEFT JOIN class_students cs ON cs.class_id = a.class_id AND cs.status = 'ACTIVE'
+        LEFT JOIN assignment_submissions sub ON sub.assignment_id = a.id AND sub.student_id = cs.student_id
+       WHERE a.status = 'PUBLISHED' AND (a.due_at IS NULL OR a.due_at >= NOW())
+       GROUP BY a.id, c.id
+       ORDER BY a.due_at NULLS LAST
+       LIMIT 5
     `),
     pool.query(`
       SELECT s.id, s.full_name AS "fullName",

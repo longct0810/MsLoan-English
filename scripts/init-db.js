@@ -92,6 +92,28 @@ async function main() {
   await pool.query(`INSERT INTO parent_students (parent_user_id, student_id, relationship) VALUES ($1,$2,'Bố/Mẹ') ON CONFLICT DO NOTHING`, [parentUserId, studentIds[env.demo.student.fullName]]);
   await pool.query(`INSERT INTO parent_students (parent_user_id, student_id, relationship) VALUES ($1,$2,'Bố/Mẹ') ON CONFLICT DO NOTHING`, [parentUserId, studentIds['Vũ Đức Minh']]);
 
+  // v0.4.0: seed lessons before linking materials and assignments.
+  const lessonDefs = [
+    [classIds[6], 'Unit 1', 'My New School', 'Từ vựng trường học, giới thiệu bản thân và cấu trúc hiện tại đơn.', 'Ôn từ vựng về trường học, luyện giới thiệu lớp học và thực hành Present Simple.', 'PUBLISHED', 1],
+    [classIds[7], 'Unit 2', 'Healthy Living', 'Past Simple, thói quen tốt và luyện nghe.', 'Học sinh luyện Past Simple qua tình huống cuối tuần, sau đó nghe đoạn hội thoại về healthy habits.', 'PUBLISHED', 2],
+    [classIds[8], 'Unit 1', 'Teen Life', 'Reading, vocabulary và listening theo chủ đề đời sống tuổi teen.', 'Đọc hiểu ngắn, mở rộng từ vựng và luyện nghe lấy ý chính.', 'PUBLISHED', 1],
+    [classIds[9], 'Review', 'Grammar Exam Review', 'Ôn tập ngữ pháp trọng tâm trước bài kiểm tra.', 'Tổng hợp cấu trúc và lỗi thường gặp.', 'DRAFT', 99],
+  ];
+  const lessonIds = {};
+  for (const [classId, unitName, title, summary, content, status, sortOrder] of lessonDefs) {
+    const result = await pool.query(`
+      INSERT INTO lessons (class_id, unit_name, title, summary, content, status, sort_order, created_by, published_at)
+      SELECT $1,$2,$3,$4,$5,$6,$7,$8,CASE WHEN $6='PUBLISHED' THEN NOW() ELSE NULL END
+       WHERE NOT EXISTS (SELECT 1 FROM lessons WHERE class_id=$1 AND title=$3)
+      RETURNING id
+    `, [classId, unitName, title, summary, content, status, sortOrder, teacherId]);
+    if (result.rows[0]) lessonIds[title] = result.rows[0].id;
+    else {
+      const existing = await pool.query(`SELECT id FROM lessons WHERE class_id=$1 AND title=$2 LIMIT 1`, [classId, title]);
+      lessonIds[title] = existing.rows[0]?.id;
+    }
+  }
+
   const assignmentCount = await pool.query('SELECT COUNT(*)::int AS count FROM assignments');
   if (assignmentCount.rows[0].count === 0) {
     await pool.query(`
@@ -117,6 +139,25 @@ async function main() {
       SELECT $1,$2,NOW() + ($4::text || ' day')::interval,'PUBLISHED',$3,$5
        WHERE NOT EXISTS (SELECT 1 FROM assignments WHERE class_id=$1 AND title=$2)
     `, [classId, title, teacherId, days, type]);
+  }
+
+  // Enrich existing assignments with v0.4.0 lesson links and instructions.
+  const assignmentEnhancements = [
+    [classIds[6], 'Unit 1 - Vocabulary', lessonIds['My New School'], 'Ôn từ vựng Unit 1.', 'Hoàn thành 20 từ và viết 5 câu ví dụ.'],
+    [classIds[7], 'Unit 2 - Grammar', lessonIds['Healthy Living'], 'Luyện Past Simple.', 'Viết 10 câu về hoạt động cuối tuần bằng Past Simple.'],
+    [classIds[8], 'Reading Practice', lessonIds['Teen Life'], 'Bài đọc Teen Life.', 'Đọc đoạn văn và trả lời câu hỏi bằng câu đầy đủ.'],
+    [classIds[7], 'Listening - Healthy Living', lessonIds['Healthy Living'], 'Listening practice.', 'Nghe audio 2 lần và ghi lại 5 ý chính.'],
+    [classIds[7], 'Quiz Unit 2', lessonIds['Healthy Living'], 'Quiz ôn tập Unit 2.', 'Hoàn thành trước giờ học tiếp theo.'],
+    [classIds[8], 'Vocabulary Review', lessonIds['Teen Life'], 'Ôn từ vựng Teen Life.', 'Viết nghĩa và 1 câu ví dụ cho mỗi từ.'],
+  ];
+  for (const [classId, title, lessonId, description, instructions] of assignmentEnhancements) {
+    await pool.query(`
+      UPDATE assignments
+         SET lesson_id=$3, description=COALESCE(NULLIF(description,''),$4),
+             instructions=COALESCE(NULLIF(instructions,''),$5), max_score=COALESCE(max_score,10),
+             published_at=CASE WHEN status='PUBLISHED' THEN COALESCE(published_at,NOW()) ELSE published_at END
+       WHERE class_id=$1 AND title=$2
+    `, [classId, title, lessonId || null, description, instructions]);
   }
 
   const namId = studentIds[env.demo.student.fullName];
@@ -183,7 +224,19 @@ async function main() {
   const class7Assignments = await pool.query(`SELECT id, title FROM assignments WHERE class_id=$1 ORDER BY id`, [classIds[7]]);
   const grammarAssignment = class7Assignments.rows.find((a) => a.title === 'Unit 2 - Grammar');
   if (grammarAssignment) {
-    await pool.query(`INSERT INTO assignment_submissions (assignment_id, student_id, status, score, submitted_at) VALUES ($1,$2,'SUBMITTED',8,NOW()) ON CONFLICT (assignment_id,student_id) DO UPDATE SET status='SUBMITTED', score=8, submitted_at=NOW()`, [grammarAssignment.id, namId]);
+    await pool.query(`
+      INSERT INTO assignment_submissions (assignment_id, student_id, status, score, submitted_at, submission_text, teacher_feedback, updated_at)
+      VALUES ($1,$2,'GRADED',8,NOW(),$3,$4,NOW())
+      ON CONFLICT (assignment_id,student_id)
+      DO UPDATE SET status='GRADED', score=8, submitted_at=NOW(), submission_text=EXCLUDED.submission_text,
+                    teacher_feedback=EXCLUDED.teacher_feedback, updated_at=NOW()
+    `, [grammarAssignment.id, namId, 'Last weekend I visited my grandparents and helped my mother...', 'Nội dung tốt, chú ý thêm động từ bất quy tắc.']);
+    await pool.query(`
+      INSERT INTO student_scores (student_id, assignment_id, title, category, score, max_score, recorded_at)
+      VALUES ($1,$2,$3,'HOMEWORK',8,10,CURRENT_DATE)
+      ON CONFLICT (student_id,assignment_id) WHERE assignment_id IS NOT NULL
+      DO UPDATE SET score=8, max_score=10, recorded_at=CURRENT_DATE
+    `, [namId, grammarAssignment.id, grammarAssignment.title]);
   }
 
   const class8Assignments = await pool.query(`SELECT id, title FROM assignments WHERE class_id=$1 ORDER BY id`, [classIds[8]]);
@@ -244,14 +297,22 @@ async function main() {
   }
 
   const materialSeeds = [
-    [classIds[7],'Unit 2','Grammar: Past Simple','PDF','2026-08-20'],
-    [classIds[7],'Unit 2','Listening: Healthy Living','AUDIO','2026-08-23'],
-    [classIds[7],'Unit 2','Vocabulary Flashcards','FLASHCARD','2026-08-24'],
-    [classIds[8],'Unit 1','Reading: Teen Life','PDF','2026-08-20'],
-    [classIds[8],'Unit 1','Vocabulary Review','FLASHCARD','2026-08-22'],
+    [classIds[7],lessonIds['Healthy Living'],'Unit 2','Grammar: Past Simple','PDF','Tóm tắt cấu trúc và bài tập Past Simple.','https://example.com/materials/past-simple.pdf','2026-08-20'],
+    [classIds[7],lessonIds['Healthy Living'],'Unit 2','Listening: Healthy Living','AUDIO','Audio luyện nghe chủ đề Healthy Living.','https://example.com/materials/healthy-living.mp3','2026-08-23'],
+    [classIds[7],lessonIds['Healthy Living'],'Unit 2','Vocabulary Flashcards','FLASHCARD','Bộ flashcard từ vựng Unit 2.','https://example.com/materials/unit2-flashcards','2026-08-24'],
+    [classIds[8],lessonIds['Teen Life'],'Unit 1','Reading: Teen Life','PDF','Reading worksheet.','https://example.com/materials/teen-life-reading.pdf','2026-08-20'],
+    [classIds[8],lessonIds['Teen Life'],'Unit 1','Vocabulary Review','FLASHCARD','Ôn tập từ vựng Teen Life.','https://example.com/materials/teen-life-vocabulary','2026-08-22'],
   ];
-  for (const row of materialSeeds) {
-    await pool.query(`INSERT INTO materials (class_id,unit_name,title,type,published_at) SELECT $1,$2,$3,$4,$5 WHERE NOT EXISTS (SELECT 1 FROM materials WHERE class_id=$1 AND title=$3)`, row);
+  for (const [classId, lessonId, unit, title, type, description, resourceUrl, publishedAt] of materialSeeds) {
+    await pool.query(`
+      INSERT INTO materials (class_id,lesson_id,unit_name,title,type,description,resource_url,status,created_by,published_at)
+      SELECT $1,$2,$3,$4,$5,$6,$7,'PUBLISHED',$8,$9
+       WHERE NOT EXISTS (SELECT 1 FROM materials WHERE class_id=$1 AND title=$4)
+    `, [classId, lessonId || null, unit, title, type, description, resourceUrl, teacherId, publishedAt]);
+    await pool.query(`
+      UPDATE materials SET lesson_id=$2, description=$5, resource_url=$6, status='PUBLISHED', created_by=COALESCE(created_by,$7)
+       WHERE class_id=$1 AND title=$3
+    `, [classId, lessonId || null, title, unit, description, resourceUrl, teacherId]);
   }
 
   console.log('Database initialized.');
