@@ -1,0 +1,29 @@
+<%- include('../partials/app-start', { title }) %>
+<div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+  <div><h1 class="h3 mb-1">Bài tập của tôi</h1><p class="text-secondary mb-0">Theo dõi bài cần làm, hạn nộp và kết quả.</p></div>
+  <div class="class-chip">G<%= portal.classInfo?.grade %> • <%= portal.classInfo?.name %></div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-md-4"><div class="metric-card"><div class="metric-label">Tổng bài</div><div class="metric-value"><%= portal.assignments.length %></div></div></div>
+  <div class="col-md-4"><div class="metric-card"><div class="metric-label">Cần làm</div><div class="metric-value"><%= portal.pendingAssignments.length %></div></div></div>
+  <div class="col-md-4"><div class="metric-card"><div class="metric-label">Đã hoàn thành</div><div class="metric-value"><%= portal.assignments.length - portal.pendingAssignments.length %></div></div></div>
+</div>
+
+<div class="card app-card">
+  <div class="card-header"><strong>Danh sách bài tập</strong></div>
+  <div class="card-body p-0">
+    <% portal.assignments.forEach(a => { %>
+      <div class="assignment-card-row p-3 p-lg-4 d-flex flex-column flex-md-row align-items-md-center gap-3">
+        <div class="task-icon large"><%= a.type === 'QUIZ' ? 'Q' : (a.type === 'PRACTICE' ? 'P' : 'H') %></div>
+        <div class="flex-grow-1">
+          <div class="d-flex flex-wrap align-items-center gap-2 mb-1"><strong><%= a.title %></strong><span class="badge <%= a.statusMeta.className %>"><%= a.statusMeta.label %></span></div>
+          <div class="small text-secondary"><%= a.type %> • Hạn <%= new Date(a.dueAt).toLocaleString('vi-VN') %></div>
+          <% if (a.submission.score !== null) { %><div class="small mt-1">Kết quả: <strong><%= a.submission.score %>/10</strong></div><% } %>
+        </div>
+        <button class="btn <%= ['SUBMITTED','GRADED'].includes(a.submission.status) ? 'btn-outline-secondary' : 'btn-primary' %>" disabled><%= ['SUBMITTED','GRADED'].includes(a.submission.status) ? 'Xem bài' : 'Làm bài' %></button>
+      </div>
+    <% }) %>
+  </div>
+</div>
+<%- include('../partials/app-end') %>

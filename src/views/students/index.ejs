@@ -1,0 +1,42 @@
+<%- include('../partials/app-start', { title }) %>
+<div class="d-flex flex-column flex-md-row justify-content-between gap-3 mb-4">
+  <div><h1 class="h3 mb-1">Học viên</h1><p class="text-secondary mb-0">Theo dõi học viên của tất cả các lớp.</p></div>
+  <button class="btn btn-primary align-self-md-start" disabled>+ Thêm học viên</button>
+</div>
+
+<div class="card app-card mb-4">
+  <div class="card-body">
+    <form class="row g-2 align-items-end" method="get">
+      <div class="col-md-4">
+        <label class="form-label small text-secondary">Lọc theo lớp</label>
+        <select class="form-select" name="classId">
+          <option value="">Tất cả lớp</option>
+          <% classes.forEach(c => { %><option value="<%= c.id %>" <%= String(selectedClassId) === String(c.id) ? 'selected' : '' %>><%= c.name %></option><% }) %>
+        </select>
+      </div>
+      <div class="col-auto"><button class="btn btn-outline-primary">Áp dụng</button></div>
+      <div class="col-md ms-md-auto"><label class="form-label small text-secondary">Tìm nhanh</label><input class="form-control" placeholder="Tên học viên, trường..." data-table-search="#allStudentTable"></div>
+    </form>
+  </div>
+</div>
+
+<div class="card app-card">
+  <div class="table-responsive">
+    <table class="table align-middle mb-0" id="allStudentTable">
+      <thead><tr><th>Học viên</th><th>Lớp học</th><th>Trường</th><th>Điểm TB</th><th>Chuyên cần</th><th>Phụ huynh</th></tr></thead>
+      <tbody>
+        <% students.forEach(s => { %>
+          <tr>
+            <td><div class="d-flex align-items-center gap-2"><span class="student-avatar small"><%= s.fullName.charAt(0) %></span><strong><%= s.fullName %></strong></div></td>
+            <td><%= s.classes.join(', ') %></td>
+            <td><%= s.school %><div class="small text-secondary"><%= s.schoolClass %></div></td>
+            <td><span class="score-badge <%= s.averageScore >= 8 ? 'good' : s.averageScore < 7 ? 'warn' : '' %>"><%= s.averageScore %></span></td>
+            <td><%= s.attendanceRate %>%</td>
+            <td><%= s.parentPhone %></td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+</div>
+<%- include('../partials/app-end') %>

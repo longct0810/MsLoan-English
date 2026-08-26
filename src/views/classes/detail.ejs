@@ -1,0 +1,30 @@
+<%- include('../partials/app-start', { title }) %>
+<div class="mb-3"><a href="/classes" class="text-decoration-none">← Danh sách lớp</a></div>
+<div class="class-hero p-4 mb-4">
+  <div class="d-flex flex-column flex-md-row gap-3 align-items-md-center">
+    <span class="grade-pill large">G<%= classItem.grade %></span>
+    <div class="flex-grow-1"><h1 class="h3 mb-1"><%= classItem.name %></h1><div class="text-secondary"><%= classItem.schedule %> • Năm học <%= classItem.schoolYear %></div></div>
+    <div class="d-flex gap-2"><button class="btn btn-outline-primary" disabled>Điểm danh</button><button class="btn btn-primary" disabled>+ Học viên</button></div>
+  </div>
+</div>
+
+<div class="card app-card">
+  <div class="card-header d-flex justify-content-between align-items-center"><div><strong>Học viên trong lớp</strong><div class="small text-secondary"><%= classItem.students.length %> học viên</div></div><input class="form-control form-control-sm table-search" placeholder="Tìm học viên..." data-table-search="#studentTable"></div>
+  <div class="table-responsive">
+    <table class="table align-middle mb-0" id="studentTable">
+      <thead><tr><th>Học viên</th><th>Trường / lớp</th><th>Điểm TB</th><th>Chuyên cần</th><th>Phụ huynh</th></tr></thead>
+      <tbody>
+        <% classItem.students.forEach(s => { %>
+          <tr>
+            <td><div class="d-flex align-items-center gap-2"><span class="student-avatar small"><%= s.fullName.charAt(0) %></span><strong><%= s.fullName %></strong></div></td>
+            <td><%= s.school %><div class="small text-secondary"><%= s.schoolClass %></div></td>
+            <td><span class="score-badge <%= s.averageScore >= 8 ? 'good' : s.averageScore < 7 ? 'warn' : '' %>"><%= s.averageScore %></span></td>
+            <td><%= s.attendanceRate %>%</td>
+            <td><%= s.parentPhone %></td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+</div>
+<%- include('../partials/app-end') %>
