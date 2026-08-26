@@ -1,0 +1,18 @@
+<%- include('../partials/app-start', { title }) %>
+<div class="mb-4"><h1 class="h3 mb-1">Tài liệu học tập</h1><p class="text-secondary mb-0">Tài liệu được giáo viên chia sẻ cho <%= portal.classInfo?.name %>.</p></div>
+<div class="row g-3">
+  <% portal.materials.forEach(m => { %>
+    <div class="col-md-6 col-xl-4">
+      <div class="card material-card h-100">
+        <div class="card-body p-4">
+          <div class="material-type mb-3"><%= m.type %></div>
+          <div class="small text-primary fw-semibold"><%= m.unit %></div>
+          <h2 class="h5 mt-1"><%= m.title %></h2>
+          <div class="small text-secondary mb-4">Đăng ngày <%= new Date(m.publishedAt).toLocaleDateString('vi-VN') %></div>
+          <button class="btn btn-outline-primary w-100" disabled>Mở tài liệu</button>
+        </div>
+      </div>
+    </div>
+  <% }) %>
+</div>
+<%- include('../partials/app-end') %>

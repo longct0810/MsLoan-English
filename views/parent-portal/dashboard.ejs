@@ -1,0 +1,69 @@
+<%- include('../partials/app-start', { title }) %>
+<% if (!portal.snapshot) { %>
+  <div class="alert alert-info">Tài khoản chưa được liên kết với học sinh.</div>
+<% } else { const p = portal.snapshot; %>
+<div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3 mb-4">
+  <div><div class="eyebrow">Theo dõi học tập</div><h1 class="h3 mb-1"><%= portal.selected.fullName %></h1><p class="text-secondary mb-0"><%= p.classInfo?.name %> • <%= portal.selected.schoolClass %> tại <%= portal.selected.school %></p></div>
+  <% if (portal.children.length > 1) { %>
+    <form method="get" action="/parent" class="child-switcher">
+      <label class="small text-secondary mb-1">Chọn học sinh</label>
+      <select name="childId" class="form-select" onchange="this.form.submit()">
+        <% portal.children.forEach(c => { %><option value="<%= c.id %>" <%= c.id === portal.selected.id ? 'selected' : '' %>><%= c.fullName %></option><% }) %>
+      </select>
+    </form>
+  <% } %>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-6 col-xl-3"><div class="metric-card"><div class="metric-label">Điểm trung bình</div><div class="metric-value"><%= p.student.averageScore %></div><div class="metric-meta">Thang điểm 10</div></div></div>
+  <div class="col-6 col-xl-3"><div class="metric-card"><div class="metric-label">Chuyên cần</div><div class="metric-value"><%= p.student.attendanceRate %>%</div><div class="metric-meta"><%= p.student.attendanceRate < 90 ? 'Cần chú ý' : 'Ổn định' %></div></div></div>
+  <div class="col-6 col-xl-3"><div class="metric-card"><div class="metric-label">Bài chưa xong</div><div class="metric-value"><%= p.pendingAssignments.length %></div><div class="metric-meta">Cần theo dõi</div></div></div>
+  <div class="col-6 col-xl-3"><div class="metric-card"><div class="metric-label">Điểm mới nhất</div><div class="metric-value"><%= p.latestScores[0]?.score ?? '-' %></div><div class="metric-meta"><%= p.latestScores[0]?.title || 'Chưa có' %></div></div></div>
+</div>
+
+<% if (p.student.attendanceRate < 90 || p.pendingAssignments.some(a => a.submission.status === 'LATE')) { %>
+<div class="parent-alert mb-4">
+  <strong>Cần lưu ý</strong>
+  <div class="small mt-1">Hệ thống ghi nhận chuyên cần hoặc tiến độ bài tập của <%= p.student.fullName %> đang cần phụ huynh theo dõi thêm.</div>
+</div>
+<% } %>
+
+<div class="row g-4">
+  <div class="col-xl-7">
+    <div class="card app-card mb-4">
+      <div class="card-header d-flex justify-content-between align-items-center"><div><strong>Kết quả gần đây</strong><div class="small text-secondary">Điểm các bài gần nhất</div></div><a href="/parent/progress?childId=<%= portal.selected.id %>" class="btn btn-sm btn-light">Chi tiết</a></div>
+      <div class="table-responsive"><table class="table align-middle mb-0"><thead><tr><th>Bài</th><th>Kỹ năng</th><th>Ngày</th><th>Điểm</th></tr></thead><tbody>
+        <% p.latestScores.forEach(s => { %><tr><td class="fw-semibold"><%= s.title %></td><td><%= s.category %></td><td><%= new Date(s.recordedAt).toLocaleDateString('vi-VN') %></td><td><span class="score-badge <%= s.score >= 8 ? 'good' : (s.score < 7 ? 'warn' : '') %>"><%= s.score %></span></td></tr><% }) %>
+      </tbody></table></div>
+    </div>
+
+    <div class="card app-card">
+      <div class="card-header"><strong>Bài tập cần theo dõi</strong></div>
+      <div class="card-body p-0">
+        <% p.assignments.slice(0,5).forEach(a => { %>
+          <div class="portal-list-item d-flex align-items-center gap-3">
+            <div class="task-icon"><%= a.type === 'QUIZ' ? 'Q' : 'H' %></div>
+            <div class="flex-grow-1"><div class="fw-semibold"><%= a.title %></div><div class="small text-secondary">Hạn <%= new Date(a.dueAt).toLocaleString('vi-VN') %></div></div>
+            <span class="badge <%= a.statusMeta.className %>"><%= a.statusMeta.label %></span>
+          </div>
+        <% }) %>
+      </div>
+    </div>
+  </div>
+  <div class="col-xl-5">
+    <div class="card app-card mb-4">
+      <div class="card-header"><strong>Nhận xét của giáo viên</strong></div>
+      <div class="card-body">
+        <% if (p.latestNote) { %><div class="quote-note">“<%= p.latestNote.note %>”</div><div class="small text-secondary mt-3"><%= p.latestNote.author %> • <%= new Date(p.latestNote.createdAt).toLocaleDateString('vi-VN') %></div><% } else { %><div class="text-secondary">Chưa có nhận xét.</div><% } %>
+      </div>
+    </div>
+    <div class="card app-card">
+      <div class="card-header"><strong>Chuyên cần gần đây</strong></div>
+      <div class="card-body">
+        <% p.attendance.forEach(a => { %><div class="d-flex justify-content-between align-items-center py-2 border-bottom"><span><%= new Date(a.date).toLocaleDateString('vi-VN') %></span><span class="badge <%= a.statusMeta.className %>"><%= a.statusMeta.label %></span></div><% }) %>
+      </div>
+    </div>
+  </div>
+</div>
+<% } %>
+<%- include('../partials/app-end') %>

@@ -1,0 +1,88 @@
+<%- include('../partials/app-start', { title }) %>
+<div class="portal-hero student-hero mb-4">
+  <div class="row align-items-center g-3">
+    <div class="col-lg-8">
+      <div class="eyebrow">Xin chào, <%= portal.student.fullName %></div>
+      <h1 class="h3 mb-2">Hôm nay mình học gì?</h1>
+      <p class="mb-0 text-secondary"><%= portal.classInfo?.name || 'Chưa xếp lớp' %> • <%= portal.classInfo?.schedule || '' %></p>
+    </div>
+    <div class="col-lg-4 text-lg-end">
+      <a href="/student/assignments" class="btn btn-primary">Xem bài tập</a>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-6 col-xl-3"><div class="metric-card"><div class="metric-label">Điểm trung bình</div><div class="metric-value"><%= portal.student.averageScore %></div><div class="metric-meta">Thang điểm 10</div></div></div>
+  <div class="col-6 col-xl-3"><div class="metric-card"><div class="metric-label">Chuyên cần</div><div class="metric-value"><%= portal.student.attendanceRate %>%</div><div class="metric-meta">Từ đầu khóa</div></div></div>
+  <div class="col-6 col-xl-3"><div class="metric-card"><div class="metric-label">Bài cần làm</div><div class="metric-value"><%= portal.pendingAssignments.length %></div><div class="metric-meta">Đang chờ hoàn thành</div></div></div>
+  <div class="col-6 col-xl-3"><div class="metric-card"><div class="metric-label">Tài liệu mới</div><div class="metric-value"><%= portal.materials.length %></div><div class="metric-meta">Trong lớp hiện tại</div></div></div>
+</div>
+
+<div class="row g-4">
+  <div class="col-xl-7">
+    <div class="card app-card h-100">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <div><strong>Bài tập sắp tới</strong><div class="small text-secondary">Ưu tiên theo hạn nộp</div></div>
+        <a href="/student/assignments" class="btn btn-sm btn-light">Tất cả</a>
+      </div>
+      <div class="card-body p-0">
+        <% if (!portal.assignments.length) { %><div class="p-4 text-secondary">Chưa có bài tập.</div><% } %>
+        <% portal.assignments.slice(0,4).forEach(a => { %>
+          <div class="portal-list-item d-flex align-items-center gap-3">
+            <div class="task-icon"><%= a.type === 'QUIZ' ? 'Q' : (a.type === 'PRACTICE' ? 'P' : 'H') %></div>
+            <div class="flex-grow-1">
+              <div class="fw-semibold"><%= a.title %></div>
+              <div class="small text-secondary">Hạn: <%= new Date(a.dueAt).toLocaleString('vi-VN', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' }) %></div>
+            </div>
+            <span class="badge <%= a.statusMeta.className %>"><%= a.statusMeta.label %></span>
+          </div>
+        <% }) %>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-xl-5">
+    <div class="card app-card h-100">
+      <div class="card-header"><strong>Nhận xét mới nhất</strong></div>
+      <div class="card-body">
+        <% if (portal.latestNote) { %>
+          <div class="quote-note mb-3">“<%= portal.latestNote.note %>”</div>
+          <div class="small text-secondary"><%= portal.latestNote.author %> • <%= new Date(portal.latestNote.createdAt).toLocaleDateString('vi-VN') %></div>
+        <% } else { %><p class="text-secondary mb-0">Chưa có nhận xét.</p><% } %>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-4 mt-1">
+  <div class="col-xl-7">
+    <div class="card app-card h-100">
+      <div class="card-header d-flex justify-content-between align-items-center"><strong>Kết quả gần đây</strong><a href="/student/progress" class="btn btn-sm btn-light">Xem tiến độ</a></div>
+      <div class="table-responsive">
+        <table class="table align-middle mb-0">
+          <thead><tr><th>Nội dung</th><th>Kỹ năng</th><th>Ngày</th><th>Điểm</th></tr></thead>
+          <tbody>
+          <% portal.latestScores.forEach(s => { %>
+            <tr><td class="fw-semibold"><%= s.title %></td><td><%= s.category %></td><td><%= new Date(s.recordedAt).toLocaleDateString('vi-VN') %></td><td><span class="score-badge <%= s.score >= 8 ? 'good' : (s.score < 7 ? 'warn' : '') %>"><%= s.score %></span></td></tr>
+          <% }) %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <div class="col-xl-5">
+    <div class="card app-card h-100">
+      <div class="card-header"><strong>Năng lực hiện tại</strong></div>
+      <div class="card-body">
+        <% portal.skills.forEach(skill => { %>
+          <div class="skill-row">
+            <div class="d-flex justify-content-between small mb-1"><span><%= skill.skill %></span><strong><%= skill.score %></strong></div>
+            <div class="progress skill-progress"><div class="progress-bar" style="width:<%= skill.score * 10 %>%"></div></div>
+          </div>
+        <% }) %>
+      </div>
+    </div>
+  </div>
+</div>
+<%- include('../partials/app-end') %>

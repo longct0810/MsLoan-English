@@ -1,0 +1,73 @@
+<%- include('../partials/app-start', { title }) %>
+<div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+  <div>
+    <h1 class="h3 mb-1">Chào <%= currentUser.fullName %></h1>
+    <p class="text-secondary mb-0">Tổng quan hoạt động lớp học hôm nay.</p>
+  </div>
+  <div class="d-flex gap-2">
+    <a href="/classes" class="btn btn-outline-primary">Xem lớp học</a>
+    <button class="btn btn-primary" disabled>+ Tạo bài tập</button>
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-6 col-xl-3"><div class="metric-card"><div class="metric-label">Lớp đang học</div><div class="metric-value"><%= dashboard.classCount %></div><div class="metric-meta">Khối 6–9</div></div></div>
+  <div class="col-6 col-xl-3"><div class="metric-card"><div class="metric-label">Học viên</div><div class="metric-value"><%= dashboard.studentCount %></div><div class="metric-meta">Đang hoạt động</div></div></div>
+  <div class="col-6 col-xl-3"><div class="metric-card"><div class="metric-label">Bài đang mở</div><div class="metric-value"><%= dashboard.openAssignmentCount %></div><div class="metric-meta">Homework / Quiz</div></div></div>
+  <div class="col-6 col-xl-3"><div class="metric-card"><div class="metric-label">Điểm TB</div><div class="metric-value"><%= dashboard.averageScore %></div><div class="metric-meta">Toàn bộ học viên</div></div></div>
+</div>
+
+<div class="row g-4">
+  <div class="col-xl-7">
+    <div class="card app-card h-100">
+      <div class="card-header d-flex align-items-center justify-content-between">
+        <div><strong>Lớp đang phụ trách</strong><div class="small text-secondary">Truy cập nhanh danh sách học viên</div></div>
+        <a href="/classes" class="btn btn-sm btn-light">Tất cả</a>
+      </div>
+      <div class="card-body p-0">
+        <div class="list-group list-group-flush">
+          <% dashboard.classes.forEach(c => { %>
+            <a href="/classes/<%= c.id %>" class="list-group-item list-group-item-action py-3 px-4">
+              <div class="d-flex align-items-center gap-3">
+                <span class="grade-pill">G<%= c.grade %></span>
+                <div class="flex-grow-1"><div class="fw-semibold"><%= c.name %></div><div class="small text-secondary"><%= c.schedule %></div></div>
+                <span class="text-secondary">›</span>
+              </div>
+            </a>
+          <% }) %>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-xl-5">
+    <div class="card app-card h-100">
+      <div class="card-header"><strong>Học viên cần chú ý</strong><div class="small text-secondary">Dựa trên điểm và chuyên cần hiện tại</div></div>
+      <div class="card-body">
+        <% if (!dashboard.attention.length) { %><p class="text-secondary mb-0">Chưa có học viên cần chú ý.</p><% } %>
+        <% dashboard.attention.forEach(s => { %>
+          <div class="attention-item d-flex align-items-center gap-3">
+            <span class="student-avatar"><%= s.fullName.charAt(0) %></span>
+            <div class="flex-grow-1"><div class="fw-semibold"><%= s.fullName %></div><div class="small text-secondary">Điểm <%= s.averageScore %> • Chuyên cần <%= s.attendanceRate %>%</div></div>
+            <span class="badge <%= s.attendanceRate < 90 ? 'text-bg-warning' : 'text-bg-light' %>"><%= s.averageScore < 7.2 ? 'Điểm' : 'Chuyên cần' %></span>
+          </div>
+        <% }) %>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card app-card mt-4">
+  <div class="card-header"><strong>Bài tập sắp đến hạn</strong></div>
+  <div class="table-responsive">
+    <table class="table align-middle mb-0">
+      <thead><tr><th>Bài tập</th><th>Lớp</th><th>Đã nộp</th><th>Hạn</th></tr></thead>
+      <tbody>
+      <% dashboard.assignments.forEach(a => { %>
+        <tr><td class="fw-semibold"><%= a.title %></td><td><%= a.className %></td><td><%= a.submitted %>/<%= a.total %></td><td><%= new Date(a.dueAt).toLocaleDateString('vi-VN') %></td></tr>
+      <% }) %>
+      </tbody>
+    </table>
+  </div>
+</div>
+<%- include('../partials/app-end') %>

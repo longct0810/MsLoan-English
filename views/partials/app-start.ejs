@@ -1,0 +1,98 @@
+<%- include('head', { title }) %>
+<%
+  const role = currentUser?.role || '';
+  const isTeacher = ['TEACHER', 'ADMIN'].includes(role);
+  const isStudent = role === 'STUDENT';
+  const isParent = role === 'PARENT';
+  const homeUrl = isStudent ? '/student' : (isParent ? '/parent' : '/dashboard');
+  const workspaceLabel = isStudent ? 'Student portal' : (isParent ? 'Parent portal' : 'Teacher workspace');
+  const avatarClass = isStudent ? 'student-avatar' : (isParent ? 'parent-avatar' : 'teacher-avatar');
+%>
+<div class="app-shell">
+  <aside class="sidebar d-none d-lg-flex flex-column">
+    <a href="<%= homeUrl %>" class="brand text-decoration-none">
+      <span class="brand-mark"><%= appShortName %></span>
+      <span>
+        <strong><%= appName %></strong>
+        <small><%= workspaceLabel %></small>
+      </span>
+    </a>
+
+    <nav class="nav flex-column gap-1 mt-4">
+      <% if (isTeacher) { %>
+        <a class="nav-link <%= currentPath === '/dashboard' ? 'active' : '' %>" href="/dashboard">Tổng quan</a>
+        <a class="nav-link <%= currentPath.startsWith('/classes') ? 'active' : '' %>" href="/classes">Lớp học</a>
+        <a class="nav-link <%= currentPath.startsWith('/students') ? 'active' : '' %>" href="/students">Học viên</a>
+        <a class="nav-link disabled" href="#">Bài học <span class="badge text-bg-light ms-auto">Soon</span></a>
+        <a class="nav-link disabled" href="#">Bài tập</a>
+        <a class="nav-link disabled" href="#">Kiểm tra</a>
+        <a class="nav-link disabled" href="#">Báo cáo</a>
+      <% } %>
+
+      <% if (isStudent) { %>
+        <a class="nav-link <%= currentPath === '/student' ? 'active' : '' %>" href="/student">Trang chủ</a>
+        <a class="nav-link <%= currentPath.startsWith('/student/assignments') ? 'active' : '' %>" href="/student/assignments">Bài tập</a>
+        <a class="nav-link <%= currentPath.startsWith('/student/materials') ? 'active' : '' %>" href="/student/materials">Tài liệu</a>
+        <a class="nav-link <%= currentPath.startsWith('/student/progress') ? 'active' : '' %>" href="/student/progress">Tiến độ</a>
+        <a class="nav-link disabled" href="#">Kiểm tra <span class="badge text-bg-light ms-auto">Soon</span></a>
+      <% } %>
+
+      <% if (isParent) { %>
+        <a class="nav-link <%= currentPath === '/parent' ? 'active' : '' %>" href="/parent">Tổng quan</a>
+        <a class="nav-link <%= currentPath.startsWith('/parent/progress') ? 'active' : '' %>" href="/parent/progress">Kết quả học tập</a>
+        <a class="nav-link disabled" href="#">Thông báo <span class="badge text-bg-light ms-auto">Soon</span></a>
+      <% } %>
+    </nav>
+
+    <div class="sidebar-bottom mt-auto">
+      <div class="small text-secondary">Đăng nhập bởi</div>
+      <div class="fw-semibold"><%= currentUser.fullName %></div>
+      <div class="small text-secondary"><%= role %></div>
+      <form method="post" action="/logout" class="mt-2">
+        <button class="btn btn-sm btn-outline-secondary w-100">Đăng xuất</button>
+      </form>
+    </div>
+  </aside>
+
+  <main class="app-main">
+    <nav class="navbar bg-white border-bottom sticky-top px-3 px-lg-4">
+      <button class="btn btn-outline-secondary d-lg-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#mobileMenu">☰</button>
+      <div class="ms-2 ms-lg-0">
+        <div class="text-secondary small"><%= appName %></div>
+        <strong><%= title %></strong>
+      </div>
+      <div class="ms-auto d-flex align-items-center gap-2">
+        <span class="<%= avatarClass %>"><%= currentUser.fullName.charAt(0) %></span>
+        <span class="d-none d-sm-inline small fw-semibold"><%= currentUser.fullName %></span>
+      </div>
+    </nav>
+
+    <div class="offcanvas offcanvas-start" tabindex="-1" id="mobileMenu">
+      <div class="offcanvas-header">
+        <h5 class="offcanvas-title"><%= appName %></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
+      </div>
+      <div class="offcanvas-body">
+        <div class="nav flex-column gap-2">
+          <% if (isTeacher) { %>
+            <a class="nav-link" href="/dashboard">Tổng quan</a>
+            <a class="nav-link" href="/classes">Lớp học</a>
+            <a class="nav-link" href="/students">Học viên</a>
+          <% } %>
+          <% if (isStudent) { %>
+            <a class="nav-link" href="/student">Trang chủ</a>
+            <a class="nav-link" href="/student/assignments">Bài tập</a>
+            <a class="nav-link" href="/student/materials">Tài liệu</a>
+            <a class="nav-link" href="/student/progress">Tiến độ</a>
+          <% } %>
+          <% if (isParent) { %>
+            <a class="nav-link" href="/parent">Tổng quan</a>
+            <a class="nav-link" href="/parent/progress">Kết quả học tập</a>
+          <% } %>
+        </div>
+        <hr>
+        <form method="post" action="/logout"><button class="btn btn-outline-secondary w-100">Đăng xuất</button></form>
+      </div>
+    </div>
+
+    <div class="container-fluid p-3 p-lg-4 page-content">

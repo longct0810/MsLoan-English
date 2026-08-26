@@ -1,0 +1,115 @@
+const bcrypt = require('bcryptjs');
+const env = require('../config/env');
+
+const demoStore = {
+  users: [
+    {
+      id: 1,
+      fullName: env.demo.teacher.fullName,
+      email: env.demo.teacher.email,
+      passwordHash: bcrypt.hashSync(env.demo.teacher.password, env.security.bcryptRounds),
+      role: 'TEACHER',
+    },
+    {
+      id: 2,
+      fullName: env.demo.student.fullName,
+      email: env.demo.student.email,
+      passwordHash: bcrypt.hashSync(env.demo.student.password, env.security.bcryptRounds),
+      role: 'STUDENT',
+    },
+    {
+      id: 3,
+      fullName: env.demo.parent.fullName,
+      email: env.demo.parent.email,
+      passwordHash: bcrypt.hashSync(env.demo.parent.password, env.security.bcryptRounds),
+      role: 'PARENT',
+    },
+  ],
+  classes: [
+    { id: 1, name: 'English 6 - T2/T5', grade: 6, schoolYear: env.academic.defaultSchoolYear, schedule: 'Thứ 2, Thứ 5 • 17:30', status: 'ACTIVE' },
+    { id: 2, name: 'English 7 - T3/T6', grade: 7, schoolYear: env.academic.defaultSchoolYear, schedule: 'Thứ 3, Thứ 6 • 17:30', status: 'ACTIVE' },
+    { id: 3, name: 'English 8 - T2/T5', grade: 8, schoolYear: env.academic.defaultSchoolYear, schedule: 'Thứ 2, Thứ 5 • 19:00', status: 'ACTIVE' },
+    { id: 4, name: 'English 9 - T3/T6', grade: 9, schoolYear: env.academic.defaultSchoolYear, schedule: 'Thứ 3, Thứ 6 • 19:00', status: 'ACTIVE' },
+  ],
+  students: [
+    { id: 1, fullName: 'Nguyễn Minh Anh', school: 'THCS Nguyễn Trãi', schoolClass: '6A2', parentPhone: '0900000001', status: 'ACTIVE', classIds: [1], averageScore: 8.6, attendanceRate: 96 },
+    { id: 2, fullName: 'Trần Gia Hân', school: 'THCS Lê Lợi', schoolClass: '6A1', parentPhone: '0900000002', status: 'ACTIVE', classIds: [1], averageScore: 7.8, attendanceRate: 92 },
+    { id: 3, fullName: 'Lê Hoàng Nam', school: 'THCS Văn Quán', schoolClass: '7A3', parentPhone: '0900000003', status: 'ACTIVE', classIds: [2], averageScore: 7.1, attendanceRate: 88 },
+    { id: 4, fullName: 'Phạm Khánh Linh', school: 'THCS Mỗ Lao', schoolClass: '7A1', parentPhone: '0900000004', status: 'ACTIVE', classIds: [2], averageScore: 9.0, attendanceRate: 100 },
+    { id: 5, fullName: 'Vũ Đức Minh', school: 'THCS Nguyễn Du', schoolClass: '8A4', parentPhone: '0900000005', status: 'ACTIVE', classIds: [3], averageScore: 6.9, attendanceRate: 84 },
+    { id: 6, fullName: 'Đỗ Ngọc Mai', school: 'THCS Nguyễn Trãi', schoolClass: '8A2', parentPhone: '0900000006', status: 'ACTIVE', classIds: [3], averageScore: 8.2, attendanceRate: 95 },
+    { id: 7, fullName: 'Bùi Quang Huy', school: 'THCS Lê Quý Đôn', schoolClass: '9A1', parentPhone: '0900000007', status: 'ACTIVE', classIds: [4], averageScore: 7.5, attendanceRate: 90 },
+    { id: 8, fullName: 'Hoàng Thu Trang', school: 'THCS Văn Khê', schoolClass: '9A2', parentPhone: '0900000008', status: 'ACTIVE', classIds: [4], averageScore: 8.8, attendanceRate: 98 },
+  ],
+  studentAccounts: [
+    { userId: 2, studentId: 3 },
+  ],
+  parentStudents: [
+    { parentUserId: 3, studentId: 3, relationship: 'Bố/Mẹ' },
+    { parentUserId: 3, studentId: 5, relationship: 'Bố/Mẹ' },
+  ],
+  assignments: [
+    { id: 1, title: 'Unit 1 - Vocabulary', classId: 1, dueAt: '2026-08-26T22:00:00+07:00', submitted: 12, total: 18, type: 'HOMEWORK' },
+    { id: 2, title: 'Unit 2 - Grammar', classId: 2, dueAt: '2026-08-27T22:00:00+07:00', submitted: 14, total: 20, type: 'HOMEWORK' },
+    { id: 3, title: 'Reading Practice', classId: 3, dueAt: '2026-08-28T22:00:00+07:00', submitted: 10, total: 16, type: 'HOMEWORK' },
+    { id: 4, title: 'Listening - Healthy Living', classId: 2, dueAt: '2026-08-30T20:00:00+07:00', submitted: 9, total: 20, type: 'PRACTICE' },
+    { id: 5, title: 'Quiz Unit 2', classId: 2, dueAt: '2026-09-01T19:00:00+07:00', submitted: 0, total: 20, type: 'QUIZ' },
+    { id: 6, title: 'Vocabulary Review', classId: 3, dueAt: '2026-08-29T21:00:00+07:00', submitted: 7, total: 16, type: 'HOMEWORK' },
+  ],
+  assignmentSubmissions: [
+    { assignmentId: 2, studentId: 3, status: 'SUBMITTED', score: 8.0, submittedAt: '2026-08-26T19:15:00+07:00' },
+    { assignmentId: 4, studentId: 3, status: 'NOT_STARTED', score: null, submittedAt: null },
+    { assignmentId: 5, studentId: 3, status: 'NOT_STARTED', score: null, submittedAt: null },
+    { assignmentId: 3, studentId: 5, status: 'LATE', score: null, submittedAt: null },
+    { assignmentId: 6, studentId: 5, status: 'NOT_STARTED', score: null, submittedAt: null },
+  ],
+  studentScores: [
+    { id: 1, studentId: 3, title: 'Quiz Unit 1', category: 'Grammar', score: 7.5, maxScore: 10, recordedAt: '2026-08-05' },
+    { id: 2, studentId: 3, title: 'Vocabulary Unit 1', category: 'Vocabulary', score: 8.2, maxScore: 10, recordedAt: '2026-08-10' },
+    { id: 3, studentId: 3, title: 'Reading Practice', category: 'Reading', score: 7.0, maxScore: 10, recordedAt: '2026-08-16' },
+    { id: 4, studentId: 3, title: 'Speaking Check', category: 'Speaking', score: 6.4, maxScore: 10, recordedAt: '2026-08-21' },
+    { id: 5, studentId: 3, title: 'Unit 2 - Grammar', category: 'Grammar', score: 8.0, maxScore: 10, recordedAt: '2026-08-26' },
+    { id: 6, studentId: 5, title: 'Quiz Unit 1', category: 'Grammar', score: 6.5, maxScore: 10, recordedAt: '2026-08-06' },
+    { id: 7, studentId: 5, title: 'Reading Practice', category: 'Reading', score: 7.2, maxScore: 10, recordedAt: '2026-08-15' },
+    { id: 8, studentId: 5, title: 'Listening Check', category: 'Listening', score: 6.0, maxScore: 10, recordedAt: '2026-08-23' },
+  ],
+  studentSkills: [
+    { studentId: 3, skill: 'Vocabulary', score: 7.8 },
+    { studentId: 3, skill: 'Grammar', score: 7.2 },
+    { studentId: 3, skill: 'Listening', score: 6.4 },
+    { studentId: 3, skill: 'Speaking', score: 6.0 },
+    { studentId: 3, skill: 'Reading', score: 7.6 },
+    { studentId: 3, skill: 'Writing', score: 6.8 },
+    { studentId: 5, skill: 'Vocabulary', score: 7.0 },
+    { studentId: 5, skill: 'Grammar', score: 6.3 },
+    { studentId: 5, skill: 'Listening', score: 5.8 },
+    { studentId: 5, skill: 'Speaking', score: 6.2 },
+    { studentId: 5, skill: 'Reading', score: 7.1 },
+    { studentId: 5, skill: 'Writing', score: 6.0 },
+  ],
+  teacherNotes: [
+    { id: 1, studentId: 3, note: 'Nam có tiến bộ ở Grammar. Cần luyện nghe 10–15 phút mỗi ngày và chủ động hơn trong phần Speaking.', createdAt: '2026-08-25', author: env.demo.teacher.fullName },
+    { id: 2, studentId: 5, note: 'Minh cần hoàn thành bài đúng hạn và ôn lại cấu trúc câu cơ bản. Listening đang là kỹ năng cần ưu tiên.', createdAt: '2026-08-24', author: env.demo.teacher.fullName },
+  ],
+  attendanceRecords: [
+    { studentId: 3, date: '2026-08-11', status: 'PRESENT' },
+    { studentId: 3, date: '2026-08-14', status: 'PRESENT' },
+    { studentId: 3, date: '2026-08-18', status: 'LATE' },
+    { studentId: 3, date: '2026-08-21', status: 'PRESENT' },
+    { studentId: 3, date: '2026-08-25', status: 'PRESENT' },
+    { studentId: 5, date: '2026-08-10', status: 'PRESENT' },
+    { studentId: 5, date: '2026-08-13', status: 'ABSENT_EXCUSED' },
+    { studentId: 5, date: '2026-08-17', status: 'LATE' },
+    { studentId: 5, date: '2026-08-20', status: 'PRESENT' },
+    { studentId: 5, date: '2026-08-24', status: 'ABSENT' },
+  ],
+  materials: [
+    { id: 1, classId: 2, unit: 'Unit 2', title: 'Grammar: Past Simple', type: 'PDF', publishedAt: '2026-08-20' },
+    { id: 2, classId: 2, unit: 'Unit 2', title: 'Listening: Healthy Living', type: 'AUDIO', publishedAt: '2026-08-23' },
+    { id: 3, classId: 2, unit: 'Unit 2', title: 'Vocabulary Flashcards', type: 'FLASHCARD', publishedAt: '2026-08-24' },
+    { id: 4, classId: 3, unit: 'Unit 1', title: 'Reading: Teen Life', type: 'PDF', publishedAt: '2026-08-20' },
+    { id: 5, classId: 3, unit: 'Unit 1', title: 'Vocabulary Review', type: 'FLASHCARD', publishedAt: '2026-08-22' },
+  ],
+};
+
+module.exports = demoStore;
