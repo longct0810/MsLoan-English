@@ -88,8 +88,19 @@ const demoStore = {
     { studentId: 5, skill: 'Writing', score: 6.0 },
   ],
   teacherNotes: [
-    { id: 1, studentId: 3, note: 'Nam có tiến bộ ở Grammar. Cần luyện nghe 10–15 phút mỗi ngày và chủ động hơn trong phần Speaking.', createdAt: '2026-08-25', author: env.demo.teacher.fullName },
-    { id: 2, studentId: 5, note: 'Minh cần hoàn thành bài đúng hạn và ôn lại cấu trúc câu cơ bản. Listening đang là kỹ năng cần ưu tiên.', createdAt: '2026-08-24', author: env.demo.teacher.fullName },
+    { id: 1, studentId: 3, classSessionId: 1, category: 'PROGRESS', isParentVisible: true, note: 'Nam có tiến bộ ở Grammar. Cần luyện nghe 10–15 phút mỗi ngày và chủ động hơn trong phần Speaking.', createdAt: '2026-08-25', author: env.demo.teacher.fullName },
+    { id: 2, studentId: 5, classSessionId: 2, category: 'HOMEWORK', isParentVisible: true, note: 'Minh cần hoàn thành bài đúng hạn và ôn lại cấu trúc câu cơ bản. Listening đang là kỹ năng cần ưu tiên.', createdAt: '2026-08-24', author: env.demo.teacher.fullName },
+  ],
+  classSessions: [
+    { id: 1, classId: 2, teacherId: 1, sessionDate: '2026-08-25', startTime: '17:30', endTime: '19:00', topic: 'Unit 2 – Past Simple & Speaking', lessonSummary: 'Ôn Past Simple, luyện hỏi đáp về hoạt động cuối tuần và speaking theo cặp.', homework: 'Workbook Unit 2 trang 24–25; luyện nghe 10 phút.', status: 'COMPLETED' },
+    { id: 2, classId: 3, teacherId: 1, sessionDate: '2026-08-26', startTime: '19:00', endTime: '20:30', topic: 'Unit 1 – Teen Life & Listening', lessonSummary: 'Reading ngắn, từ vựng Teen Life, nghe ý chính và thảo luận nhóm.', homework: 'Vocabulary Review và Listening Practice.', status: 'IN_PROGRESS' },
+    { id: 3, classId: 4, teacherId: 1, sessionDate: '2026-08-27', startTime: '19:00', endTime: '20:30', topic: 'Exam Review – Grammar', lessonSummary: 'Ôn cấu trúc trọng tâm trước bài kiểm tra.', homework: 'Hoàn thành Exam Review.', status: 'PLANNED' },
+  ],
+  sessionAttendance: [
+    { sessionId: 1, studentId: 3, status: 'PRESENT', note: '' },
+    { sessionId: 1, studentId: 4, status: 'PRESENT', note: '' },
+    { sessionId: 2, studentId: 5, status: 'LATE', note: 'Đến muộn 10 phút' },
+    { sessionId: 2, studentId: 6, status: 'PRESENT', note: '' },
   ],
   attendanceRecords: [
     { studentId: 3, date: '2026-08-11', status: 'PRESENT' },

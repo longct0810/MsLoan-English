@@ -1,16 +1,34 @@
-# English Classroom MVP v0.2.2
+# English Classroom MVP v0.3.0
 
-Responsive web app cho lớp học tiếng Anh, xây dựng bằng Node.js + Express + EJS + Bootstrap + PostgreSQL.
+Responsive web app cho lớp học tiếng Anh, xây dựng bằng Node.js + Express + EJS + Bootstrap + PostgreSQL/Neon.
 
-## Thay đổi v0.2.2
+## Thay đổi v0.3.0
 
-- Hỗ trợ `DATABASE_URL` cho Neon/hosted PostgreSQL.
-- Ưu tiên `DATABASE_URL`; nếu để trống sẽ fallback về `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`.
-- Hỗ trợ Neon pooled connection, SSL qua `sslmode=require` trong connection string.
-- Bật channel binding bằng `DB_CHANNEL_BINDING=true`.
-- Kiểm tra database khi startup bằng `DB_STARTUP_CHECK=true`.
-- Thêm `GET /health` và `GET /health/db`.
-- `db:init` dùng cùng cấu hình `DATABASE_URL`, vì vậy có thể khởi tạo schema/seed trực tiếp lên Neon.
+Bổ sung luồng nghiệp vụ giáo viên:
+
+- **Buổi học**: tạo buổi học theo lớp, ngày/giờ, chủ đề, kế hoạch và bài tập về nhà.
+- **Điểm danh**: Có mặt / Đi muộn / Vắng / Vắng có phép / Học online.
+- Ghi chú riêng cho từng trạng thái điểm danh.
+- Nút điểm danh nhanh “Tất cả có mặt” hoặc “Tất cả online”.
+- Theo dõi số học viên đã điểm danh, có mặt, đi muộn và vắng.
+- **Nhận xét học viên theo buổi** với nhóm: Chung, Tiến bộ, Thái độ, Bài tập, Speaking, Listening.
+- Nhận xét có tùy chọn cho phép phụ huynh xem.
+- Hoàn thành buổi học và lưu lịch sử.
+- Teacher Dashboard hiển thị các buổi học gần nhất/sắp tới.
+- Từ trang chi tiết lớp có thể mở lịch buổi học hoặc tạo buổi mới.
+- Student/Parent Portal nhận dữ liệu chuyên cần và nhận xét mới từ buổi học.
+- Thêm schema `class_sessions`, `session_attendance` và mở rộng `teacher_notes`.
+- Thêm `npm run db:migrate` để cập nhật schema mà không seed lại dữ liệu.
+
+## Công nghệ
+
+- Node.js 20+
+- Express 5
+- EJS
+- Bootstrap 5
+- PostgreSQL
+- Neon PostgreSQL qua `DATABASE_URL`
+- `express-session` + `connect-pg-simple`
 
 ## Cài đặt
 
@@ -19,6 +37,27 @@ npm install
 cp .env.example .env
 npm run dev
 ```
+
+## Cập nhật từ v0.2.2 lên v0.3.0
+
+Nếu database Neon hiện đã có dữ liệu của v0.2.2, **không cần xóa database**.
+
+Cấu hình `.env` trỏ tới Neon rồi chạy:
+
+```bash
+npm install
+npm run db:migrate
+```
+
+Lệnh này chỉ chạy schema idempotent và bổ sung các bảng/cột của v0.3.0.
+
+Nếu muốn tạo thêm dữ liệu mẫu cho Buổi học/Điểm danh/Nhận xét:
+
+```bash
+npm run db:init
+```
+
+`db:init` vừa chạy migration vừa seed dữ liệu demo, được thiết kế để có thể chạy lại an toàn ở mức MVP.
 
 ## Chạy với Neon
 
@@ -31,30 +70,23 @@ DB_CHANNEL_BINDING=true
 DB_STARTUP_CHECK=true
 ```
 
-Sau đó khởi tạo database:
+Sau đó:
 
 ```bash
-npm run db:init
-```
-
-Rồi chạy ứng dụng:
-
-```bash
+npm run db:migrate
 npm start
 ```
 
-Kiểm tra:
+Kiểm tra kết nối:
 
 ```text
 GET /health
 GET /health/db
 ```
 
-`/health/db` chỉ trả trạng thái kết nối và latency, không trả host/user/password/connection string.
-
 ## Render.com
 
-Trong **Render Dashboard → Web Service → Environment**, tối thiểu cần đặt:
+Trong **Render Dashboard → Web Service → Environment**, giữ các biến đã cấu hình từ v0.2.2, đặc biệt:
 
 ```env
 NODE_ENV=production
@@ -66,19 +98,64 @@ TRUST_PROXY=1
 SESSION_SECURE=true
 ```
 
-Ngoài ra giữ các biến cấu hình ứng dụng/session khác từ `.env.example`. Không đưa `DATABASE_URL` hoặc `.env` thật lên GitHub.
-
 ### Build / Start
 
 ```text
-Build Command: npm install
+Build Command: npm install && npm run db:migrate
 Start Command: npm start
 ```
 
-Nếu database Neon còn trống, chạy một lần từ máy local (với `DATABASE_URL` Neon trong `.env`):
+Với Build Command trên, Render sẽ chạy migration idempotent trước mỗi lần deploy. Nếu muốn giữ Build Command chỉ là `npm install`, có thể chạy `npm run db:migrate` một lần từ máy local với cùng `DATABASE_URL` Neon.
 
-```bash
-npm run db:init
+## Routes mới v0.3.0
+
+```text
+GET  /sessions
+GET  /sessions/new
+POST /sessions
+GET  /sessions/:id
+POST /sessions/:id/attendance
+POST /sessions/:id/notes
+POST /sessions/:id/complete
+
+GET  /api/v1/sessions
+```
+
+## Mô hình dữ liệu mới
+
+```text
+Class
+  │
+  └── ClassSession
+        │
+        ├── SessionAttendance
+        │      ├── Student
+        │      ├── status
+        │      └── note
+        │
+        └── TeacherNote
+               ├── Student
+               ├── category
+               └── is_parent_visible
+```
+
+### Trạng thái buổi học
+
+```text
+PLANNED
+IN_PROGRESS
+COMPLETED
+CANCELLED
+```
+
+### Trạng thái điểm danh
+
+```text
+PRESENT
+LATE
+ABSENT
+ABSENT_EXCUSED
+ONLINE
 ```
 
 ## PostgreSQL local
@@ -100,7 +177,7 @@ DB_PASSWORD=postgres
 DB_SSL=false
 ```
 
-Có thể chạy PostgreSQL bằng Docker:
+Sau đó:
 
 ```bash
 docker compose up -d
@@ -121,29 +198,31 @@ Các tài khoản seed lấy từ `.env`:
 ```text
 src/
 ├── config/
-│   ├── env.js
-│   └── db.js
 ├── middleware/
 ├── modules/
 │   ├── auth/
 │   ├── dashboard/
 │   ├── classes/
 │   ├── students/
+│   ├── sessions/        # v0.3.0
 │   ├── portal/
 │   └── health/
 ├── shared/
 ├── public/
 ├── views/
+│   └── sessions/        # v0.3.0
 ├── app.js
 └── server.js
 
 db/schema.sql
 scripts/init-db.js
+scripts/migrate-db.js
 ```
 
 ## Bảo mật
 
-- `.env` đã nằm trong `.gitignore`.
-- Không log `DATABASE_URL`.
-- Production nên đặt `SESSION_SECURE=true`, `TRUST_PROXY=1` và dùng `SESSION_SECRET` mạnh.
-- Nếu một database credential đã bị chia sẻ ở nơi không còn riêng tư, hãy rotate password/credential trên Neon và cập nhật `DATABASE_URL`.
+- `.env` nằm trong `.gitignore`.
+- Không commit `DATABASE_URL` lên GitHub.
+- Production dùng `SESSION_SECURE=true`, `TRUST_PROXY=1` và `SESSION_SECRET` mạnh.
+- Nhận xét nội bộ giáo viên có thể đặt `is_parent_visible=false`.
+- CSRF protection, audit log và phân quyền nhiều giáo viên sẽ được bổ sung ở các phiên bản tiếp theo.

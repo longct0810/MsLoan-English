@@ -10,6 +10,7 @@ const authRoutes = require('./modules/auth/auth.routes');
 const dashboardRoutes = require('./modules/dashboard/dashboard.routes');
 const classRoutes = require('./modules/classes/class.routes');
 const studentRoutes = require('./modules/students/student.routes');
+const sessionRoutes = require('./modules/sessions/session.routes');
 const portalRoutes = require('./modules/portal/portal.routes');
 const healthRoutes = require('./modules/health/health.routes');
 
@@ -61,9 +62,11 @@ app.use(authRoutes);
 app.use(dashboardRoutes);
 app.use(classRoutes.web);
 app.use(studentRoutes.web);
+app.use(sessionRoutes.web);
 app.use(portalRoutes);
 app.use(env.app.apiPrefix, classRoutes.api);
 app.use(env.app.apiPrefix, studentRoutes.api);
+app.use(env.app.apiPrefix, sessionRoutes.api);
 
 app.use((req, res) => {
   res.status(404).render('errors/404', { title: 'Không tìm thấy trang' });

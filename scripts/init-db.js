@@ -121,6 +121,65 @@ async function main() {
 
   const namId = studentIds[env.demo.student.fullName];
   const minhId = studentIds['Vũ Đức Minh'];
+  const linhId = studentIds['Phạm Khánh Linh'];
+  const maiId = studentIds['Đỗ Ngọc Mai'];
+
+  async function ensureClassSession({ classId, date, startTime, endTime, topic, lessonSummary, homework, status }) {
+    const existing = await pool.query(`
+      SELECT id FROM class_sessions
+       WHERE class_id = $1 AND session_date = $2 AND topic = $3
+       ORDER BY id LIMIT 1
+    `, [classId, date, topic]);
+    if (existing.rows[0]) {
+      await pool.query(`
+        UPDATE class_sessions
+           SET teacher_id=$2, start_time=$3::time, end_time=$4::time,
+               lesson_summary=$5, homework=$6, status=$7, updated_at=NOW()
+         WHERE id=$1
+      `, [existing.rows[0].id, teacherId, startTime, endTime, lessonSummary, homework, status]);
+      return existing.rows[0].id;
+    }
+    const created = await pool.query(`
+      INSERT INTO class_sessions
+        (class_id, teacher_id, session_date, start_time, end_time, topic, lesson_summary, homework, status)
+      VALUES ($1,$2,$3,$4::time,$5::time,$6,$7,$8,$9)
+      RETURNING id
+    `, [classId, teacherId, date, startTime, endTime, topic, lessonSummary, homework, status]);
+    return created.rows[0].id;
+  }
+
+  const class7SessionId = await ensureClassSession({
+    classId: classIds[7], date: '2026-08-25', startTime: '17:30', endTime: '19:00',
+    topic: 'Unit 2 – Past Simple & Speaking',
+    lessonSummary: 'Ôn Past Simple, luyện hỏi đáp về hoạt động cuối tuần và speaking theo cặp.',
+    homework: 'Workbook Unit 2 trang 24–25; luyện nghe 10 phút.', status: 'COMPLETED',
+  });
+  const class8SessionId = await ensureClassSession({
+    classId: classIds[8], date: '2026-08-26', startTime: '19:00', endTime: '20:30',
+    topic: 'Unit 1 – Teen Life & Listening',
+    lessonSummary: 'Reading ngắn, từ vựng Teen Life, nghe ý chính và thảo luận nhóm.',
+    homework: 'Vocabulary Review và Listening Practice.', status: 'IN_PROGRESS',
+  });
+  await ensureClassSession({
+    classId: classIds[9], date: '2026-08-27', startTime: '19:00', endTime: '20:30',
+    topic: 'Exam Review – Grammar',
+    lessonSummary: 'Ôn cấu trúc trọng tâm trước bài kiểm tra.',
+    homework: 'Hoàn thành Exam Review.', status: 'PLANNED',
+  });
+
+  for (const [sessionId, studentId, status, note] of [
+    [class7SessionId, namId, 'PRESENT', ''],
+    [class7SessionId, linhId, 'PRESENT', ''],
+    [class8SessionId, minhId, 'LATE', 'Đến muộn 10 phút'],
+    [class8SessionId, maiId, 'PRESENT', ''],
+  ]) {
+    await pool.query(`
+      INSERT INTO session_attendance (session_id, student_id, status, note)
+      VALUES ($1,$2,$3,NULLIF($4,''))
+      ON CONFLICT (session_id, student_id)
+      DO UPDATE SET status=EXCLUDED.status, note=EXCLUDED.note, marked_at=NOW()
+    `, [sessionId, studentId, status, note]);
+  }
   const class7Assignments = await pool.query(`SELECT id, title FROM assignments WHERE class_id=$1 ORDER BY id`, [classIds[7]]);
   const grammarAssignment = class7Assignments.rows.find((a) => a.title === 'Unit 2 - Grammar');
   if (grammarAssignment) {
@@ -157,8 +216,25 @@ async function main() {
     }
   }
 
-  await pool.query(`INSERT INTO teacher_notes (student_id,note,author_name,created_at) SELECT $1,$2,$3,'2026-08-25' WHERE NOT EXISTS (SELECT 1 FROM teacher_notes WHERE student_id=$1 AND created_at='2026-08-25')`, [namId, 'Nam có tiến bộ ở Grammar. Cần luyện nghe 10–15 phút mỗi ngày và chủ động hơn trong phần Speaking.', env.demo.teacher.fullName]);
-  await pool.query(`INSERT INTO teacher_notes (student_id,note,author_name,created_at) SELECT $1,$2,$3,'2026-08-24' WHERE NOT EXISTS (SELECT 1 FROM teacher_notes WHERE student_id=$1 AND created_at='2026-08-24')`, [minhId, 'Minh cần hoàn thành bài đúng hạn và ôn lại cấu trúc câu cơ bản. Listening đang là kỹ năng cần ưu tiên.', env.demo.teacher.fullName]);
+  await pool.query(`
+    INSERT INTO teacher_notes (student_id,class_session_id,note,category,is_parent_visible,author_name,created_at)
+    SELECT $1,$2,$3,'PROGRESS',TRUE,$4,'2026-08-25'
+     WHERE NOT EXISTS (SELECT 1 FROM teacher_notes WHERE student_id=$1 AND created_at='2026-08-25')
+  `, [namId, class7SessionId, 'Nam có tiến bộ ở Grammar. Cần luyện nghe 10–15 phút mỗi ngày và chủ động hơn trong phần Speaking.', env.demo.teacher.fullName]);
+  await pool.query(`
+    UPDATE teacher_notes SET class_session_id=$2, category='PROGRESS', is_parent_visible=TRUE
+     WHERE student_id=$1 AND created_at='2026-08-25' AND class_session_id IS NULL
+  `, [namId, class7SessionId]);
+
+  await pool.query(`
+    INSERT INTO teacher_notes (student_id,class_session_id,note,category,is_parent_visible,author_name,created_at)
+    SELECT $1,$2,$3,'HOMEWORK',TRUE,$4,'2026-08-24'
+     WHERE NOT EXISTS (SELECT 1 FROM teacher_notes WHERE student_id=$1 AND created_at='2026-08-24')
+  `, [minhId, class8SessionId, 'Minh cần hoàn thành bài đúng hạn và ôn lại cấu trúc câu cơ bản. Listening đang là kỹ năng cần ưu tiên.', env.demo.teacher.fullName]);
+  await pool.query(`
+    UPDATE teacher_notes SET class_session_id=$2, category='HOMEWORK', is_parent_visible=TRUE
+     WHERE student_id=$1 AND created_at='2026-08-24' AND class_session_id IS NULL
+  `, [minhId, class8SessionId]);
 
   for (const [studentId, date, status] of [
     [namId,'2026-08-11','PRESENT'],[namId,'2026-08-14','PRESENT'],[namId,'2026-08-18','LATE'],[namId,'2026-08-21','PRESENT'],[namId,'2026-08-25','PRESENT'],

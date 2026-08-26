@@ -23,6 +23,7 @@
         <a class="nav-link <%= currentPath === '/dashboard' ? 'active' : '' %>" href="/dashboard">Tổng quan</a>
         <a class="nav-link <%= currentPath.startsWith('/classes') ? 'active' : '' %>" href="/classes">Lớp học</a>
         <a class="nav-link <%= currentPath.startsWith('/students') ? 'active' : '' %>" href="/students">Học viên</a>
+        <a class="nav-link <%= currentPath.startsWith('/sessions') ? 'active' : '' %>" href="/sessions">Buổi học & điểm danh</a>
         <a class="nav-link disabled" href="#">Bài học <span class="badge text-bg-light ms-auto">Soon</span></a>
         <a class="nav-link disabled" href="#">Bài tập</a>
         <a class="nav-link disabled" href="#">Kiểm tra</a>
@@ -78,6 +79,7 @@
             <a class="nav-link" href="/dashboard">Tổng quan</a>
             <a class="nav-link" href="/classes">Lớp học</a>
             <a class="nav-link" href="/students">Học viên</a>
+            <a class="nav-link" href="/sessions">Buổi học & điểm danh</a>
           <% } %>
           <% if (isStudent) { %>
             <a class="nav-link" href="/student">Trang chủ</a>

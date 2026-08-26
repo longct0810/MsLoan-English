@@ -1,0 +1,55 @@
+<%- include('../partials/app-start', { title }) %>
+<div class="mb-3"><a href="/sessions" class="text-decoration-none">← Danh sách buổi học</a></div>
+<div class="row justify-content-center">
+  <div class="col-xl-9 col-xxl-8">
+    <div class="d-flex justify-content-between align-items-start gap-3 mb-4">
+      <div><h1 class="h3 mb-1">Tạo buổi học</h1><p class="text-secondary mb-0">Buổi học là đơn vị để điểm danh, ghi nội dung đã dạy và nhận xét học viên.</p></div>
+    </div>
+
+    <% if (errorMessage) { %><div class="alert alert-danger"><%= errorMessage %></div><% } %>
+
+    <form method="post" action="/sessions" class="card app-card">
+      <div class="card-header"><strong>Thông tin buổi học</strong></div>
+      <div class="card-body p-4">
+        <div class="row g-3">
+          <div class="col-md-7">
+            <label class="form-label fw-semibold">Lớp học <span class="text-danger">*</span></label>
+            <select class="form-select" name="classId" required>
+              <option value="">-- Chọn lớp --</option>
+              <% classes.forEach(c => { %><option value="<%= c.id %>" <%= String(form.classId || selectedClassId) === String(c.id) ? 'selected' : '' %>><%= c.name %> • <%= c.schedule %></option><% }) %>
+            </select>
+          </div>
+          <div class="col-md-5">
+            <label class="form-label fw-semibold">Ngày học <span class="text-danger">*</span></label>
+            <input class="form-control" type="date" name="sessionDate" value="<%= form.sessionDate || '' %>" required>
+          </div>
+          <div class="col-sm-6">
+            <label class="form-label fw-semibold">Bắt đầu</label>
+            <input class="form-control" type="time" name="startTime" value="<%= form.startTime || '' %>">
+          </div>
+          <div class="col-sm-6">
+            <label class="form-label fw-semibold">Kết thúc</label>
+            <input class="form-control" type="time" name="endTime" value="<%= form.endTime || '' %>">
+          </div>
+          <div class="col-12">
+            <label class="form-label fw-semibold">Chủ đề / nội dung chính <span class="text-danger">*</span></label>
+            <input class="form-control" name="topic" maxlength="250" value="<%= form.topic || '' %>" placeholder="Ví dụ: Unit 2 – Past Simple & Listening" required>
+          </div>
+          <div class="col-12">
+            <label class="form-label fw-semibold">Kế hoạch / nội dung dự kiến</label>
+            <textarea class="form-control" rows="4" name="lessonSummary" placeholder="Vocabulary, grammar, speaking activity..."><%= form.lessonSummary || '' %></textarea>
+          </div>
+          <div class="col-12">
+            <label class="form-label fw-semibold">Bài tập về nhà dự kiến</label>
+            <textarea class="form-control" rows="3" name="homework" placeholder="Ví dụ: Workbook trang 24–25, luyện nghe 10 phút..."><%= form.homework || '' %></textarea>
+          </div>
+        </div>
+      </div>
+      <div class="card-footer bg-white border-top p-3 d-flex justify-content-end gap-2">
+        <a href="/sessions" class="btn btn-light">Hủy</a>
+        <button class="btn btn-primary">Tạo và điểm danh</button>
+      </div>
+    </form>
+  </div>
+</div>
+<%- include('../partials/app-end') %>

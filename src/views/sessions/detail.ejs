@@ -1,0 +1,137 @@
+<%- include('../partials/app-start', { title }) %>
+<%
+  const attendanceLabels = {
+    PRESENT: 'Có mặt', LATE: 'Đi muộn', ABSENT: 'Vắng', ABSENT_EXCUSED: 'Vắng có phép', ONLINE: 'Học online'
+  };
+  const statusInfo = {
+    PLANNED: ['Đã lên lịch', 'text-bg-primary-subtle text-primary-emphasis'],
+    IN_PROGRESS: ['Đang thực hiện', 'text-bg-warning-subtle text-warning-emphasis'],
+    COMPLETED: ['Đã hoàn thành', 'text-bg-success-subtle text-success-emphasis'],
+    CANCELLED: ['Đã hủy', 'text-bg-secondary-subtle text-secondary-emphasis'],
+  };
+  const noteCategory = {
+    GENERAL: 'Chung', PROGRESS: 'Tiến bộ', BEHAVIOR: 'Thái độ', HOMEWORK: 'Bài tập', SPEAKING: 'Speaking', LISTENING: 'Listening'
+  };
+  const st = statusInfo[session.status] || statusInfo.PLANNED;
+%>
+<div class="mb-3"><a href="/sessions<%= session.classId ? `?classId=${session.classId}` : '' %>" class="text-decoration-none">← Danh sách buổi học</a></div>
+
+<% if (flash === 'attendance') { %><div class="alert alert-success">Đã lưu điểm danh.</div><% } %>
+<% if (flash === 'created') { %><div class="alert alert-success">Đã tạo buổi học. Anh có thể bắt đầu điểm danh.</div><% } %>
+<% if (flash === 'note') { %><div class="alert alert-success">Đã lưu nhận xét học viên.</div><% } %>
+<% if (flash === 'completed') { %><div class="alert alert-success">Buổi học đã được đánh dấu hoàn thành.</div><% } %>
+<% if (errorMessage) { %><div class="alert alert-danger"><%= errorMessage %></div><% } %>
+
+<div class="session-hero p-4 mb-4">
+  <div class="d-flex flex-column flex-xl-row gap-3 align-items-xl-center">
+    <div class="session-date-block">
+      <div class="small text-uppercase fw-bold"><%= new Date(session.sessionDate).toLocaleDateString('vi-VN', { weekday: 'short' }) %></div>
+      <div class="display-6 fw-bold"><%= new Date(session.sessionDate).getDate() %></div>
+      <div class="small"><%= new Date(session.sessionDate).toLocaleDateString('vi-VN', { month: 'short' }) %></div>
+    </div>
+    <div class="flex-grow-1">
+      <div class="d-flex flex-wrap align-items-center gap-2 mb-2"><span class="badge <%= st[1] %>"><%= st[0] %></span><span class="class-chip">G<%= session.grade %> • <%= session.className %></span></div>
+      <h1 class="h3 mb-1"><%= session.topic || 'Buổi học' %></h1>
+      <div class="text-secondary"><%= session.startTime ? String(session.startTime).slice(0,5) : '--:--' %><%= session.endTime ? ` – ${String(session.endTime).slice(0,5)}` : '' %> • <%= session.studentCount %> học viên</div>
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+      <% if (session.status !== 'COMPLETED') { %>
+        <form method="post" action="/sessions/<%= session.id %>/complete" onsubmit="return confirm('Hoàn thành buổi học này?')"><button class="btn btn-outline-success">✓ Hoàn thành buổi học</button></form>
+      <% } %>
+      <a href="/sessions/new?classId=<%= session.classId %>" class="btn btn-primary">+ Buổi tiếp theo</a>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-6 col-xl"><div class="metric-card"><div class="metric-label">Sĩ số</div><div class="metric-value"><%= session.studentCount %></div><div class="metric-meta">Học viên trong lớp</div></div></div>
+  <div class="col-6 col-xl"><div class="metric-card"><div class="metric-label">Có mặt</div><div class="metric-value text-success"><%= session.presentCount + session.onlineCount %></div><div class="metric-meta">Trực tiếp + online</div></div></div>
+  <div class="col-6 col-xl"><div class="metric-card"><div class="metric-label">Đi muộn</div><div class="metric-value text-warning"><%= session.lateCount %></div><div class="metric-meta">Cần theo dõi</div></div></div>
+  <div class="col-6 col-xl"><div class="metric-card"><div class="metric-label">Vắng</div><div class="metric-value text-danger"><%= session.absentCount %></div><div class="metric-meta">Có phép + không phép</div></div></div>
+  <div class="col-12 col-xl"><div class="metric-card"><div class="metric-label">Đã điểm danh</div><div class="metric-value"><%= session.markedCount %>/<%= session.studentCount %></div><div class="metric-meta"><%= session.studentCount ? Math.round(session.markedCount * 100 / session.studentCount) : 0 %>% hoàn tất</div></div></div>
+</div>
+
+<div class="row g-4">
+  <div class="col-xxl-8">
+    <form method="post" action="/sessions/<%= session.id %>/attendance" class="card app-card" id="attendanceForm">
+      <div class="card-header d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3">
+        <div><strong>Điểm danh học viên</strong><div class="small text-secondary">Chọn trạng thái và ghi chú nếu cần.</div></div>
+        <div class="d-flex flex-wrap gap-2">
+          <button type="button" class="btn btn-sm btn-light" data-attendance-all="PRESENT">Tất cả có mặt</button>
+          <button type="button" class="btn btn-sm btn-outline-secondary" data-attendance-all="ONLINE">Tất cả online</button>
+          <button class="btn btn-sm btn-primary">Lưu điểm danh</button>
+        </div>
+      </div>
+      <div class="table-responsive">
+        <table class="table align-middle mb-0 attendance-table">
+          <thead><tr><th>Học viên</th><th style="min-width:170px">Trạng thái</th><th style="min-width:230px">Ghi chú điểm danh</th></tr></thead>
+          <tbody>
+            <% session.students.forEach(student => { %>
+              <tr>
+                <td>
+                  <div class="d-flex align-items-center gap-2"><span class="student-avatar small"><%= student.fullName.charAt(0) %></span><div><strong><%= student.fullName %></strong><div class="small text-secondary"><%= student.schoolClass || '' %> • Chuyên cần <%= student.attendanceRate %>%</div></div></div>
+                </td>
+                <td>
+                  <select class="form-select form-select-sm attendance-status" name="status_<%= student.id %>">
+                    <% Object.entries(attendanceLabels).forEach(([value,label]) => { %><option value="<%= value %>" <%= student.attendanceStatus === value ? 'selected' : '' %>><%= label %></option><% }) %>
+                  </select>
+                </td>
+                <td><input class="form-control form-control-sm" maxlength="500" name="note_<%= student.id %>" value="<%= student.attendanceNote || '' %>" placeholder="Ví dụ: đến muộn 10 phút"></td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+      <div class="card-footer bg-white p-3 d-flex justify-content-end"><button class="btn btn-primary">Lưu điểm danh</button></div>
+    </form>
+  </div>
+
+  <div class="col-xxl-4">
+    <div class="card app-card mb-4">
+      <div class="card-header"><strong>Nội dung buổi học</strong></div>
+      <div class="card-body">
+        <div class="small text-secondary fw-semibold mb-1">KẾ HOẠCH / GHI CHÚ</div>
+        <p class="session-text"><%= session.lessonSummary || 'Chưa có nội dung chi tiết.' %></p>
+        <hr>
+        <div class="small text-secondary fw-semibold mb-1">BÀI TẬP VỀ NHÀ</div>
+        <p class="session-text mb-0"><%= session.homework || 'Chưa giao bài tập.' %></p>
+      </div>
+    </div>
+
+    <div class="card app-card" id="student-notes">
+      <div class="card-header"><strong>Nhận xét nhanh học viên</strong><div class="small text-secondary">Nhận xét sẽ xuất hiện ở hồ sơ học viên; có thể cho phụ huynh xem.</div></div>
+      <div class="card-body">
+        <form method="post" action="/sessions/<%= session.id %>/notes">
+          <div class="mb-3">
+            <label class="form-label small fw-semibold">Học viên</label>
+            <select class="form-select" name="studentId" required><option value="">-- Chọn học viên --</option><% session.students.forEach(student => { %><option value="<%= student.id %>"><%= student.fullName %></option><% }) %></select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label small fw-semibold">Nhóm nhận xét</label>
+            <select class="form-select" name="category"><% Object.entries(noteCategory).forEach(([value,label]) => { %><option value="<%= value %>"><%= label %></option><% }) %></select>
+          </div>
+          <div class="mb-3"><label class="form-label small fw-semibold">Nội dung</label><textarea class="form-control" name="note" rows="4" maxlength="3000" placeholder="Ví dụ: Chủ động phát biểu hơn, cần luyện thêm Listening..." required></textarea></div>
+          <div class="form-check mb-3"><input class="form-check-input" type="checkbox" name="isParentVisible" id="isParentVisible" checked><label class="form-check-label" for="isParentVisible">Cho phụ huynh xem nhận xét này</label></div>
+          <button class="btn btn-outline-primary w-100">Lưu nhận xét</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card app-card mt-4">
+  <div class="card-header"><strong>Nhận xét trong buổi học</strong><div class="small text-secondary"><%= session.recentNotes.length %> nhận xét đã ghi</div></div>
+  <% if (!session.recentNotes.length) { %><div class="card-body text-secondary">Chưa có nhận xét nào trong buổi học này.</div><% } else { %>
+    <div class="list-group list-group-flush">
+      <% session.recentNotes.forEach(note => { %>
+        <div class="list-group-item p-3 p-lg-4">
+          <div class="d-flex flex-column flex-md-row gap-2 justify-content-between">
+            <div><div class="fw-semibold"><%= note.studentName %> <span class="badge text-bg-light ms-1"><%= noteCategory[note.category] || note.category || 'Chung' %></span></div><div class="mt-2"><%= note.note %></div></div>
+            <div class="text-md-end small text-secondary text-nowrap"><%= new Date(note.createdAt).toLocaleDateString('vi-VN') %><div><%= note.isParentVisible === false ? 'Nội bộ giáo viên' : 'Phụ huynh có thể xem' %></div></div>
+          </div>
+        </div>
+      <% }) %>
+    </div>
+  <% } %>
+</div>
+<%- include('../partials/app-end') %>

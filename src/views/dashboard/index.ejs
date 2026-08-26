@@ -6,7 +6,7 @@
   </div>
   <div class="d-flex gap-2">
     <a href="/classes" class="btn btn-outline-primary">Xem lớp học</a>
-    <button class="btn btn-primary" disabled>+ Tạo bài tập</button>
+    <a class="btn btn-primary" href="/sessions/new">+ Tạo buổi học</a>
   </div>
 </div>
 
@@ -15,6 +15,27 @@
   <div class="col-6 col-xl-3"><div class="metric-card"><div class="metric-label">Học viên</div><div class="metric-value"><%= dashboard.studentCount %></div><div class="metric-meta">Đang hoạt động</div></div></div>
   <div class="col-6 col-xl-3"><div class="metric-card"><div class="metric-label">Bài đang mở</div><div class="metric-value"><%= dashboard.openAssignmentCount %></div><div class="metric-meta">Homework / Quiz</div></div></div>
   <div class="col-6 col-xl-3"><div class="metric-card"><div class="metric-label">Điểm TB</div><div class="metric-value"><%= dashboard.averageScore %></div><div class="metric-meta">Toàn bộ học viên</div></div></div>
+</div>
+
+<div class="card app-card mb-4">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <div><strong>Buổi học gần nhất / sắp tới</strong><div class="small text-secondary">Điểm danh và ghi nhận nhận xét ngay từ Dashboard</div></div>
+    <a href="/sessions" class="btn btn-sm btn-light">Tất cả buổi học</a>
+  </div>
+  <div class="card-body p-0">
+    <% if (!dashboard.sessions?.length) { %><div class="p-4 text-secondary">Chưa có lịch buổi học.</div><% } %>
+    <div class="list-group list-group-flush">
+      <% (dashboard.sessions || []).forEach(session => { %>
+        <a href="/sessions/<%= session.id %>" class="list-group-item list-group-item-action py-3 px-4">
+          <div class="d-flex flex-column flex-md-row align-items-md-center gap-2 gap-md-3">
+            <div class="session-mini-date"><strong><%= new Date(session.sessionDate).toLocaleDateString('vi-VN') %></strong><div class="small text-secondary"><%= session.startTime ? String(session.startTime).slice(0,5) : '--:--' %></div></div>
+            <div class="flex-grow-1"><div class="fw-semibold"><%= session.topic || 'Buổi học' %></div><div class="small text-secondary"><%= session.className %></div></div>
+            <span class="badge <%= session.status === 'COMPLETED' ? 'text-bg-success-subtle text-success-emphasis' : session.status === 'IN_PROGRESS' ? 'text-bg-warning-subtle text-warning-emphasis' : 'text-bg-primary-subtle text-primary-emphasis' %>"><%= session.status === 'COMPLETED' ? 'Đã xong' : session.status === 'IN_PROGRESS' ? 'Đang học' : 'Sắp tới' %></span>
+          </div>
+        </a>
+      <% }) %>
+    </div>
+  </div>
 </div>
 
 <div class="row g-4">

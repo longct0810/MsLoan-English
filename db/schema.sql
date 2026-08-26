@@ -140,4 +140,48 @@ CREATE INDEX IF NOT EXISTS idx_parent_students_parent ON parent_students(parent_
 CREATE INDEX IF NOT EXISTS idx_student_scores_student ON student_scores(student_id, recorded_at DESC);
 CREATE INDEX IF NOT EXISTS idx_materials_class ON materials(class_id, published_at DESC);
 
+
+-- v0.3.0 - Class sessions, attendance and session-linked student notes.
+CREATE TABLE IF NOT EXISTS class_sessions (
+  id BIGSERIAL PRIMARY KEY,
+  class_id BIGINT NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
+  teacher_id BIGINT REFERENCES users(id) ON DELETE SET NULL,
+  session_date DATE NOT NULL,
+  start_time TIME,
+  end_time TIME,
+  topic VARCHAR(250),
+  lesson_summary TEXT,
+  homework TEXT,
+  status VARCHAR(30) NOT NULL DEFAULT 'PLANNED'
+    CHECK (status IN ('PLANNED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED')),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS session_attendance (
+  session_id BIGINT NOT NULL REFERENCES class_sessions(id) ON DELETE CASCADE,
+  student_id BIGINT NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+  status VARCHAR(30) NOT NULL DEFAULT 'PRESENT'
+    CHECK (status IN ('PRESENT', 'LATE', 'ABSENT', 'ABSENT_EXCUSED', 'ONLINE')),
+  note VARCHAR(500),
+  marked_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (session_id, student_id)
+);
+
+ALTER TABLE teacher_notes
+  ADD COLUMN IF NOT EXISTS class_session_id BIGINT REFERENCES class_sessions(id) ON DELETE SET NULL;
+ALTER TABLE teacher_notes
+  ADD COLUMN IF NOT EXISTS category VARCHAR(30) NOT NULL DEFAULT 'GENERAL';
+ALTER TABLE teacher_notes
+  ADD COLUMN IF NOT EXISTS is_parent_visible BOOLEAN NOT NULL DEFAULT TRUE;
+
+CREATE INDEX IF NOT EXISTS idx_class_sessions_class_date
+  ON class_sessions(class_id, session_date DESC);
+CREATE INDEX IF NOT EXISTS idx_class_sessions_teacher_date
+  ON class_sessions(teacher_id, session_date DESC);
+CREATE INDEX IF NOT EXISTS idx_session_attendance_student
+  ON session_attendance(student_id, session_id);
+CREATE INDEX IF NOT EXISTS idx_teacher_notes_session
+  ON teacher_notes(class_session_id, created_at DESC);
+
 COMMIT;

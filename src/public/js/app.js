@@ -8,3 +8,13 @@ document.querySelectorAll('[data-table-search]').forEach((input) => {
     });
   });
 });
+
+document.querySelectorAll('[data-attendance-all]').forEach((button) => {
+  button.addEventListener('click', () => {
+    const form = button.closest('form') || document;
+    form.querySelectorAll('.attendance-status').forEach((select) => {
+      select.value = button.dataset.attendanceAll;
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+  });
+});

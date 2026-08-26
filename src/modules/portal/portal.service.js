@@ -16,6 +16,7 @@ function attendanceMeta(status) {
     LATE: { label: 'Đi muộn', className: 'text-bg-warning' },
     ABSENT: { label: 'Vắng', className: 'text-bg-danger' },
     ABSENT_EXCUSED: { label: 'Vắng có phép', className: 'text-bg-info' },
+    ONLINE: { label: 'Học online', className: 'text-bg-primary' },
   };
   return map[status] || { label: status, className: 'text-bg-secondary' };
 }
@@ -36,7 +37,13 @@ function enrich(snapshot) {
 async function getStudentPortal(userId) {
   const studentId = await repo.getStudentIdByUserId(userId);
   if (!studentId) return null;
-  return enrich(await repo.getStudentSnapshot(studentId));
+  const snapshot = enrich(await repo.getStudentSnapshot(studentId));
+  if (snapshot) {
+    // In MVP, notes not shared with parents are treated as teacher-internal notes.
+    snapshot.notes = snapshot.notes.filter((note) => note.isParentVisible !== false);
+    snapshot.latestNote = snapshot.notes[0] || null;
+  }
+  return snapshot;
 }
 
 async function getParentPortal(parentUserId, requestedStudentId) {
@@ -46,6 +53,10 @@ async function getParentPortal(parentUserId, requestedStudentId) {
   const allowedIds = new Set(children.map((c) => Number(c.id)));
   const selectedId = allowedIds.has(Number(requestedStudentId)) ? Number(requestedStudentId) : Number(children[0].id);
   const snapshot = enrich(await repo.getStudentSnapshot(selectedId));
+  if (snapshot) {
+    snapshot.notes = snapshot.notes.filter((note) => note.isParentVisible !== false);
+    snapshot.latestNote = snapshot.notes[0] || null;
+  }
   return { children, selected: children.find((c) => Number(c.id) === selectedId), snapshot };
 }
 

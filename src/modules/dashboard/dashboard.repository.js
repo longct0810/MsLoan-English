@@ -20,10 +20,14 @@ async function getSummary() {
         className: demoStore.classes.find((c) => c.id === a.classId)?.name || '',
       })),
       attention,
+      sessions: demoStore.classSessions
+        .map((session) => ({ ...session, className: demoStore.classes.find((c) => c.id === session.classId)?.name || '' }))
+        .sort((a, b) => `${a.sessionDate} ${a.startTime || ''}`.localeCompare(`${b.sessionDate} ${b.startTime || ''}`))
+        .slice(0, 4),
     };
   }
 
-  const [kpis, classes, assignments, attention] = await Promise.all([
+  const [kpis, classes, assignments, attention, sessions] = await Promise.all([
     pool.query(`
       SELECT
         (SELECT COUNT(*)::int FROM classes WHERE status = 'ACTIVE') AS "classCount",
@@ -52,6 +56,19 @@ async function getSummary() {
       WHERE COALESCE(sp.average_score, 0) < 7.2 OR COALESCE(sp.attendance_rate, 100) < 90
       ORDER BY sp.average_score NULLS FIRST LIMIT 5
     `),
+    pool.query(`
+      SELECT s.id,
+             s.session_date AS "sessionDate",
+             s.start_time AS "startTime",
+             s.topic,
+             s.status,
+             c.name AS "className"
+        FROM class_sessions s
+        JOIN classes c ON c.id = s.class_id
+       WHERE s.session_date >= CURRENT_DATE - INTERVAL '1 day'
+       ORDER BY s.session_date, s.start_time NULLS LAST
+       LIMIT 4
+    `),
   ]);
 
   return {
@@ -59,6 +76,7 @@ async function getSummary() {
     classes: classes.rows,
     assignments: assignments.rows,
     attention: attention.rows,
+    sessions: sessions.rows,
   };
 }
 

@@ -28,9 +28,31 @@ function buildStudentSnapshot(studentId) {
   const skills = demoStore.studentSkills.filter((s) => s.studentId === student.id);
   const notes = demoStore.teacherNotes
     .filter((n) => n.studentId === student.id)
+    .map((n) => ({
+      ...n,
+      sessionTopic: demoStore.classSessions.find((session) => session.id === n.classSessionId)?.topic || null,
+    }))
     .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-  const attendance = demoStore.attendanceRecords
+
+  const attendanceByDate = new Map();
+  demoStore.sessionAttendance
     .filter((a) => a.studentId === student.id)
+    .forEach((a) => {
+      const session = demoStore.classSessions.find((item) => item.id === a.sessionId);
+      if (!session) return;
+      attendanceByDate.set(session.sessionDate, {
+        date: session.sessionDate,
+        status: a.status,
+        topic: session.topic,
+        note: a.note || '',
+      });
+    });
+  demoStore.attendanceRecords
+    .filter((a) => a.studentId === student.id)
+    .forEach((a) => {
+      if (!attendanceByDate.has(a.date)) attendanceByDate.set(a.date, a);
+    });
+  const attendance = [...attendanceByDate.values()]
     .sort((a, b) => new Date(b.date) - new Date(a.date));
   const materials = demoStore.materials
     .filter((m) => student.classIds.includes(m.classId))
@@ -92,10 +114,41 @@ async function getStudentSnapshot(studentId) {
   const { rows: skills } = await pool.query(`
     SELECT skill, score::float AS score FROM student_skills WHERE student_id = $1 ORDER BY skill`, [studentId]);
   const { rows: notes } = await pool.query(`
-    SELECT id, note, created_at AS "createdAt", author_name AS author
-      FROM teacher_notes WHERE student_id = $1 ORDER BY created_at DESC`, [studentId]);
+    SELECT n.id,
+           n.note,
+           n.category,
+           n.is_parent_visible AS "isParentVisible",
+           n.created_at AS "createdAt",
+           n.author_name AS author,
+           cs.topic AS "sessionTopic"
+      FROM teacher_notes n
+      LEFT JOIN class_sessions cs ON cs.id = n.class_session_id
+     WHERE n.student_id = $1
+     ORDER BY n.created_at DESC, n.id DESC`, [studentId]);
   const { rows: attendance } = await pool.query(`
-    SELECT attendance_date AS date, status FROM attendance_records WHERE student_id = $1 ORDER BY attendance_date DESC`, [studentId]);
+    WITH session_rows AS (
+      SELECT cs.session_date AS date,
+             a.status,
+             cs.topic,
+             COALESCE(a.note, '') AS note
+        FROM session_attendance a
+        JOIN class_sessions cs ON cs.id = a.session_id
+       WHERE a.student_id = $1
+    ), legacy_rows AS (
+      SELECT ar.attendance_date AS date,
+             ar.status,
+             NULL::varchar AS topic,
+             ''::varchar AS note
+        FROM attendance_records ar
+       WHERE ar.student_id = $1
+         AND NOT EXISTS (
+           SELECT 1 FROM session_rows sr WHERE sr.date = ar.attendance_date
+         )
+    )
+    SELECT * FROM session_rows
+    UNION ALL
+    SELECT * FROM legacy_rows
+    ORDER BY date DESC`, [studentId]);
   const { rows: materials } = await pool.query(`
     SELECT m.id, m.unit_name AS unit, m.title, m.type, m.published_at AS "publishedAt"
       FROM materials m
