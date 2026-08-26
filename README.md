@@ -1,140 +1,149 @@
-# English Classroom MVP v0.2.1
+# English Classroom MVP v0.2.2
 
 Responsive web app cho lớp học tiếng Anh, xây dựng bằng Node.js + Express + EJS + Bootstrap + PostgreSQL.
 
-## Thay đổi v0.2.1
+## Thay đổi v0.2.2
 
-Toàn bộ cấu hình môi trường đã được gom về `.env` và đọc tập trung qua `src/config/env.js`.
+- Hỗ trợ `DATABASE_URL` cho Neon/hosted PostgreSQL.
+- Ưu tiên `DATABASE_URL`; nếu để trống sẽ fallback về `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`.
+- Hỗ trợ Neon pooled connection, SSL qua `sslmode=require` trong connection string.
+- Bật channel binding bằng `DB_CHANNEL_BINDING=true`.
+- Kiểm tra database khi startup bằng `DB_STARTUP_CHECK=true`.
+- Thêm `GET /health` và `GET /health/db`.
+- `db:init` dùng cùng cấu hình `DATABASE_URL`, vì vậy có thể khởi tạo schema/seed trực tiếp lên Neon.
 
-Các nhóm cấu hình hiện nằm trong `.env`:
-
-- Application: tên app, host, port, base URL, timezone, API prefix, body limit, trust proxy.
-- Frontend assets: Bootstrap CSS/JS CDN.
-- Session/cookie: secret, cookie name, thời gian sống, secure, sameSite, PostgreSQL session table.
-- Demo/seed: bật/tắt demo, hiển thị tài khoản demo, tài khoản giáo viên/học sinh/phụ huynh, bcrypt rounds, năm học mặc định.
-- PostgreSQL: host, port, database, user/password, SSL, pool size và timeout.
-- Docker PostgreSQL: image, container port, container name, volume name.
-
-> `.env` được cung cấp sẵn để chạy local. File này đã nằm trong `.gitignore`; khi đưa lên Git/production không commit secret thật.
-
-## Chạy nhanh
+## Cài đặt
 
 ```bash
 npm install
+cp .env.example .env
 npm run dev
 ```
 
-Mở URL được cấu hình tại:
+## Chạy với Neon
 
-```env
-APP_BASE_URL=http://localhost:3000
-```
-
-Nếu xóa `.env`, tạo lại từ mẫu:
-
-```bash
-cp .env.example .env
-```
-
-## Tài khoản demo
-
-Tài khoản demo không còn hard-code trong source. Chỉnh trực tiếp trong `.env`:
-
-```env
-DEMO_TEACHER_EMAIL=teacher@demo.local
-DEMO_TEACHER_PASSWORD=Teacher@123
-
-DEMO_STUDENT_EMAIL=student@demo.local
-DEMO_STUDENT_PASSWORD=Student@123
-
-DEMO_PARENT_EMAIL=parent@demo.local
-DEMO_PARENT_PASSWORD=Parent@123
-```
-
-Để ẩn tài khoản demo khỏi màn hình login:
-
-```env
-SHOW_DEMO_ACCOUNTS_ON_LOGIN=false
-```
-
-## Demo Mode
-
-```env
-DEMO_MODE=true
-```
-
-Không cần PostgreSQL, ứng dụng dùng dữ liệu mẫu trong `src/shared/demo-store.js`.
-
-## PostgreSQL thật
-
-Khởi động PostgreSQL bằng Docker:
-
-```bash
-docker compose up -d
-```
-
-Docker Compose dùng trực tiếp các biến trong `.env` như `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_PORT`, `POSTGRES_IMAGE`.
-
-Sau đó đổi:
+Trong `.env`:
 
 ```env
 DEMO_MODE=false
+DATABASE_URL=postgresql://<user>:<password>@<neon-pooler-host>/<database>?sslmode=require
+DB_CHANNEL_BINDING=true
+DB_STARTUP_CHECK=true
 ```
 
-Khởi tạo database:
+Sau đó khởi tạo database:
 
 ```bash
+npm run db:init
+```
+
+Rồi chạy ứng dụng:
+
+```bash
+npm start
+```
+
+Kiểm tra:
+
+```text
+GET /health
+GET /health/db
+```
+
+`/health/db` chỉ trả trạng thái kết nối và latency, không trả host/user/password/connection string.
+
+## Render.com
+
+Trong **Render Dashboard → Web Service → Environment**, tối thiểu cần đặt:
+
+```env
+NODE_ENV=production
+DEMO_MODE=false
+DATABASE_URL=<Neon pooled connection string>
+DB_CHANNEL_BINDING=true
+DB_STARTUP_CHECK=true
+TRUST_PROXY=1
+SESSION_SECURE=true
+```
+
+Ngoài ra giữ các biến cấu hình ứng dụng/session khác từ `.env.example`. Không đưa `DATABASE_URL` hoặc `.env` thật lên GitHub.
+
+### Build / Start
+
+```text
+Build Command: npm install
+Start Command: npm start
+```
+
+Nếu database Neon còn trống, chạy một lần từ máy local (với `DATABASE_URL` Neon trong `.env`):
+
+```bash
+npm run db:init
+```
+
+## PostgreSQL local
+
+Để dùng PostgreSQL local, để trống:
+
+```env
+DATABASE_URL=
+```
+
+và cấu hình:
+
+```env
+DB_HOST=127.0.0.1
+DB_PORT=5432
+DB_NAME=english_classroom
+DB_USER=postgres
+DB_PASSWORD=postgres
+DB_SSL=false
+```
+
+Có thể chạy PostgreSQL bằng Docker:
+
+```bash
+docker compose up -d
 npm run db:init
 npm run dev
 ```
 
-## Production gợi ý
+## Tài khoản seed
 
-Tối thiểu nên đổi:
+Các tài khoản seed lấy từ `.env`:
 
-```env
-NODE_ENV=production
-APP_BASE_URL=https://your-domain.example
-SESSION_SECRET=<chuoi-ngau-nhien-dai>
-SESSION_SECURE=true
-TRUST_PROXY=1
-SHOW_DEMO_ACCOUNTS_ON_LOGIN=false
-DEMO_MODE=false
-DB_PASSWORD=<mat-khau-manh>
-```
+- `DEMO_TEACHER_EMAIL` / `DEMO_TEACHER_PASSWORD`
+- `DEMO_STUDENT_EMAIL` / `DEMO_STUDENT_PASSWORD`
+- `DEMO_PARENT_EMAIL` / `DEMO_PARENT_PASSWORD`
 
-## Route chính
-
-### Teacher
-- `/dashboard`
-- `/classes`
-- `/students`
-
-### Student
-- `/student`
-- `/student/assignments`
-- `/student/materials`
-- `/student/progress`
-
-### Parent
-- `/parent`
-- `/parent/progress`
-
-## Kiến trúc cấu hình
+## Cấu trúc
 
 ```text
-.env
-  ↓
-src/config/env.js
-  ├── app
-  ├── assets
-  ├── session
-  ├── demo
-  ├── security
-  ├── academic
-  └── db
-       ↓
-Các module sử dụng config đã parse/validate
+src/
+├── config/
+│   ├── env.js
+│   └── db.js
+├── middleware/
+├── modules/
+│   ├── auth/
+│   ├── dashboard/
+│   ├── classes/
+│   ├── students/
+│   ├── portal/
+│   └── health/
+├── shared/
+├── public/
+├── views/
+├── app.js
+└── server.js
+
+db/schema.sql
+scripts/init-db.js
 ```
 
-Không đọc `process.env` trực tiếp rải rác trong các module.
+## Bảo mật
+
+- `.env` đã nằm trong `.gitignore`.
+- Không log `DATABASE_URL`.
+- Production nên đặt `SESSION_SECURE=true`, `TRUST_PROXY=1` và dùng `SESSION_SECRET` mạnh.
+- Nếu một database credential đã bị chia sẻ ở nơi không còn riêng tư, hãy rotate password/credential trên Neon và cập nhật `DATABASE_URL`.

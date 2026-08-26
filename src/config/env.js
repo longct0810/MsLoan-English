@@ -23,6 +23,11 @@ function number(name) {
   return value;
 }
 
+function optional(name, fallback = '') {
+  const value = process.env[name];
+  return value === undefined || value === '' ? fallback : value;
+}
+
 function trustProxy(name) {
   const value = required(name).trim().toLowerCase();
   if (['true', '1', 'yes', 'on'].includes(value)) return true;
@@ -88,18 +93,35 @@ const env = {
     defaultSchoolYear: required('DEFAULT_SCHOOL_YEAR'),
   },
   db: {
-    host: required('DB_HOST'),
-    port: number('DB_PORT'),
-    database: required('DB_NAME'),
-    user: required('DB_USER'),
-    password: required('DB_PASSWORD'),
-    ssl: bool('DB_SSL'),
-    sslRejectUnauthorized: bool('DB_SSL_REJECT_UNAUTHORIZED'),
-    poolMax: number('DB_POOL_MAX'),
-    idleTimeoutMs: number('DB_POOL_IDLE_TIMEOUT_MS'),
-    connectionTimeoutMs: number('DB_POOL_CONNECTION_TIMEOUT_MS'),
+    connectionString: optional('DATABASE_URL', null),
+    host: optional('DB_HOST', '127.0.0.1'),
+    port: Number(optional('DB_PORT', '5432')),
+    database: optional('DB_NAME', 'english_classroom'),
+    user: optional('DB_USER', 'postgres'),
+    password: optional('DB_PASSWORD', 'postgres'),
+    ssl: optional('DB_SSL', 'false').trim().toLowerCase() === 'true',
+    sslRejectUnauthorized: optional('DB_SSL_REJECT_UNAUTHORIZED', 'false').trim().toLowerCase() === 'true',
+    channelBinding: optional('DB_CHANNEL_BINDING', 'false').trim().toLowerCase() === 'true',
+    startupCheck: optional('DB_STARTUP_CHECK', 'true').trim().toLowerCase() === 'true',
+    poolMax: Number(optional('DB_POOL_MAX', '10')),
+    idleTimeoutMs: Number(optional('DB_POOL_IDLE_TIMEOUT_MS', '30000')),
+    connectionTimeoutMs: Number(optional('DB_POOL_CONNECTION_TIMEOUT_MS', '5000')),
   },
 };
+
+if (!env.db.connectionString) {
+  for (const [name, value] of [
+    ['DB_HOST', env.db.host],
+    ['DB_PORT', env.db.port],
+    ['DB_NAME', env.db.database],
+    ['DB_USER', env.db.user],
+    ['DB_PASSWORD', env.db.password],
+  ]) {
+    if (value === undefined || value === null || value === '') {
+      throw new Error(`Missing database environment variable: ${name}`);
+    }
+  }
+}
 
 process.env.TZ = env.app.timezone;
 

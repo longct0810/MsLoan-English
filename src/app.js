@@ -11,6 +11,7 @@ const dashboardRoutes = require('./modules/dashboard/dashboard.routes');
 const classRoutes = require('./modules/classes/class.routes');
 const studentRoutes = require('./modules/students/student.routes');
 const portalRoutes = require('./modules/portal/portal.routes');
+const healthRoutes = require('./modules/health/health.routes');
 
 const app = express();
 
@@ -55,6 +56,7 @@ app.get('/home', (req, res) => {
   res.redirect(req.session.user ? getRoleHome(req.session.user.role) : '/login');
 });
 
+app.use(healthRoutes);
 app.use(authRoutes);
 app.use(dashboardRoutes);
 app.use(classRoutes.web);
