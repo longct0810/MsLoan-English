@@ -7,8 +7,10 @@ const pool = new Pool({
   database: env.db.database,
   user: env.db.user,
   password: env.db.password,
-  ssl: env.db.ssl ? { rejectUnauthorized: false } : false,
-  max: 10,
+  ssl: env.db.ssl ? { rejectUnauthorized: env.db.sslRejectUnauthorized } : false,
+  max: env.db.poolMax,
+  idleTimeoutMillis: env.db.idleTimeoutMs,
+  connectionTimeoutMillis: env.db.connectionTimeoutMs,
 });
 
 module.exports = pool;

@@ -11,9 +11,9 @@
 <div class="app-shell">
   <aside class="sidebar d-none d-lg-flex flex-column">
     <a href="<%= homeUrl %>" class="brand text-decoration-none">
-      <span class="brand-mark">EC</span>
+      <span class="brand-mark"><%= appShortName %></span>
       <span>
-        <strong>English Classroom</strong>
+        <strong><%= appName %></strong>
         <small><%= workspaceLabel %></small>
       </span>
     </a>
@@ -58,7 +58,7 @@
     <nav class="navbar bg-white border-bottom sticky-top px-3 px-lg-4">
       <button class="btn btn-outline-secondary d-lg-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#mobileMenu">☰</button>
       <div class="ms-2 ms-lg-0">
-        <div class="text-secondary small">English Classroom</div>
+        <div class="text-secondary small"><%= appName %></div>
         <strong><%= title %></strong>
       </div>
       <div class="ms-auto d-flex align-items-center gap-2">
@@ -69,7 +69,7 @@
 
     <div class="offcanvas offcanvas-start" tabindex="-1" id="mobileMenu">
       <div class="offcanvas-header">
-        <h5 class="offcanvas-title">English Classroom</h5>
+        <h5 class="offcanvas-title"><%= appName %></h5>
         <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
       </div>
       <div class="offcanvas-body">

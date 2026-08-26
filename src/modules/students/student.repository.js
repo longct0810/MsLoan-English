@@ -3,7 +3,7 @@ const pool = require('../../config/db');
 const demoStore = require('../../shared/demo-store');
 
 async function findAll({ classId } = {}) {
-  if (env.demoMode) {
+  if (env.demo.enabled) {
     let students = demoStore.students;
     if (classId) students = students.filter((s) => s.classIds.includes(Number(classId)));
     return students.map((s) => ({

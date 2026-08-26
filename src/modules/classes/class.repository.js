@@ -3,7 +3,7 @@ const pool = require('../../config/db');
 const demoStore = require('../../shared/demo-store');
 
 async function findAll() {
-  if (env.demoMode) {
+  if (env.demo.enabled) {
     return demoStore.classes.map((c) => ({
       ...c,
       studentCount: demoStore.students.filter((s) => s.classIds.includes(c.id)).length,
@@ -31,7 +31,7 @@ async function findAll() {
 }
 
 async function findById(id) {
-  if (env.demoMode) {
+  if (env.demo.enabled) {
     const c = demoStore.classes.find((item) => item.id === Number(id));
     if (!c) return null;
     return {

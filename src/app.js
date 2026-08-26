@@ -16,30 +16,32 @@ const app = express();
 
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
+app.set('trust proxy', env.app.trustProxy);
 app.disable('x-powered-by');
 
-app.use(express.urlencoded({ extended: true }));
-app.use(express.json());
+app.use(express.urlencoded({ extended: true, limit: env.app.urlencodedLimit }));
+app.use(express.json({ limit: env.app.jsonLimit }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 const sessionOptions = {
-  secret: env.sessionSecret,
-  resave: false,
-  saveUninitialized: false,
+  name: env.session.cookieName,
+  secret: env.session.secret,
+  resave: env.session.resave,
+  saveUninitialized: env.session.saveUninitialized,
   cookie: {
-    httpOnly: true,
-    sameSite: 'lax',
-    secure: env.nodeEnv === 'production',
-    maxAge: 1000 * 60 * 60 * 8,
+    httpOnly: env.session.httpOnly,
+    sameSite: env.session.sameSite,
+    secure: env.session.secure,
+    maxAge: env.session.maxAgeMs,
   },
 };
 
-if (!env.demoMode) {
+if (!env.demo.enabled) {
   const PgSession = pgSessionFactory(session);
   sessionOptions.store = new PgSession({
     pool,
-    tableName: 'user_sessions',
-    createTableIfMissing: true,
+    tableName: env.session.tableName,
+    createTableIfMissing: env.session.createTableIfMissing,
   });
 }
 
@@ -58,8 +60,8 @@ app.use(dashboardRoutes);
 app.use(classRoutes.web);
 app.use(studentRoutes.web);
 app.use(portalRoutes);
-app.use('/api/v1', classRoutes.api);
-app.use('/api/v1', studentRoutes.api);
+app.use(env.app.apiPrefix, classRoutes.api);
+app.use(env.app.apiPrefix, studentRoutes.api);
 
 app.use((req, res) => {
   res.status(404).render('errors/404', { title: 'Không tìm thấy trang' });
@@ -67,12 +69,12 @@ app.use((req, res) => {
 
 app.use((err, req, res, next) => {
   console.error(err);
-  if (req.path.startsWith('/api/')) {
+  if (req.path.startsWith(`${env.app.apiPrefix}/`) || req.path === env.app.apiPrefix) {
     return res.status(500).json({ message: 'Internal server error' });
   }
   res.status(500).render('errors/500', {
     title: 'Có lỗi xảy ra',
-    error: env.nodeEnv === 'development' ? err : null,
+    error: env.app.nodeEnv === 'development' ? err : null,
   });
 });
 

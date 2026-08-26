@@ -1,34 +1,35 @@
 const bcrypt = require('bcryptjs');
+const env = require('../config/env');
 
 const demoStore = {
   users: [
     {
       id: 1,
-      fullName: 'Giáo viên Demo',
-      email: 'teacher@demo.local',
-      passwordHash: bcrypt.hashSync('Teacher@123', 10),
+      fullName: env.demo.teacher.fullName,
+      email: env.demo.teacher.email,
+      passwordHash: bcrypt.hashSync(env.demo.teacher.password, env.security.bcryptRounds),
       role: 'TEACHER',
     },
     {
       id: 2,
-      fullName: 'Lê Hoàng Nam',
-      email: 'student@demo.local',
-      passwordHash: bcrypt.hashSync('Student@123', 10),
+      fullName: env.demo.student.fullName,
+      email: env.demo.student.email,
+      passwordHash: bcrypt.hashSync(env.demo.student.password, env.security.bcryptRounds),
       role: 'STUDENT',
     },
     {
       id: 3,
-      fullName: 'Phụ huynh Demo',
-      email: 'parent@demo.local',
-      passwordHash: bcrypt.hashSync('Parent@123', 10),
+      fullName: env.demo.parent.fullName,
+      email: env.demo.parent.email,
+      passwordHash: bcrypt.hashSync(env.demo.parent.password, env.security.bcryptRounds),
       role: 'PARENT',
     },
   ],
   classes: [
-    { id: 1, name: 'English 6 - T2/T5', grade: 6, schoolYear: '2026-2027', schedule: 'Thứ 2, Thứ 5 • 17:30', status: 'ACTIVE' },
-    { id: 2, name: 'English 7 - T3/T6', grade: 7, schoolYear: '2026-2027', schedule: 'Thứ 3, Thứ 6 • 17:30', status: 'ACTIVE' },
-    { id: 3, name: 'English 8 - T2/T5', grade: 8, schoolYear: '2026-2027', schedule: 'Thứ 2, Thứ 5 • 19:00', status: 'ACTIVE' },
-    { id: 4, name: 'English 9 - T3/T6', grade: 9, schoolYear: '2026-2027', schedule: 'Thứ 3, Thứ 6 • 19:00', status: 'ACTIVE' },
+    { id: 1, name: 'English 6 - T2/T5', grade: 6, schoolYear: env.academic.defaultSchoolYear, schedule: 'Thứ 2, Thứ 5 • 17:30', status: 'ACTIVE' },
+    { id: 2, name: 'English 7 - T3/T6', grade: 7, schoolYear: env.academic.defaultSchoolYear, schedule: 'Thứ 3, Thứ 6 • 17:30', status: 'ACTIVE' },
+    { id: 3, name: 'English 8 - T2/T5', grade: 8, schoolYear: env.academic.defaultSchoolYear, schedule: 'Thứ 2, Thứ 5 • 19:00', status: 'ACTIVE' },
+    { id: 4, name: 'English 9 - T3/T6', grade: 9, schoolYear: env.academic.defaultSchoolYear, schedule: 'Thứ 3, Thứ 6 • 19:00', status: 'ACTIVE' },
   ],
   students: [
     { id: 1, fullName: 'Nguyễn Minh Anh', school: 'THCS Nguyễn Trãi', schoolClass: '6A2', parentPhone: '0900000001', status: 'ACTIVE', classIds: [1], averageScore: 8.6, attendanceRate: 96 },
@@ -87,8 +88,8 @@ const demoStore = {
     { studentId: 5, skill: 'Writing', score: 6.0 },
   ],
   teacherNotes: [
-    { id: 1, studentId: 3, note: 'Nam có tiến bộ ở Grammar. Cần luyện nghe 10–15 phút mỗi ngày và chủ động hơn trong phần Speaking.', createdAt: '2026-08-25', author: 'Giáo viên Demo' },
-    { id: 2, studentId: 5, note: 'Minh cần hoàn thành bài đúng hạn và ôn lại cấu trúc câu cơ bản. Listening đang là kỹ năng cần ưu tiên.', createdAt: '2026-08-24', author: 'Giáo viên Demo' },
+    { id: 1, studentId: 3, note: 'Nam có tiến bộ ở Grammar. Cần luyện nghe 10–15 phút mỗi ngày và chủ động hơn trong phần Speaking.', createdAt: '2026-08-25', author: env.demo.teacher.fullName },
+    { id: 2, studentId: 5, note: 'Minh cần hoàn thành bài đúng hạn và ôn lại cấu trúc câu cơ bản. Listening đang là kỹ năng cần ưu tiên.', createdAt: '2026-08-24', author: env.demo.teacher.fullName },
   ],
   attendanceRecords: [
     { studentId: 3, date: '2026-08-11', status: 'PRESENT' },

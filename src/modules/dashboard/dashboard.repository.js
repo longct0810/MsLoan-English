@@ -3,7 +3,7 @@ const pool = require('../../config/db');
 const demoStore = require('../../shared/demo-store');
 
 async function getSummary() {
-  if (env.demoMode) {
+  if (env.demo.enabled) {
     const avgScore = demoStore.students.reduce((sum, s) => sum + s.averageScore, 0) / demoStore.students.length;
     const attention = demoStore.students
       .filter((s) => s.averageScore < 7.2 || s.attendanceRate < 90)

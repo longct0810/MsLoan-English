@@ -3,7 +3,7 @@ const pool = require('../../config/db');
 const demoStore = require('../../shared/demo-store');
 
 async function findByEmail(email) {
-  if (env.demoMode) {
+  if (env.demo.enabled) {
     return demoStore.users.find((u) => u.email.toLowerCase() === email.toLowerCase()) || null;
   }
 

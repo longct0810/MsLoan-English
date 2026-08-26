@@ -1,6 +1,6 @@
 {
   "name": "english-classroom-mvp",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Responsive English classroom management web app",
   "main": "src/server.js",
   "scripts": {

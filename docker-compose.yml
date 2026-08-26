@@ -1,15 +1,16 @@
 services:
   postgres:
-    image: postgres:16
-    container_name: english-classroom-postgres
+    image: ${POSTGRES_IMAGE}
+    container_name: ${DOCKER_DB_CONTAINER_NAME}
     environment:
-      POSTGRES_DB: english_classroom
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
     ports:
-      - "5432:5432"
+      - "${DB_PORT}:${POSTGRES_CONTAINER_PORT}"
     volumes:
       - english_classroom_pgdata:/var/lib/postgresql/data
 
 volumes:
   english_classroom_pgdata:
+    name: ${DB_VOLUME_NAME}

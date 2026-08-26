@@ -2,36 +2,37 @@ const fs = require('fs/promises');
 const path = require('path');
 const bcrypt = require('bcryptjs');
 const pool = require('../src/config/db');
+const env = require('../src/config/env');
 
 async function main() {
   const schema = await fs.readFile(path.join(__dirname, '..', 'db', 'schema.sql'), 'utf8');
   await pool.query(schema);
 
-  const passwordHash = await bcrypt.hash('Teacher@123', 10);
+  const passwordHash = await bcrypt.hash(env.demo.teacher.password, env.security.bcryptRounds);
   const user = await pool.query(`
     INSERT INTO users (full_name, email, password_hash, role)
-    VALUES ('Giáo viên Demo', 'teacher@demo.local', $1, 'TEACHER')
+    VALUES ($2, $3, $1, 'TEACHER')
     ON CONFLICT (email) DO UPDATE SET password_hash = EXCLUDED.password_hash
     RETURNING id
-  `, [passwordHash]);
+  `, [passwordHash, env.demo.teacher.fullName, env.demo.teacher.email]);
   const teacherId = user.rows[0].id;
 
-  const studentPasswordHash = await bcrypt.hash('Student@123', 10);
+  const studentPasswordHash = await bcrypt.hash(env.demo.student.password, env.security.bcryptRounds);
   const studentUser = await pool.query(`
     INSERT INTO users (full_name, email, password_hash, role)
-    VALUES ('Lê Hoàng Nam', 'student@demo.local', $1, 'STUDENT')
+    VALUES ($2, $3, $1, 'STUDENT')
     ON CONFLICT (email) DO UPDATE SET password_hash = EXCLUDED.password_hash, role = 'STUDENT'
     RETURNING id
-  `, [studentPasswordHash]);
+  `, [studentPasswordHash, env.demo.student.fullName, env.demo.student.email]);
   const studentUserId = studentUser.rows[0].id;
 
-  const parentPasswordHash = await bcrypt.hash('Parent@123', 10);
+  const parentPasswordHash = await bcrypt.hash(env.demo.parent.password, env.security.bcryptRounds);
   const parentUser = await pool.query(`
     INSERT INTO users (full_name, email, password_hash, role)
-    VALUES ('Phụ huynh Demo', 'parent@demo.local', $1, 'PARENT')
+    VALUES ($2, $3, $1, 'PARENT')
     ON CONFLICT (email) DO UPDATE SET password_hash = EXCLUDED.password_hash, role = 'PARENT'
     RETURNING id
-  `, [parentPasswordHash]);
+  `, [parentPasswordHash, env.demo.parent.fullName, env.demo.parent.email]);
   const parentUserId = parentUser.rows[0].id;
 
   for (const grade of [6, 7, 8, 9]) {
@@ -48,15 +49,15 @@ async function main() {
   const classIds = {};
   for (const [grade, name, schedule] of classDefs) {
     const result = await pool.query(`
-      SELECT id FROM classes WHERE name = $1 AND school_year = '2026-2027' LIMIT 1
-    `, [name]);
+      SELECT id FROM classes WHERE name = $1 AND school_year = $2 LIMIT 1
+    `, [name, env.academic.defaultSchoolYear]);
     let id = result.rows[0]?.id;
     if (!id) {
       const inserted = await pool.query(`
         INSERT INTO classes (name, grade_id, teacher_id, school_year, schedule_text)
-        SELECT $1, id, $2, '2026-2027', $3 FROM grades WHERE grade_no = $4
+        SELECT $1, id, $2, $5, $3 FROM grades WHERE grade_no = $4
         RETURNING id
-      `, [name, teacherId, schedule, grade]);
+      `, [name, teacherId, schedule, grade, env.academic.defaultSchoolYear]);
       id = inserted.rows[0].id;
     }
     classIds[grade] = id;
@@ -65,7 +66,7 @@ async function main() {
   const students = [
     ['Nguyễn Minh Anh', 'THCS Nguyễn Trãi', '6A2', '0900000001', 6, 8.6, 96],
     ['Trần Gia Hân', 'THCS Lê Lợi', '6A1', '0900000002', 6, 7.8, 92],
-    ['Lê Hoàng Nam', 'THCS Văn Quán', '7A3', '0900000003', 7, 7.1, 88],
+    [env.demo.student.fullName, 'THCS Văn Quán', '7A3', '0900000003', 7, 7.1, 88],
     ['Phạm Khánh Linh', 'THCS Mỗ Lao', '7A1', '0900000004', 7, 9.0, 100],
     ['Vũ Đức Minh', 'THCS Nguyễn Du', '8A4', '0900000005', 8, 6.9, 84],
     ['Đỗ Ngọc Mai', 'THCS Nguyễn Trãi', '8A2', '0900000006', 8, 8.2, 95],
@@ -87,8 +88,8 @@ async function main() {
     await pool.query(`INSERT INTO student_progress_summary (student_id, average_score, attendance_rate) VALUES ($1,$2,$3) ON CONFLICT (student_id) DO UPDATE SET average_score=EXCLUDED.average_score, attendance_rate=EXCLUDED.attendance_rate, updated_at=NOW()`, [studentId, score, attendance]);
   }
 
-  await pool.query(`INSERT INTO student_accounts (user_id, student_id) VALUES ($1,$2) ON CONFLICT (user_id) DO UPDATE SET student_id=EXCLUDED.student_id`, [studentUserId, studentIds['Lê Hoàng Nam']]);
-  await pool.query(`INSERT INTO parent_students (parent_user_id, student_id, relationship) VALUES ($1,$2,'Bố/Mẹ') ON CONFLICT DO NOTHING`, [parentUserId, studentIds['Lê Hoàng Nam']]);
+  await pool.query(`INSERT INTO student_accounts (user_id, student_id) VALUES ($1,$2) ON CONFLICT (user_id) DO UPDATE SET student_id=EXCLUDED.student_id`, [studentUserId, studentIds[env.demo.student.fullName]]);
+  await pool.query(`INSERT INTO parent_students (parent_user_id, student_id, relationship) VALUES ($1,$2,'Bố/Mẹ') ON CONFLICT DO NOTHING`, [parentUserId, studentIds[env.demo.student.fullName]]);
   await pool.query(`INSERT INTO parent_students (parent_user_id, student_id, relationship) VALUES ($1,$2,'Bố/Mẹ') ON CONFLICT DO NOTHING`, [parentUserId, studentIds['Vũ Đức Minh']]);
 
   const assignmentCount = await pool.query('SELECT COUNT(*)::int AS count FROM assignments');
@@ -118,7 +119,7 @@ async function main() {
     `, [classId, title, teacherId, days, type]);
   }
 
-  const namId = studentIds['Lê Hoàng Nam'];
+  const namId = studentIds[env.demo.student.fullName];
   const minhId = studentIds['Vũ Đức Minh'];
   const class7Assignments = await pool.query(`SELECT id, title FROM assignments WHERE class_id=$1 ORDER BY id`, [classIds[7]]);
   const grammarAssignment = class7Assignments.rows.find((a) => a.title === 'Unit 2 - Grammar');
@@ -156,8 +157,8 @@ async function main() {
     }
   }
 
-  await pool.query(`INSERT INTO teacher_notes (student_id,note,author_name,created_at) SELECT $1,$2,'Giáo viên Demo','2026-08-25' WHERE NOT EXISTS (SELECT 1 FROM teacher_notes WHERE student_id=$1 AND created_at='2026-08-25')`, [namId, 'Nam có tiến bộ ở Grammar. Cần luyện nghe 10–15 phút mỗi ngày và chủ động hơn trong phần Speaking.']);
-  await pool.query(`INSERT INTO teacher_notes (student_id,note,author_name,created_at) SELECT $1,$2,'Giáo viên Demo','2026-08-24' WHERE NOT EXISTS (SELECT 1 FROM teacher_notes WHERE student_id=$1 AND created_at='2026-08-24')`, [minhId, 'Minh cần hoàn thành bài đúng hạn và ôn lại cấu trúc câu cơ bản. Listening đang là kỹ năng cần ưu tiên.']);
+  await pool.query(`INSERT INTO teacher_notes (student_id,note,author_name,created_at) SELECT $1,$2,$3,'2026-08-25' WHERE NOT EXISTS (SELECT 1 FROM teacher_notes WHERE student_id=$1 AND created_at='2026-08-25')`, [namId, 'Nam có tiến bộ ở Grammar. Cần luyện nghe 10–15 phút mỗi ngày và chủ động hơn trong phần Speaking.', env.demo.teacher.fullName]);
+  await pool.query(`INSERT INTO teacher_notes (student_id,note,author_name,created_at) SELECT $1,$2,$3,'2026-08-24' WHERE NOT EXISTS (SELECT 1 FROM teacher_notes WHERE student_id=$1 AND created_at='2026-08-24')`, [minhId, 'Minh cần hoàn thành bài đúng hạn và ôn lại cấu trúc câu cơ bản. Listening đang là kỹ năng cần ưu tiên.', env.demo.teacher.fullName]);
 
   for (const [studentId, date, status] of [
     [namId,'2026-08-11','PRESENT'],[namId,'2026-08-14','PRESENT'],[namId,'2026-08-18','LATE'],[namId,'2026-08-21','PRESENT'],[namId,'2026-08-25','PRESENT'],
@@ -178,9 +179,9 @@ async function main() {
   }
 
   console.log('Database initialized.');
-  console.log('Teacher: teacher@demo.local / Teacher@123');
-  console.log('Student: student@demo.local / Student@123');
-  console.log('Parent: parent@demo.local / Parent@123');
+  console.log(`Teacher: ${env.demo.teacher.email} / ${env.demo.teacher.password}`);
+  console.log(`Student: ${env.demo.student.email} / ${env.demo.student.password}`);
+  console.log(`Parent: ${env.demo.parent.email} / ${env.demo.parent.password}`);
 }
 
 main().catch((err) => {

@@ -40,7 +40,7 @@ function buildStudentSnapshot(studentId) {
 }
 
 async function getStudentIdByUserId(userId) {
-  if (env.demoMode) {
+  if (env.demo.enabled) {
     return demoStore.studentAccounts.find((x) => x.userId === Number(userId))?.studentId || null;
   }
   const { rows } = await pool.query(
@@ -51,7 +51,7 @@ async function getStudentIdByUserId(userId) {
 }
 
 async function getStudentSnapshot(studentId) {
-  if (env.demoMode) return buildStudentSnapshot(studentId);
+  if (env.demo.enabled) return buildStudentSnapshot(studentId);
 
   const { rows: studentRows } = await pool.query(`
     SELECT s.id, s.full_name AS "fullName", s.school, s.school_class AS "schoolClass",
@@ -106,7 +106,7 @@ async function getStudentSnapshot(studentId) {
 }
 
 async function getChildrenByParentUserId(parentUserId) {
-  if (env.demoMode) {
+  if (env.demo.enabled) {
     return demoStore.parentStudents
       .filter((x) => x.parentUserId === Number(parentUserId))
       .map((x) => ({ ...demoStore.students.find((s) => s.id === x.studentId), relationship: x.relationship }))
