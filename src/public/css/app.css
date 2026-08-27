@@ -127,3 +127,29 @@ body { color: #252a34; }
 .teacher-feedback { background: #eef8f1; border: 1px solid #cfe9d8; border-radius: 12px; padding: 14px; color: #245b38; }
 .grade-form { width: min(320px, 100%); flex: 0 0 auto; }
 @media (max-width: 991.98px) { .grade-form { width: 100%; } .assignment-progress { width: 100px; } }
+
+/* v0.5.0 - question bank and online exams */
+.exam-hero, .result-hero {
+  border: 1px solid var(--app-border);
+  border-radius: 20px;
+  background: linear-gradient(135deg, #fff 0%, #f2f5ff 100%);
+}
+.question-pick-row { cursor: pointer; transition: background .15s ease; }
+.question-pick-row:hover { background: #f8f9fc; }
+.exam-question-picker { max-height: 650px; overflow-y: auto; }
+.exam-question-preview + .exam-question-preview { border-top: 1px solid var(--app-border); }
+.exam-timer {
+  min-width: 88px; padding: 7px 12px; border-radius: 10px; text-align: center;
+  background: #202737; color: #fff; font-weight: 800; font-variant-numeric: tabular-nums;
+}
+.exam-option {
+  display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px;
+  border: 1px solid var(--app-border); border-radius: 12px; cursor: pointer;
+}
+.exam-option:hover { background: #f8f9fc; border-color: #cfd5e5; }
+.exam-option:has(input:checked) { background: var(--app-primary-soft); border-color: #b7c0f5; }
+.exam-question-card { scroll-margin-top: 165px; }
+@media (max-width: 767.98px) {
+  .exam-taking-bar { top: 72px !important; }
+  .exam-question-card .card-body { padding: 18px !important; }
+}

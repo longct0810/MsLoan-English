@@ -1,0 +1,12 @@
+const express=require('express');
+const controller=require('./question.controller');
+const {requireRole,requireApiRole}=require('../../middleware/auth.middleware');
+const web=express.Router();
+web.get('/questions',requireRole('TEACHER','ADMIN'),controller.index);
+web.get('/questions/new',requireRole('TEACHER','ADMIN'),controller.newForm);
+web.post('/questions',requireRole('TEACHER','ADMIN'),controller.create);
+web.get('/questions/:id/edit',requireRole('TEACHER','ADMIN'),controller.editForm);
+web.post('/questions/:id/update',requireRole('TEACHER','ADMIN'),controller.update);
+web.post('/questions/:id/publish',requireRole('TEACHER','ADMIN'),controller.publish);
+const api=express.Router(); api.get('/questions',requireApiRole('TEACHER','ADMIN'),controller.apiList);
+module.exports={web,api};

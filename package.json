@@ -1,7 +1,7 @@
 {
   "name": "english-classroom-mvp",
-  "version": "0.4.0",
-  "description": "Responsive English classroom management web app - lessons, materials, assignments and grading",
+  "version": "0.5.0",
+  "description": "Responsive English classroom management web app - question bank, online exams and auto grading",
   "main": "src/server.js",
   "scripts": {
     "dev": "node --watch src/server.js",

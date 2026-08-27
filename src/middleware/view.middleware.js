@@ -11,6 +11,8 @@ function injectViewData(req, res, next) {
   res.locals.demoMode = env.demo.enabled;
   res.locals.showDemoAccounts = env.demo.enabled && env.demo.showAccountsOnLogin;
   res.locals.demoAccounts = env.demo;
+  res.locals.examConfig = env.exam;
+  res.locals.questionConfig = env.question;
   next();
 }
 

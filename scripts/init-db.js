@@ -315,6 +315,93 @@ async function main() {
     `, [classId, lessonId || null, title, unit, description, resourceUrl, teacherId]);
   }
 
+
+  // v0.5.0: seed Question Bank and an online exam for Grade 7.
+  const grade7 = await pool.query(`SELECT id FROM grades WHERE grade_no=7 LIMIT 1`);
+  const grade7Id = grade7.rows[0]?.id;
+  const seededQuestionIds = [];
+
+  async function ensureQuestion({ stem, type, correctAnswer = '', difficulty = 'MEDIUM', points = 1, explanation = '', options = [] }) {
+    let found = await pool.query(`SELECT id FROM questions WHERE grade_id=$1 AND stem=$2 LIMIT 1`, [grade7Id, stem]);
+    let questionId = found.rows[0]?.id;
+    if (!questionId) {
+      const created = await pool.query(`
+        INSERT INTO questions
+          (grade_id,lesson_id,created_by,question_type,stem,correct_answer,explanation,difficulty,default_points,status)
+        VALUES ($1,$2,$3,$4,$5,NULLIF($6,''),NULLIF($7,''),$8,$9,'PUBLISHED')
+        RETURNING id
+      `, [grade7Id, lessonIds['Healthy Living'] || null, teacherId, type, stem, correctAnswer, explanation, difficulty, points]);
+      questionId = created.rows[0].id;
+    } else {
+      await pool.query(`
+        UPDATE questions
+           SET lesson_id=$2, created_by=COALESCE(created_by,$3), question_type=$4,
+               correct_answer=NULLIF($5,''), explanation=NULLIF($6,''), difficulty=$7,
+               default_points=$8, status='PUBLISHED', updated_at=NOW()
+         WHERE id=$1
+      `, [questionId, lessonIds['Healthy Living'] || null, teacherId, type, correctAnswer, explanation, difficulty, points]);
+    }
+    for (let i = 0; i < options.length; i += 1) {
+      const [key, text, isCorrect] = options[i];
+      await pool.query(`
+        INSERT INTO question_options (question_id,option_key,option_text,is_correct,sort_order)
+        VALUES ($1,$2,$3,$4,$5)
+        ON CONFLICT (question_id,option_key)
+        DO UPDATE SET option_text=EXCLUDED.option_text,is_correct=EXCLUDED.is_correct,sort_order=EXCLUDED.sort_order
+      `, [questionId, key, text, isCorrect, i + 1]);
+    }
+    seededQuestionIds.push(questionId);
+    return questionId;
+  }
+
+  await ensureQuestion({
+    stem: 'Yesterday, she ___ to the park with her friends.', type: 'MULTIPLE_CHOICE', difficulty: 'EASY', points: 1,
+    explanation: 'Past Simple của go là went.',
+    options: [['A','go',false],['B','went',true],['C','goes',false],['D','going',false]],
+  });
+  await ensureQuestion({
+    stem: 'Getting enough sleep is a healthy habit.', type: 'TRUE_FALSE', difficulty: 'EASY', points: 1,
+    explanation: 'Ngủ đủ giấc là một thói quen tốt cho sức khỏe.',
+    options: [['A','True',true],['B','False',false]],
+  });
+  await ensureQuestion({
+    stem: 'Complete the sentence: I ___ my grandparents last weekend. (visit)', type: 'FILL_BLANK',
+    correctAnswer: 'visited', difficulty: 'MEDIUM', points: 1,
+    explanation: 'Động từ visit ở Past Simple thêm -ed.',
+  });
+  await ensureQuestion({
+    stem: 'Which word is closest in meaning to “healthy”?', type: 'MULTIPLE_CHOICE', difficulty: 'MEDIUM', points: 1,
+    explanation: 'Healthy có nghĩa là khỏe mạnh / good for your health.',
+    options: [['A','good for your health',true],['B','very expensive',false],['C','difficult to learn',false],['D','very noisy',false]],
+  });
+  await ensureQuestion({
+    stem: 'Complete: She ___ not go to school yesterday. (do)', type: 'FILL_BLANK', correctAnswer: 'did',
+    difficulty: 'HARD', points: 2, explanation: 'Phủ định Past Simple dùng did not + V.',
+  });
+
+  let examResult = await pool.query(`SELECT id FROM exams WHERE class_id=$1 AND title='Unit 2 Online Quiz' LIMIT 1`, [classIds[7]]);
+  let demoExamId = examResult.rows[0]?.id;
+  if (!demoExamId) {
+    examResult = await pool.query(`
+      INSERT INTO exams
+        (class_id,title,description,instructions,duration_minutes,start_at,end_at,max_attempts,show_result,status,created_by,published_at)
+      VALUES ($1,'Unit 2 Online Quiz','Kiểm tra nhanh Past Simple và Healthy Living.',
+              'Đọc kỹ câu hỏi. Hệ thống tự động lưu đáp án.',20,NOW()-INTERVAL '1 day',NOW()+INTERVAL '30 day',2,TRUE,'PUBLISHED',$2,NOW())
+      RETURNING id
+    `, [classIds[7], teacherId]);
+    demoExamId = examResult.rows[0].id;
+  }
+  for (let i = 0; i < seededQuestionIds.length; i += 1) {
+    const qId = seededQuestionIds[i];
+    const pointRes = await pool.query(`SELECT default_points FROM questions WHERE id=$1`, [qId]);
+    await pool.query(`
+      INSERT INTO exam_questions (exam_id,question_id,sort_order,points)
+      VALUES ($1,$2,$3,$4)
+      ON CONFLICT (exam_id,question_id)
+      DO UPDATE SET sort_order=EXCLUDED.sort_order,points=EXCLUDED.points
+    `, [demoExamId, qId, i + 1, pointRes.rows[0]?.default_points || 1]);
+  }
+
   console.log('Database initialized.');
   console.log(`Teacher: ${env.demo.teacher.email} / ${env.demo.teacher.password}`);
   console.log(`Student: ${env.demo.student.email} / ${env.demo.student.password}`);

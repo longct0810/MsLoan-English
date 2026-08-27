@@ -1,73 +1,98 @@
-# English Classroom MVP v0.4.0
+# English Classroom MVP v0.5.0
 
 Responsive web app cho lớp học tiếng Anh, xây dựng bằng Node.js + Express + EJS + Bootstrap + PostgreSQL/Neon.
 
-## Thay đổi v0.4.0
+## Thay đổi chính v0.5.0
 
-### Bài học & tài liệu
+### Question Bank
 
-- Giáo viên xem danh sách bài học theo lớp/trạng thái.
-- Tạo bài học theo `Class → Unit → Lesson`.
-- Nội dung gồm: tên bài, Unit, mô tả ngắn, nội dung chi tiết, thứ tự.
-- Bài học có trạng thái `DRAFT / PUBLISHED / ARCHIVED`.
-- Chỉnh sửa bài học.
-- Xuất bản bài học.
-- Thêm tài liệu vào bài học: PDF, Audio, Video, Link, Flashcard, Image.
-- Tài liệu hỗ trợ mô tả và `resource_url`.
-- Từ bài học có thể tạo bài tập liên quan.
+- Ngân hàng câu hỏi dùng lại cho nhiều bài kiểm tra.
+- Hỗ trợ 3 loại câu hỏi:
+  - `MULTIPLE_CHOICE` - trắc nghiệm 2–4 lựa chọn.
+  - `TRUE_FALSE` - đúng/sai.
+  - `FILL_BLANK` - điền từ/câu trả lời ngắn.
+- Phân loại theo khối 6/7/8/9, bài học, độ khó và trạng thái.
+- Điểm mặc định cho từng câu.
+- Giải thích đáp án.
+- Lưu nháp, chỉnh sửa và xuất bản.
 
-### Bài tập & chấm bài
+### Exam Builder
 
-- Giáo viên tạo bài tập theo lớp và tùy chọn gắn với một bài học.
-- Loại: `HOMEWORK / PRACTICE / QUIZ`.
-- Có mô tả, yêu cầu làm bài, hạn nộp và điểm tối đa.
-- Bài tập tạo ở trạng thái nháp trước khi giao cho lớp.
-- Chỉnh sửa bài tập, hạn nộp, yêu cầu và điểm tối đa.
-- Theo dõi số học sinh đã nộp / tổng số / đã chấm.
-- Xem bài làm của từng học sinh.
-- Chấm điểm và nhập phản hồi.
-- Khi chấm, điểm được đồng bộ sang `student_scores` và tính lại `student_progress_summary.average_score`.
+- Giáo viên tạo bài kiểm tra theo lớp.
+- Chọn câu hỏi đã xuất bản từ Question Bank.
+- Hệ thống lọc câu hỏi theo khối của lớp ở UI và kiểm tra lại ở server.
+- Cấu hình:
+  - thời lượng làm bài;
+  - thời gian mở/đóng đề;
+  - số lần làm tối đa;
+  - có/không hiển thị đáp án sau khi nộp.
+- Bài kiểm tra được tạo ở trạng thái `DRAFT`.
+- Có thể sửa đề khi còn là bản nháp.
+- Xuất bản và đóng đề.
+- Teacher view hiển thị số lượt nộp, điểm trung bình và kết quả từng học sinh.
 
-### Student Portal
+### Student Online Exam
 
-- Nút “Làm bài/Xem bài” hoạt động thật.
-- Học sinh xem chi tiết đề bài.
-- Nhập nội dung và nộp bài.
-- Hệ thống tự đánh dấu `SUBMITTED` hoặc `LATE` theo hạn nộp.
-- Sau khi giáo viên chấm, học sinh xem điểm và phản hồi.
-- Bài đã chấm được khóa nộp lại trong MVP.
-- Tài liệu học tập có thể mở `resource_url` nếu giáo viên đã cấu hình.
+- Danh sách bài kiểm tra dành riêng cho lớp của học sinh.
+- Bắt đầu / tiếp tục lượt làm bài.
+- Countdown theo thời gian làm bài.
+- Tự động lưu từng đáp án qua API.
+- Khôi phục đáp án khi reload trang.
+- Tự nộp khi hết giờ.
+- Server từ chối lưu đáp án sau khi hết thời gian.
+- Hỗ trợ nhiều lần làm theo cấu hình đề.
 
-### Version trên giao diện
+### Auto grading
 
-Version lấy từ `package.json` và hiển thị tại:
+- Tự chấm:
+  - Multiple Choice;
+  - True / False;
+  - Fill Blank (so sánh không phân biệt hoa/thường và bỏ khoảng trắng đầu/cuối).
+- Lưu `is_correct` và điểm từng câu.
+- Tính tổng điểm bài kiểm tra.
+- Ghi kết quả vào `student_scores` với category `EXAM`.
+- Tính lại `student_progress_summary.average_score`.
+- Nếu giáo viên cho phép, học sinh xem:
+  - câu đúng/sai;
+  - đáp án đúng;
+  - điểm từng câu;
+  - giải thích đáp án.
 
-- Navbar.
-- Sidebar.
-- Footer.
-- Trang đăng nhập.
+### Version
 
-Có thể override bằng `APP_VERSION` trong `.env`; để trống sẽ tự lấy `package.json.version`.
+Version lấy tự động từ `package.json`:
 
-## Luồng chức năng hiện tại
+```json
+"version": "0.5.0"
+```
+
+Hiển thị tại Login / Navbar / Sidebar / Footer và `/health`, `/health/db`.
+
+## Luồng hiện tại
 
 ```text
 Teacher
   │
-  ├── Class
-  │    ├── Class Session → Attendance → Student Note
-  │    ├── Lesson → Material
-  │    └── Assignment → Submission → Grade / Feedback
+  ├── Class Session → Attendance → Student Note
+  ├── Lesson → Material
+  ├── Assignment → Submission → Manual Grade
+  └── Question Bank
+          ↓
+      Exam Builder
+          ↓
+      Publish Exam
+          ↓
+Student Portal
   │
-  ├───────────────────────────────────────┐
-  ▼                                       ▼
-Student Portal                        Parent Portal
-  │                                       │
-  ├── Materials                           ├── Progress
-  ├── Assignments                         ├── Attendance
-  ├── Submit answer                       ├── Assignment status
-  ├── Grade / feedback                    └── Teacher notes
-  └── Progress
+  ├── Start Exam
+  ├── Countdown
+  ├── Autosave Answer
+  ├── Submit / Auto Submit
+  └── Result / Explanation
+          ↓
+     Student Scores
+          ↓
+ Student / Parent Progress
 ```
 
 ## Công nghệ
@@ -76,34 +101,96 @@ Student Portal                        Parent Portal
 - Express 5
 - EJS
 - Bootstrap 5
-- PostgreSQL
-- Neon PostgreSQL qua `DATABASE_URL`
+- PostgreSQL / Neon PostgreSQL
+- `pg`
 - `express-session` + `connect-pg-simple`
 
-## Cập nhật từ v0.3.0 lên v0.4.0
+## Upgrade Neon từ v0.4.x lên v0.5.0
 
-Không cần xóa database Neon hiện tại.
-
-Sau khi cập nhật source:
-
-```bash
-npm install
-npm run db:migrate
-npm start
-```
-
-`db/schema.sql` sử dụng `CREATE TABLE IF NOT EXISTS`, `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` và index idempotent.
-
-Ngoài ra có 2 file cho Neon SQL Editor:
+Cách khuyến nghị trên Render:
 
 ```text
-db/neon_upgrade_v0.4.0.sql      # DB đã có dữ liệu v0.3.x
-db/neon_init_v0.4.0_demo.sql    # DB mới: schema + toàn bộ demo data
+Build Command: npm install && npm run db:migrate
+Start Command: npm start
 ```
 
-Không dùng file `init` trên database production đã có dữ liệu thật; với DB hiện tại nên ưu tiên `upgrade` hoặc `npm run db:migrate`.
+Hoặc chạy thủ công trong Neon SQL Editor:
 
-## Render.com
+```text
+db/neon_upgrade_v0.5.0.sql
+```
+
+Script không `DROP TABLE` và không xóa dữ liệu cũ.
+
+Nếu DB hiện tại đã nâng schema và anh muốn thêm riêng demo Question Bank/Exam của v0.5.0, chạy một lần:
+
+```text
+db/neon_seed_v0.5.0_demo.sql
+```
+
+Nếu tạo database mới hoàn toàn và muốn có demo data:
+
+```text
+db/neon_init_v0.5.0_demo.sql
+```
+
+## Database mới v0.5.0
+
+```text
+questions
+question_options
+exams
+exam_questions
+exam_attempts
+exam_answers
+```
+
+Mở rộng:
+
+```text
+student_scores
+  + exam_id
+```
+
+## Routes v0.5.0
+
+### Teacher - Question Bank
+
+```text
+GET  /questions
+GET  /questions/new
+POST /questions
+GET  /questions/:id/edit
+POST /questions/:id/update
+POST /questions/:id/publish
+GET  /api/v1/questions
+```
+
+### Teacher - Exams
+
+```text
+GET  /exams
+GET  /exams/new
+POST /exams
+GET  /exams/:id
+GET  /exams/:id/edit
+POST /exams/:id/update
+POST /exams/:id/publish
+POST /exams/:id/close
+```
+
+### Student - Exams
+
+```text
+GET  /student/exams
+POST /student/exams/:id/start
+GET  /student/exam-attempts/:id
+POST /student/exam-attempts/:id/submit
+GET  /student/exam-attempts/:id/result
+POST /api/v1/exam-attempts/:id/answers
+```
+
+## Render + Neon
 
 Environment tối thiểu:
 
@@ -115,89 +202,24 @@ DB_CHANNEL_BINDING=true
 DB_STARTUP_CHECK=true
 TRUST_PROXY=1
 SESSION_SECURE=true
+
+# Có thể override nếu cần
+EXAM_DEFAULT_DURATION_MINUTES=30
+EXAM_MAX_DURATION_MINUTES=360
+EXAM_DEFAULT_MAX_ATTEMPTS=1
+EXAM_MAX_ATTEMPTS=10
+EXAM_AUTOSAVE_DEBOUNCE_MS=500
+QUESTION_DEFAULT_POINTS=1
+QUESTION_MAX_POINTS=100
 ```
 
-Không commit `.env` lên GitHub.
+Không commit `.env` lên GitHub. Các biến mới có giá trị fallback trong code nên Render cũ vẫn chạy nếu chưa khai báo chúng.
 
-Build / Start:
-
-```text
-Build Command: npm install && npm run db:migrate
-Start Command: npm start
-```
-
-Sau khi push GitHub, nếu Render bật Auto Deploy thì source mới được deploy tự động và migration sẽ bổ sung schema v0.4.0.
-
-## Routes mới v0.4.0
-
-### Teacher - Lessons
+Sau deploy kiểm tra:
 
 ```text
-GET  /lessons
-GET  /lessons/new
-POST /lessons
-GET  /lessons/:id
-GET  /lessons/:id/edit
-POST /lessons/:id/update
-POST /lessons/:id/publish
-POST /lessons/:id/materials
-
-GET  /api/v1/lessons
-```
-
-### Teacher - Assignments
-
-```text
-GET  /assignments
-GET  /assignments/new
-POST /assignments
-GET  /assignments/:id
-GET  /assignments/:id/edit
-POST /assignments/:id/update
-POST /assignments/:id/publish
-POST /assignments/:id/submissions/:studentId/grade
-
-GET  /api/v1/assignments
-```
-
-### Student
-
-```text
-GET  /student/assignments/:id
-POST /student/assignments/:id/submit
-```
-
-## Database v0.4.0
-
-Bảng mới:
-
-```text
-lessons
-```
-
-Mở rộng:
-
-```text
-materials
-  + lesson_id
-  + description
-  + resource_url
-  + status
-  + created_by
-
-assignments
-  + lesson_id
-  + instructions
-  + max_score
-  + published_at
-
-assignment_submissions
-  + submission_text
-  + teacher_feedback
-  + updated_at
-
-student_scores
-  + assignment_id
+GET /health
+GET /health/db
 ```
 
 ## Cài local
@@ -209,25 +231,7 @@ npm run db:init
 npm run dev
 ```
 
-Mở:
-
-```text
-http://localhost:3000
-```
-
-## PostgreSQL local
-
-Nếu không dùng Neon:
-
-```env
-DATABASE_URL=
-DB_HOST=127.0.0.1
-DB_PORT=5432
-DB_NAME=english_classroom
-DB_USER=postgres
-DB_PASSWORD=postgres
-DB_SSL=false
-```
+Mở `http://localhost:3000`.
 
 ## Cấu trúc module
 
@@ -238,22 +242,22 @@ src/modules/
 ├── classes/
 ├── students/
 ├── sessions/
-├── lessons/          # v0.4.0
-├── assignments/      # v0.4.0
+├── lessons/
+├── assignments/
+├── questions/       # v0.5.0
+├── exams/           # v0.5.0
 ├── portal/
 └── health/
 ```
 
-## Các module dự kiến tiếp theo
+## Hướng tiếp theo
 
-Phiên bản sau nên tập trung vào:
+Ưu tiên cho v0.6.0:
 
-1. Question Bank.
-2. Câu hỏi Multiple Choice / True-False / Fill Blank.
-3. Exam Builder.
-4. Student Exam UI + countdown/autosave.
-5. Auto grading.
-6. Báo cáo lớp/học viên.
-7. Notification.
-8. File Storage thực tế (S3/R2/MinIO) thay cho URL thủ công.
-9. CSRF protection, audit log và quản lý nhiều giáo viên.
+1. Báo cáo lớp/học sinh và phân tích kết quả theo kỹ năng/chủ đề.
+2. Import câu hỏi từ Excel/CSV.
+3. Reading passage + nhóm câu hỏi chung.
+4. Listening question có audio.
+5. Notification cho học sinh/phụ huynh.
+6. File Storage thực tế S3/R2/MinIO.
+7. CSRF protection, audit log và quản lý nhiều giáo viên.

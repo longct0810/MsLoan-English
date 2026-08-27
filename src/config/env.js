@@ -94,6 +94,18 @@ const env = {
   academic: {
     defaultSchoolYear: required('DEFAULT_SCHOOL_YEAR'),
   },
+  exam: {
+    defaultDurationMinutes: Number(optional('EXAM_DEFAULT_DURATION_MINUTES', '30')),
+    maxDurationMinutes: Number(optional('EXAM_MAX_DURATION_MINUTES', '360')),
+    defaultMaxAttempts: Number(optional('EXAM_DEFAULT_MAX_ATTEMPTS', '1')),
+    maxAttempts: Number(optional('EXAM_MAX_ATTEMPTS', '10')),
+    defaultShowResult: optional('EXAM_DEFAULT_SHOW_RESULT', 'true').trim().toLowerCase() === 'true',
+    autosaveDebounceMs: Number(optional('EXAM_AUTOSAVE_DEBOUNCE_MS', '500')),
+  },
+  question: {
+    defaultPoints: Number(optional('QUESTION_DEFAULT_POINTS', '1')),
+    maxPoints: Number(optional('QUESTION_MAX_POINTS', '100')),
+  },
   db: {
     connectionString: optional('DATABASE_URL', null),
     host: optional('DB_HOST', '127.0.0.1'),

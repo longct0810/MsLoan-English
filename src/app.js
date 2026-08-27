@@ -15,6 +15,8 @@ const portalRoutes = require('./modules/portal/portal.routes');
 const healthRoutes = require('./modules/health/health.routes');
 const lessonRoutes = require('./modules/lessons/lesson.routes');
 const assignmentRoutes = require('./modules/assignments/assignment.routes');
+const questionRoutes = require('./modules/questions/question.routes');
+const examRoutes = require('./modules/exams/exam.routes');
 
 const app = express();
 
@@ -67,12 +69,16 @@ app.use(studentRoutes.web);
 app.use(sessionRoutes.web);
 app.use(lessonRoutes.web);
 app.use(assignmentRoutes.web);
+app.use(questionRoutes.web);
+app.use(examRoutes.web);
 app.use(portalRoutes);
 app.use(env.app.apiPrefix, classRoutes.api);
 app.use(env.app.apiPrefix, studentRoutes.api);
 app.use(env.app.apiPrefix, sessionRoutes.api);
 app.use(env.app.apiPrefix, lessonRoutes.api);
 app.use(env.app.apiPrefix, assignmentRoutes.api);
+app.use(env.app.apiPrefix, questionRoutes.api);
+app.use(env.app.apiPrefix, examRoutes.api);
 
 app.use((req, res) => {
   res.status(404).render('errors/404', { title: 'Không tìm thấy trang' });

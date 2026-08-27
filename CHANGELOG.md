@@ -1,5 +1,21 @@
 # Changelog
 
+## v0.5.0
+
+- Thêm Question Bank với Multiple Choice, True/False và Fill Blank.
+- Phân loại câu hỏi theo khối, bài học, độ khó, điểm và trạng thái.
+- Thêm Exam Builder theo lớp và ngân hàng câu hỏi.
+- Bài kiểm tra hỗ trợ thời lượng, thời gian mở/đóng, số lần làm và chế độ hiển thị kết quả.
+- Cho phép sửa đề khi còn DRAFT, xuất bản và đóng đề.
+- Thêm Student Exam UI, countdown và autosave từng đáp án.
+- Tự động nộp khi hết thời gian; server chặn lưu đáp án quá hạn.
+- Auto grading cho trắc nghiệm, đúng/sai và điền từ.
+- Lưu kết quả vào student_scores và cập nhật điểm trung bình.
+- Học sinh xem đáp án/giải thích nếu đề cho phép.
+- Thêm schema questions, question_options, exams, exam_questions, exam_attempts, exam_answers.
+- Thêm `student_scores.exam_id`.
+- Thêm `db/neon_upgrade_v0.5.0.sql` và `db/neon_init_v0.5.0_demo.sql`.
+
 ## v0.4.0
 
 - Thêm quản lý Bài học theo lớp / Unit.

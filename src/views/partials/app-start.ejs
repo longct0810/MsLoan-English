@@ -26,7 +26,8 @@
         <a class="nav-link <%= currentPath.startsWith('/sessions') ? 'active' : '' %>" href="/sessions">Buổi học & điểm danh</a>
         <a class="nav-link <%= currentPath.startsWith('/lessons') ? 'active' : '' %>" href="/lessons">Bài học & tài liệu</a>
         <a class="nav-link <%= currentPath.startsWith('/assignments') ? 'active' : '' %>" href="/assignments">Bài tập & chấm bài</a>
-        <a class="nav-link disabled" href="#">Kiểm tra</a>
+        <a class="nav-link <%= currentPath.startsWith('/questions') ? 'active' : '' %>" href="/questions">Ngân hàng câu hỏi</a>
+        <a class="nav-link <%= currentPath.startsWith('/exams') ? 'active' : '' %>" href="/exams">Kiểm tra</a>
         <a class="nav-link disabled" href="#">Báo cáo</a>
       <% } %>
 
@@ -35,7 +36,7 @@
         <a class="nav-link <%= currentPath.startsWith('/student/assignments') ? 'active' : '' %>" href="/student/assignments">Bài tập</a>
         <a class="nav-link <%= currentPath.startsWith('/student/materials') ? 'active' : '' %>" href="/student/materials">Tài liệu</a>
         <a class="nav-link <%= currentPath.startsWith('/student/progress') ? 'active' : '' %>" href="/student/progress">Tiến độ</a>
-        <a class="nav-link disabled" href="#">Kiểm tra <span class="badge text-bg-light ms-auto">Soon</span></a>
+        <a class="nav-link <%= currentPath.startsWith('/student/exams') || currentPath.startsWith('/student/exam-attempts') ? 'active' : '' %>" href="/student/exams">Kiểm tra</a>
       <% } %>
 
       <% if (isParent) { %>
@@ -84,12 +85,15 @@
             <a class="nav-link" href="/sessions">Buổi học & điểm danh</a>
             <a class="nav-link" href="/lessons">Bài học & tài liệu</a>
             <a class="nav-link" href="/assignments">Bài tập & chấm bài</a>
+            <a class="nav-link" href="/questions">Ngân hàng câu hỏi</a>
+            <a class="nav-link" href="/exams">Kiểm tra</a>
           <% } %>
           <% if (isStudent) { %>
             <a class="nav-link" href="/student">Trang chủ</a>
             <a class="nav-link" href="/student/assignments">Bài tập</a>
             <a class="nav-link" href="/student/materials">Tài liệu</a>
             <a class="nav-link" href="/student/progress">Tiến độ</a>
+            <a class="nav-link" href="/student/exams">Kiểm tra</a>
           <% } %>
           <% if (isParent) { %>
             <a class="nav-link" href="/parent">Tổng quan</a>
