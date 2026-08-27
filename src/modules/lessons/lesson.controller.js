@@ -13,24 +13,24 @@ function messageFor(error) {
 
 async function index(req, res, next) {
   try {
-    const data = await service.list(req.query);
+    const data = await service.list(req.query, req.session.user.id, req.session.user.role === 'ADMIN');
     res.render('lessons/index', { title: 'Bài học & tài liệu', ...data, filters: req.query });
   } catch (error) { next(error); }
 }
 
 async function newForm(req, res, next) {
   try {
-    res.render('lessons/new', { title: 'Tạo bài học', ...(await service.newForm()), error: null, values: {} });
+    res.render('lessons/new', { title: 'Tạo bài học', ...(await service.newForm(req.session.user.id, req.session.user.role === 'ADMIN')), error: null, values: {} });
   } catch (error) { next(error); }
 }
 
 async function create(req, res, next) {
   try {
-    const lesson = await service.create(req.body, req.session.user.id);
+    const lesson = await service.create(req.body, req.session.user.id, req.session.user.role === 'ADMIN');
     res.redirect(`/lessons/${lesson.id}?created=1`);
   } catch (error) {
     if (['TITLE_REQUIRED', 'CLASS_REQUIRED', 'CLASS_NOT_FOUND'].includes(error.message)) {
-      const data = await service.newForm();
+      const data = await service.newForm(req.session.user.id, req.session.user.role === 'ADMIN');
       return res.status(400).render('lessons/new', { title: 'Tạo bài học', ...data, error: messageFor(error), values: req.body });
     }
     next(error);
@@ -40,7 +40,7 @@ async function create(req, res, next) {
 
 async function editForm(req, res, next) {
   try {
-    const data = await service.editForm(req.params.id);
+    const data = await service.editForm(req.params.id, req.session.user.id, req.session.user.role === 'ADMIN');
     if (!data.lesson) return res.status(404).render('errors/404', { title: 'Không tìm thấy bài học' });
     res.render('lessons/edit', { title: `Sửa ${data.lesson.title}`, ...data, error: null, values: data.lesson });
   } catch (error) { next(error); }
@@ -48,12 +48,12 @@ async function editForm(req, res, next) {
 
 async function update(req, res, next) {
   try {
-    await service.update(req.params.id, req.body);
+    await service.update(req.params.id, req.body, req.session.user.id, req.session.user.role === 'ADMIN');
     res.redirect(`/lessons/${req.params.id}?updated=1`);
   } catch (error) {
     if (error.message === 'LESSON_NOT_FOUND') return res.status(404).render('errors/404', { title: 'Không tìm thấy bài học' });
     if (['TITLE_REQUIRED','CLASS_REQUIRED','CLASS_NOT_FOUND'].includes(error.message)) {
-      const data = await service.editForm(req.params.id);
+      const data = await service.editForm(req.params.id, req.session.user.id, req.session.user.role === 'ADMIN');
       if (!data.lesson) return res.status(404).render('errors/404', { title: 'Không tìm thấy bài học' });
       return res.status(400).render('lessons/edit', { title: `Sửa ${data.lesson.title}`, ...data, error: messageFor(error), values: req.body });
     }
@@ -63,7 +63,7 @@ async function update(req, res, next) {
 
 async function detail(req, res, next) {
   try {
-    const lesson = await service.detail(req.params.id);
+    const lesson = await service.detail(req.params.id, req.session.user.id, req.session.user.role === 'ADMIN');
     if (!lesson) return res.status(404).render('errors/404', { title: 'Không tìm thấy bài học' });
     const message = req.query.created ? 'Đã tạo bài học.' : (req.query.updated ? 'Đã cập nhật bài học.' : (req.query.published ? 'Đã xuất bản bài học.' : null));
     res.render('lessons/detail', { title: lesson.title, lesson, message, error: null });
@@ -72,18 +72,18 @@ async function detail(req, res, next) {
 
 async function publish(req, res, next) {
   try {
-    await service.publish(req.params.id);
+    await service.publish(req.params.id, req.session.user.id, req.session.user.role === 'ADMIN');
     res.redirect(`/lessons/${req.params.id}?published=1`);
   } catch (error) { next(error); }
 }
 
 async function addMaterial(req, res, next) {
   try {
-    await service.addMaterial(req.params.id, req.body, req.session.user.id);
+    await service.addMaterial(req.params.id, req.body, req.session.user.id, req.session.user.role === 'ADMIN');
     res.redirect(`/lessons/${req.params.id}#materials`);
   } catch (error) {
     if (['MATERIAL_TITLE_REQUIRED', 'INVALID_RESOURCE_URL'].includes(error.message)) {
-      const lesson = await service.detail(req.params.id);
+      const lesson = await service.detail(req.params.id, req.session.user.id, req.session.user.role === 'ADMIN');
       if (!lesson) return res.status(404).render('errors/404', { title: 'Không tìm thấy bài học' });
       return res.status(400).render('lessons/detail', { title: lesson.title, lesson, message: null, error: messageFor(error) });
     }
@@ -92,7 +92,7 @@ async function addMaterial(req, res, next) {
 }
 
 async function apiList(req, res, next) {
-  try { res.json({ data: (await service.list(req.query)).lessons }); } catch (error) { next(error); }
+  try { res.json({ data: (await service.list(req.query, req.session.user.id, req.session.user.role === 'ADMIN')).lessons }); } catch (error) { next(error); }
 }
 
 module.exports = { index, newForm, create, editForm, update, detail, publish, addMaterial, apiList };

@@ -44,7 +44,7 @@ async function findAll(filters = {}) {
   if (difficulty) { params.push(difficulty); where.push(`q.difficulty = $${params.length}`); }
   if (status) { params.push(status); where.push(`q.status = $${params.length}`); }
   const { rows } = await pool.query(`
-    SELECT q.id, q.grade_id AS "gradeId", g.grade_no AS grade, q.lesson_id AS "lessonId",
+    SELECT q.id, q.grade_id AS "gradeId", g.grade_no AS grade, q.lesson_id AS "lessonId", q.created_by AS "createdBy",
            l.title AS "lessonTitle", q.question_type AS "questionType", q.stem,
            q.correct_answer AS "correctAnswer", q.explanation, q.difficulty,
            q.default_points::float AS "defaultPoints", q.status, q.created_at AS "createdAt",
@@ -69,7 +69,7 @@ async function findPublishedForExam(gradeIdValue = null) {
   const where = [`q.status='PUBLISHED'`];
   if (gradeId) { params.push(gradeId); where.push(`q.grade_id=$${params.length}`); }
   const { rows } = await pool.query(`
-    SELECT q.id, q.grade_id AS "gradeId", g.grade_no AS grade, q.lesson_id AS "lessonId", l.title AS "lessonTitle",
+    SELECT q.id, q.grade_id AS "gradeId", g.grade_no AS grade, q.lesson_id AS "lessonId", q.created_by AS "createdBy", l.title AS "lessonTitle",
            q.question_type AS "questionType", q.stem, q.difficulty, q.default_points::float AS "defaultPoints"
       FROM questions q
       LEFT JOIN grades g ON g.id=q.grade_id
@@ -88,7 +88,7 @@ async function findById(value) {
     return question ? demoDecorate(question) : null;
   }
   const { rows } = await pool.query(`
-    SELECT q.id, q.grade_id AS "gradeId", g.grade_no AS grade, q.lesson_id AS "lessonId", l.title AS "lessonTitle",
+    SELECT q.id, q.grade_id AS "gradeId", g.grade_no AS grade, q.lesson_id AS "lessonId", q.created_by AS "createdBy", l.title AS "lessonTitle",
            q.question_type AS "questionType", q.stem, q.correct_answer AS "correctAnswer",
            q.explanation, q.difficulty, q.default_points::float AS "defaultPoints", q.status,
            q.created_at AS "createdAt", q.updated_at AS "updatedAt"

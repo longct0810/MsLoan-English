@@ -17,6 +17,8 @@ body { color: #252a34; }
 .sidebar .nav-link { display: flex; align-items: center; color: #646b7b; padding: 10px 12px; border-radius: 10px; font-weight: 500; }
 .sidebar .nav-link:hover { background: #f6f7fb; color: #2d3340; }
 .sidebar .nav-link.active { background: var(--app-primary-soft); color: var(--app-primary); font-weight: 700; }
+.nav-section-label { padding: 8px 12px 3px; color: #a0a6b3; font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.offcanvas .nav-section-label { padding-left: 0; }
 .sidebar-bottom { padding: 14px; background: #f8f9fc; border-radius: 12px; }
 .app-main { min-height: 100vh; }
 @media (min-width: 992px) { .app-main { margin-left: var(--sidebar-width); } }
@@ -52,6 +54,10 @@ body { color: #252a34; }
   .metric-card { padding: 16px; }
   .table-search { max-width: 180px; }
   .login-intro { min-height: auto; }
+}
+
+@media (max-width: 991.98px) {
+  .offcanvas .nav-link.active { color: var(--app-primary); background: var(--app-primary-soft); font-weight: 700; }
 }
 
 /* v0.2 portals */

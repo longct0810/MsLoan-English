@@ -1,12 +1,20 @@
 const env = require('../../config/env');
 const repo = require('./question.repository');
 const { parseQuestionFile, buildTemplateBuffer } = require('./question.import');
+const classService = require('../classes/class.service');
 
 const TYPES = ['MULTIPLE_CHOICE','TRUE_FALSE','FILL_BLANK','ESSAY'];
 const DIFFICULTIES = ['EASY','MEDIUM','HARD'];
 const STATUSES = ['DRAFT','PUBLISHED'];
 
 function clean(v){ return String(v ?? '').trim(); }
+async function canAccess(question, userId, isAdmin = false) {
+  if (!question) return false;
+  if (isAdmin || Number(question.createdBy) === Number(userId)) return true;
+  if (!question.lessonId) return false;
+  const lesson = (await repo.findLessons()).find((item) => Number(item.id) === Number(question.lessonId));
+  return Boolean(lesson && await classService.getClassDetail(lesson.classId, userId, false));
+}
 function token(value){
   return clean(value).toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/Đ/g,'D').replace(/[^A-Z0-9]+/g,'_').replace(/^_+|_+$/g,'');
 }
@@ -62,11 +70,11 @@ function parse(body){
   });
 }
 
-async function list(filters){const [questions,grades]=await Promise.all([repo.findAll(filters),repo.findGrades()]);return{questions,grades,filters};}
-async function form(id=null){const [grades,lessons,question]=await Promise.all([repo.findGrades(),repo.findLessons(),id?repo.findById(id):Promise.resolve(null)]);return{grades,lessons,question};}
+async function list(filters,userId,isAdmin=false){const [all,grades]=await Promise.all([repo.findAll(filters),repo.findGrades()]);const questions=[];for(const question of all)if(await canAccess(question,userId,isAdmin))questions.push(question);return{questions,grades,filters};}
+async function form(id=null,userId,isAdmin=false){const [grades,lessons,rawQuestion]=await Promise.all([repo.findGrades(),repo.findLessons(),id?repo.findById(id):Promise.resolve(null)]);const question=rawQuestion&&await canAccess(rawQuestion,userId,isAdmin)?rawQuestion:null;return{grades,lessons,question};}
 async function create(body,userId){return repo.create(parse(body),userId);}
-async function update(id,body){return repo.update(id,parse(body));}
-async function publish(id){const q=await repo.findById(id);if(!q)throw new Error('QUESTION_NOT_FOUND');if(['MULTIPLE_CHOICE','TRUE_FALSE'].includes(q.questionType)&&!q.options.some((o)=>o.isCorrect))throw new Error('QUESTION_NO_CORRECT_ANSWER');if(q.questionType==='FILL_BLANK'&&!clean(q.correctAnswer))throw new Error('QUESTION_NO_CORRECT_ANSWER');return repo.publish(id);}
+async function update(id,body,userId,isAdmin=false){if(!await canAccess(await repo.findById(id),userId,isAdmin))throw new Error('QUESTION_NOT_FOUND');return repo.update(id,parse(body));}
+async function publish(id,userId,isAdmin=false){const q=await repo.findById(id);if(!await canAccess(q,userId,isAdmin))throw new Error('QUESTION_NOT_FOUND');if(['MULTIPLE_CHOICE','TRUE_FALSE'].includes(q.questionType)&&!q.options.some((o)=>o.isCorrect))throw new Error('QUESTION_NO_CORRECT_ANSWER');if(q.questionType==='FILL_BLANK'&&!clean(q.correctAnswer))throw new Error('QUESTION_NO_CORRECT_ANSWER');return repo.publish(id);}
 
 function importError(rowNo, message){ return { rowNo, message }; }
 function humanImportError(code){

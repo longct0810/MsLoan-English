@@ -1,4 +1,9 @@
 const repo = require('./assignment.repository');
+const classService = require('../classes/class.service');
+
+async function canAccess(assignment, userId, isAdmin) {
+  return Boolean(assignment && (isAdmin || await classService.getClassDetail(assignment.classId, userId, false)));
+}
 
 function clean(value) { return String(value || '').trim(); }
 
@@ -20,23 +25,27 @@ function statusMeta(status) {
   return map[status] || { label: status, className: 'text-bg-secondary' };
 }
 
-async function list(filters) {
-  const [assignments, classes] = await Promise.all([repo.findAll(filters), repo.findClasses()]);
+async function list(filters, userId, isAdmin = false) {
+  const classes = isAdmin ? await repo.findClasses() : await classService.getClasses(userId, false);
+  const allowed = new Set(classes.map((item) => Number(item.id)));
+  const assignments = (await repo.findAll(filters)).filter((item) => isAdmin || allowed.has(Number(item.classId)));
   return { assignments, classes };
 }
 
-async function newForm(query = {}) {
-  const [classes, lessons] = await Promise.all([repo.findClasses(), repo.findLessons()]);
+async function newForm(query = {}, userId, isAdmin = false) {
+  const classes = isAdmin ? await repo.findClasses() : await classService.getClasses(userId, false);
+  const lessons = await repo.findLessons();
   return { classes, lessons };
 }
 
-async function create(body, userId) {
+async function create(body, userId, isAdmin = false) {
   const classId = Number(body.classId);
   const lessonId = body.lessonId ? Number(body.lessonId) : null;
   const title = clean(body.title);
   const maxScore = Number(body.maxScore || 10);
   if (!Number.isInteger(classId) || classId <= 0) throw new Error('CLASS_REQUIRED');
   if (!title) throw new Error('TITLE_REQUIRED');
+  if (!await classService.getClassDetail(classId, userId, isAdmin)) throw new Error('CLASS_NOT_FOUND');
   if (!Number.isFinite(maxScore) || maxScore <= 0 || maxScore > 1000) throw new Error('INVALID_MAX_SCORE');
   return repo.create({
     classId,
@@ -51,15 +60,15 @@ async function create(body, userId) {
 }
 
 
-async function editForm(id) {
-  const assignment = await repo.findById(id);
+async function editForm(id, userId, isAdmin = false) {
+  const assignment = await detail(id, userId, isAdmin);
   if (!assignment) return { assignment: null, classes: [], lessons: [] };
-  const [classes, lessons] = await Promise.all([repo.findClasses(), repo.findLessons()]);
+  const [classes, lessons] = await Promise.all([newForm({}, userId, isAdmin).then((data) => data.classes), repo.findLessons()]);
   return { assignment, classes, lessons };
 }
 
-async function update(id, body) {
-  const existing = await repo.findById(id);
+async function update(id, body, userId, isAdmin = false) {
+  const existing = await detail(id, userId, isAdmin);
   if (!existing) throw new Error('ASSIGNMENT_NOT_FOUND');
   const classId = Number(existing.classId);
   const lessonId = body.lessonId ? Number(body.lessonId) : null;
@@ -79,8 +88,9 @@ async function update(id, body) {
   });
 }
 
-async function detail(id) {
+async function detail(id, userId, isAdmin = false) {
   const assignment = await repo.findById(id);
+  if (!await canAccess(assignment, userId, isAdmin)) return null;
   if (assignment) {
     assignment.students = assignment.students.map((student) => ({
       ...student,
@@ -90,10 +100,13 @@ async function detail(id) {
   return assignment;
 }
 
-async function publish(id) { return repo.publish(id); }
+async function publish(id, userId, isAdmin = false) {
+  if (!await detail(id, userId, isAdmin)) throw new Error('ASSIGNMENT_NOT_FOUND');
+  return repo.publish(id);
+}
 
-async function grade(id, studentId, body) {
-  const assignment = await repo.findById(id);
+async function grade(id, studentId, body, userId, isAdmin = false) {
+  const assignment = await detail(id, userId, isAdmin);
   if (!assignment) throw new Error('ASSIGNMENT_NOT_FOUND');
   const score = Number(body.score);
   if (!Number.isFinite(score) || score < 0 || score > Number(assignment.maxScore)) throw new Error('INVALID_SCORE');

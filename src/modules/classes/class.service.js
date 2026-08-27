@@ -17,11 +17,11 @@ function validate(data) {
   if (!data.schoolYear) errors.push('Năm học là bắt buộc.');
   return errors;
 }
-async function getClasses() { return repo.findAll(); }
+async function getClasses(actorUserId = null, isAdmin = false) { return repo.findAll(actorUserId, isAdmin); }
 async function getGrades() { return repo.findGrades(); }
-async function getClassDetail(id) { return repo.findById(id); }
-async function getFormData(id = null) {
-  const [classItem, grades] = await Promise.all([id ? repo.findById(id) : null, repo.findGrades()]);
+async function getClassDetail(id, actorUserId = null, isAdmin = false) { return repo.findById(id, actorUserId, isAdmin); }
+async function getFormData(id = null, actorUserId = null, isAdmin = false) {
+  const [classItem, grades] = await Promise.all([id ? repo.findById(id, actorUserId, isAdmin) : null, repo.findGrades()]);
   return { classItem, grades };
 }
 async function createClass(body, actorUserId) {
@@ -30,11 +30,11 @@ async function createClass(body, actorUserId) {
   try { return { classItem: await repo.create(data, actorUserId), data }; }
   catch (error) { return { errors: [error.message], data }; }
 }
-async function updateClass(id, body) {
+async function updateClass(id, body, actorUserId, isAdmin = false) {
   const data = normalize(body); const errors = validate(data);
   if (errors.length) return { errors, data };
-  try { return { classItem: await repo.update(id, data), data }; }
+  try { return { classItem: await repo.update(id, data, actorUserId, isAdmin), data }; }
   catch (error) { return { errors: [error.message], data }; }
 }
-async function deleteClass(id) { return repo.softDelete(id); }
+async function deleteClass(id, actorUserId, isAdmin = false) { return repo.softDelete(id, actorUserId, isAdmin); }
 module.exports = { getClasses, getGrades, getClassDetail, getFormData, createClass, updateClass, deleteClass };

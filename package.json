@@ -1,13 +1,14 @@
 {
   "name": "english-classroom-mvp",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "description": "Responsive English classroom management web app - student and class CRUD with linked student-parent accounts",
   "main": "src/server.js",
   "scripts": {
     "dev": "node --watch src/server.js",
     "start": "node src/server.js",
     "db:init": "node scripts/init-db.js",
-    "db:migrate": "node scripts/migrate-db.js"
+    "db:migrate": "node scripts/migrate-db.js",
+    "test": "node --test test/*.test.js"
   },
   "engines": {
     "node": ">=20"

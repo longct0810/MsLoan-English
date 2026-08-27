@@ -1,4 +1,4 @@
-# English Classroom MVP v0.7.0
+# English Classroom MVP v0.8.0
 
 Website responsive quản lý lớp học tiếng Anh dành cho giáo viên, học viên và phụ huynh.
 
@@ -10,7 +10,7 @@ Website responsive quản lý lớp học tiếng Anh dành cho giáo viên, h�
 - `pg`, `bcryptjs`, `express-session`, `connect-pg-simple`
 - ExcelJS + Multer cho import Question Bank
 
-## Chức năng chính đến v0.7.0
+## Chức năng chính đến v0.8.0
 
 ### Teacher Portal
 - Dashboard.
@@ -32,6 +32,16 @@ Website responsive quản lý lớp học tiếng Anh dành cho giáo viên, h�
 ### Parent Portal
 - Theo dõi nhiều con trên cùng một tài khoản phụ huynh.
 - Điểm, chuyên cần, bài tập và nhận xét giáo viên.
+
+### Bảo mật và trải nghiệm v0.8.0
+- CSRF token theo session cho form và API request.
+- Chặn request thay đổi dữ liệu từ origin/referer khác với host ứng dụng.
+- Regenerate session sau khi đăng nhập.
+- Giáo viên chỉ xem và thay đổi lớp do mình phụ trách; ADMIN vẫn có quyền toàn cục.
+- Lessons, assignments, questions và exams cũng được kiểm tra ownership trước khi xem hoặc thay đổi.
+- Exam chỉ cho phép chọn question bank thuộc phạm vi của actor.
+- Navigation được nhóm theo lớp học và nội dung/đánh giá, có trạng thái active trên mobile.
+- `npm test` kiểm tra các lớp bảo mật nền tảng.
 
 ## Luồng tạo học viên v0.7.0
 

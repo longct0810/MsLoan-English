@@ -19,8 +19,14 @@ async function login(req, res, next) {
       });
     }
 
-    req.session.user = user;
-    res.redirect(getRoleHome(user.role));
+    req.session.regenerate((error) => {
+      if (error) return next(error);
+      req.session.user = user;
+      req.session.save((saveError) => {
+        if (saveError) return next(saveError);
+        res.redirect(getRoleHome(user.role));
+      });
+    });
   } catch (error) {
     next(error);
   }

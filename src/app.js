@@ -5,6 +5,7 @@ const pgSessionFactory = require('connect-pg-simple');
 const env = require('./config/env');
 const pool = require('./config/db');
 const injectViewData = require('./middleware/view.middleware');
+const { ensureCsrfToken, requireSameOrigin, requireCsrfToken } = require('./middleware/security.middleware');
 const { getRoleHome } = require('./shared/role-home');
 const authRoutes = require('./modules/auth/auth.routes');
 const dashboardRoutes = require('./modules/dashboard/dashboard.routes');
@@ -52,6 +53,9 @@ if (!env.demo.enabled) {
 }
 
 app.use(session(sessionOptions));
+app.use(requireSameOrigin);
+app.use(ensureCsrfToken);
+app.use(requireCsrfToken);
 app.use(injectViewData);
 
 app.get('/', (req, res) => {

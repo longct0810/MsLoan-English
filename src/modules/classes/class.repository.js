@@ -14,9 +14,9 @@ async function findGrades() {
   return rows;
 }
 
-async function findAll() {
+async function findAll(actorUserId = null, isAdmin = false) {
   if (env.demo.enabled) {
-    return demoStore.classes.filter((c) => c.status !== 'DELETED').map((c) => ({
+    return demoStore.classes.filter((c) => c.status !== 'DELETED' && (isAdmin || !actorUserId || c.teacherId === Number(actorUserId))).map((c) => ({
       ...c,
       studentCount: demoStore.students.filter((s) => s.status !== 'DELETED' && (s.classIds || []).includes(c.id)).length,
     }));
@@ -36,15 +36,16 @@ async function findAll() {
       LEFT JOIN class_students cs ON cs.class_id = c.id AND cs.status = 'ACTIVE'
       LEFT JOIN students s ON s.id = cs.student_id
      WHERE c.deleted_at IS NULL
+       AND ($1::bigint IS NULL OR $2::boolean OR c.teacher_id = $1)
      GROUP BY c.id, g.id
      ORDER BY g.grade_no, c.name
-  `);
+  `, [actorUserId, isAdmin]);
   return rows;
 }
 
-async function findById(id) {
+async function findById(id, actorUserId = null, isAdmin = false) {
   if (env.demo.enabled) {
-    const c = demoStore.classes.find((item) => item.id === Number(id) && item.status !== 'DELETED');
+    const c = demoStore.classes.find((item) => item.id === Number(id) && item.status !== 'DELETED' && (isAdmin || !actorUserId || item.teacherId === Number(actorUserId)));
     if (!c) return null;
     return {
       ...c,
@@ -62,8 +63,9 @@ async function findById(id) {
            c.status
       FROM classes c
       JOIN grades g ON g.id = c.grade_id
-     WHERE c.id = $1 AND c.deleted_at IS NULL
-  `, [id]);
+      WHERE c.id = $1 AND c.deleted_at IS NULL
+       AND ($2::bigint IS NULL OR $3::boolean OR c.teacher_id = $2)
+    `, [id, actorUserId, isAdmin]);
 
   if (!classResult.rows[0]) return null;
 
@@ -104,12 +106,12 @@ async function create(data, actorUserId) {
     SELECT $1,g.id,$2,$3,$4,$5 FROM grades g WHERE g.grade_no=$6
     RETURNING id`, [data.name, actorUserId, data.schoolYear, data.schedule || null, data.status || 'ACTIVE', data.grade]);
   if (!rows[0]) throw new Error('Khối lớp không hợp lệ.');
-  return findById(rows[0].id);
+  return findById(rows[0].id, actorUserId, false);
 }
 
-async function update(id, data) {
+async function update(id, data, actorUserId = null, isAdmin = false) {
   if (env.demo.enabled) {
-    const item = demoStore.classes.find((c) => c.id === Number(id) && c.status !== 'DELETED');
+    const item = demoStore.classes.find((c) => c.id === Number(id) && c.status !== 'DELETED' && (isAdmin || !actorUserId || c.teacherId === Number(actorUserId)));
     if (!item) return null;
     Object.assign(item, { name: data.name, grade: Number(data.grade), schoolYear: data.schoolYear, schedule: data.schedule, status: data.status });
     return item;
@@ -122,15 +124,16 @@ async function update(id, data) {
            schedule_text=$4,
            status=$5,
            updated_at=NOW()
-     WHERE c.id=$6 AND c.deleted_at IS NULL`,
-    [data.name, data.grade, data.schoolYear, data.schedule || null, data.status || 'ACTIVE', id]);
+     WHERE c.id=$6 AND c.deleted_at IS NULL
+       AND ($7::bigint IS NULL OR $8::boolean OR c.teacher_id = $7)`,
+    [data.name, data.grade, data.schoolYear, data.schedule || null, data.status || 'ACTIVE', id, actorUserId, isAdmin]);
   if (!rowCount) return null;
-  return findById(id);
+  return findById(id, actorUserId, isAdmin);
 }
 
-async function softDelete(id) {
+async function softDelete(id, actorUserId = null, isAdmin = false) {
   if (env.demo.enabled) {
-    const item = demoStore.classes.find((c) => c.id === Number(id) && c.status !== 'DELETED');
+    const item = demoStore.classes.find((c) => c.id === Number(id) && c.status !== 'DELETED' && (isAdmin || !actorUserId || c.teacherId === Number(actorUserId)));
     if (!item) return false;
     item.status = 'DELETED';
     demoStore.students.forEach((s) => { s.classIds = (s.classIds || []).filter((cid) => cid !== item.id); });
@@ -139,7 +142,7 @@ async function softDelete(id) {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    const result = await client.query(`UPDATE classes SET status='INACTIVE',deleted_at=NOW(),updated_at=NOW() WHERE id=$1 AND deleted_at IS NULL`, [id]);
+    const result = await client.query(`UPDATE classes SET status='INACTIVE',deleted_at=NOW(),updated_at=NOW() WHERE id=$1 AND deleted_at IS NULL AND ($2::bigint IS NULL OR $3::boolean OR teacher_id = $2)`, [id, actorUserId, isAdmin]);
     if (!result.rowCount) { await client.query('ROLLBACK'); return false; }
     await client.query(`UPDATE class_students SET status='INACTIVE',left_at=CURRENT_DATE WHERE class_id=$1`, [id]);
     await client.query('COMMIT');

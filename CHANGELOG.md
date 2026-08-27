@@ -1,5 +1,20 @@
 # Changelog
 
+## v0.8.0 - Security & Navigation
+
+### Security
+- Thêm CSRF token theo session cho form và API request.
+- Chặn request thay đổi dữ liệu từ origin/referer khác với host ứng dụng.
+- Regenerate và save session sau khi đăng nhập.
+- Scope danh sách, detail, update và soft-delete lớp theo giáo viên; ADMIN được xem toàn bộ.
+- Scope lessons, assignments và exams theo class owner; question bank theo `created_by` hoặc lesson owner.
+- Exam question picker chỉ hiển thị và chấp nhận câu hỏi thuộc phạm vi của actor.
+
+### UI & Quality
+- Nhóm navigation theo `Lớp học` và `Nội dung & đánh giá`.
+- Hiển thị trạng thái active rõ ràng hơn trên mobile offcanvas.
+- Thêm test script nền tảng bằng Node test runner.
+
 ## v0.7.0 - Student & Class Management
 
 ### Học viên

@@ -26,10 +26,10 @@ const demoStore = {
     },
   ],
   classes: [
-    { id: 1, name: 'English 6 - T2/T5', grade: 6, schoolYear: env.academic.defaultSchoolYear, schedule: 'Thứ 2, Thứ 5 • 17:30', status: 'ACTIVE' },
-    { id: 2, name: 'English 7 - T3/T6', grade: 7, schoolYear: env.academic.defaultSchoolYear, schedule: 'Thứ 3, Thứ 6 • 17:30', status: 'ACTIVE' },
-    { id: 3, name: 'English 8 - T2/T5', grade: 8, schoolYear: env.academic.defaultSchoolYear, schedule: 'Thứ 2, Thứ 5 • 19:00', status: 'ACTIVE' },
-    { id: 4, name: 'English 9 - T3/T6', grade: 9, schoolYear: env.academic.defaultSchoolYear, schedule: 'Thứ 3, Thứ 6 • 19:00', status: 'ACTIVE' },
+    { id: 1, name: 'English 6 - T2/T5', grade: 6, schoolYear: env.academic.defaultSchoolYear, schedule: 'Thứ 2, Thứ 5 • 17:30', status: 'ACTIVE', teacherId: 1 },
+    { id: 2, name: 'English 7 - T3/T6', grade: 7, schoolYear: env.academic.defaultSchoolYear, schedule: 'Thứ 3, Thứ 6 • 17:30', status: 'ACTIVE', teacherId: 1 },
+    { id: 3, name: 'English 8 - T2/T5', grade: 8, schoolYear: env.academic.defaultSchoolYear, schedule: 'Thứ 2, Thứ 5 • 19:00', status: 'ACTIVE', teacherId: 1 },
+    { id: 4, name: 'English 9 - T3/T6', grade: 9, schoolYear: env.academic.defaultSchoolYear, schedule: 'Thứ 3, Thứ 6 • 19:00', status: 'ACTIVE', teacherId: 1 },
   ],
   students: [
     { id: 1, fullName: 'Nguyễn Minh Anh', school: 'THCS Nguyễn Trãi', schoolClass: '6A2', parentPhone: '0900000001', status: 'ACTIVE', classIds: [1], averageScore: 8.6, attendanceRate: 96 },
