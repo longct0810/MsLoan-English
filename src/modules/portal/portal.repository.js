@@ -244,4 +244,18 @@ async function markParentNotificationRead(parentUserId, notificationKey) {
   return true;
 }
 
-module.exports = { getStudentIdByUserId, getStudentSnapshot, getChildrenByParentUserId, getParentReport, getParentNotificationReads, markParentNotificationRead };
+async function markParentNotificationsRead(parentUserId, notificationKeys) {
+  const keys = [...new Set(notificationKeys.map((key) => String(key).trim()).filter((key) => key && key.length <= 500))];
+  if (!keys.length) return true;
+  if (env.demo.enabled) {
+    demoStore.parentNotificationReads = demoStore.parentNotificationReads || [];
+    keys.forEach((notificationKey) => {
+      if (!demoStore.parentNotificationReads.some((item) => item.parentUserId === Number(parentUserId) && item.notificationKey === notificationKey)) demoStore.parentNotificationReads.push({ parentUserId: Number(parentUserId), notificationKey });
+    });
+    return true;
+  }
+  await pool.query('INSERT INTO parent_notification_reads(parent_user_id,notification_key) SELECT $1,UNNEST($2::varchar[]) ON CONFLICT DO NOTHING', [parentUserId, keys]);
+  return true;
+}
+
+module.exports = { getStudentIdByUserId, getStudentSnapshot, getChildrenByParentUserId, getParentReport, getParentNotificationReads, markParentNotificationRead, markParentNotificationsRead };

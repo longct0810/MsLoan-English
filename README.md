@@ -1,4 +1,4 @@
-# English Classroom MVP v0.12.0
+# English Classroom MVP v0.13.0
 
 Website responsive quản lý lớp học tiếng Anh dành cho giáo viên, học viên và phụ huynh.
 
@@ -10,7 +10,7 @@ Website responsive quản lý lớp học tiếng Anh dành cho giáo viên, h�
 - `pg`, `bcryptjs`, `express-session`, `connect-pg-simple`
 - ExcelJS + Multer cho import Question Bank
 
-## Chức năng chính đến v0.12.0
+## Chức năng chính đến v0.13.0
 
 ### Teacher Portal
 - Dashboard.
@@ -57,6 +57,9 @@ Website responsive quản lý lớp học tiếng Anh dành cho giáo viên, h�
 - Thông báo điểm mới và nhận xét giáo viên.
 - Nội dung được giới hạn theo người con đã liên kết với tài khoản phụ huynh.
 - Có thể đánh dấu từng thông báo là đã đọc.
+- Có thể đánh dấu tất cả thông báo hiện tại là đã đọc.
+
+Email và push notification chưa bật trong bản này vì cần cấu hình nhà cung cấp gửi tin bên ngoài.
 
 Migration PostgreSQL cho v0.12.0:
 

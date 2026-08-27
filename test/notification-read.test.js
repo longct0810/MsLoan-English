@@ -19,3 +19,11 @@ test('marks a parent notification as read for that parent', async () => {
 test('rejects an invalid notification key', async () => {
   await assert.rejects(() => portalService.markParentNotificationRead(3, ''), /INVALID_NOTIFICATION/);
 });
+
+test('marks all visible parent notifications as read', async () => {
+  const before = await portalService.getParentNotifications(3, 3);
+  assert.ok(before.unreadCount > 0);
+  await portalService.markAllParentNotificationsRead(3, 3);
+  const after = await portalService.getParentNotifications(3, 3);
+  assert.equal(after.unreadCount, 0);
+});

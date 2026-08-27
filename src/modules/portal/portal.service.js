@@ -96,4 +96,9 @@ async function markParentNotificationRead(parentUserId, notificationKey) {
   return repo.markParentNotificationRead(parentUserId, key);
 }
 
-module.exports = { getStudentPortal, getParentPortal, getParentReport, getParentNotifications, markParentNotificationRead };
+async function markAllParentNotificationsRead(parentUserId, requestedStudentId) {
+  const portal = await getParentNotifications(parentUserId, requestedStudentId);
+  return repo.markParentNotificationsRead(parentUserId, portal.notifications.map((item) => item.key));
+}
+
+module.exports = { getStudentPortal, getParentPortal, getParentReport, getParentNotifications, markParentNotificationRead, markAllParentNotificationsRead };

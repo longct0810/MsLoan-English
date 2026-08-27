@@ -96,6 +96,14 @@ async function markParentNotificationRead(req, res, next) {
   } catch (error) { next(error); }
 }
 
+async function markAllParentNotificationsRead(req, res, next) {
+  try {
+    await service.markAllParentNotificationsRead(req.session.user.id, req.body.childId);
+    const childQuery = req.body.childId ? `?childId=${encodeURIComponent(req.body.childId)}` : '';
+    res.redirect(`/parent/notifications${childQuery}`);
+  } catch (error) { next(error); }
+}
+
 module.exports = {
   studentDashboard,
   studentAssignments,
@@ -107,4 +115,5 @@ module.exports = {
   parentReportCsv,
   parentNotifications,
   markParentNotificationRead,
+  markAllParentNotificationsRead,
 };

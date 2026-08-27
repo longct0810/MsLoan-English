@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.13.1 - Responsive Report Filter
+
+### UI
+- Sửa layout bộ lọc báo cáo phụ huynh trên mobile/tablet.
+- Ngăn nút `Xem báo cáo` và `In / PDF` bị bẻ chữ theo chiều dọc.
+- Chuyển nhóm control sang CSS Grid trên màn hình nhỏ.
+
+## v0.13.0 - Notification Read Workflow
+
+### Parent Portal
+- Thêm thao tác đánh dấu tất cả thông báo là đã đọc.
+- Giữ trạng thái đọc riêng theo từng tài khoản phụ huynh.
+- Bổ sung test cho bulk read flow.
+
 ## v0.12.0 - Readable Parent Notifications
 
 ### Parent Portal
