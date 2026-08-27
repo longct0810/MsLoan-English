@@ -1,8 +1,38 @@
 <%- include('../partials/app-start', { title }) %>
 <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3 mb-4">
-  <div><h1 class="h3 mb-1">Ngân hàng câu hỏi</h1><p class="text-secondary mb-0">Tạo câu hỏi dùng lại cho nhiều bài kiểm tra.</p></div>
-  <div class="d-flex gap-2"><a href="/questions/import" class="btn btn-outline-primary">Import Excel/CSV</a><a href="/questions/new" class="btn btn-primary">+ Thêm câu hỏi</a></div>
+  <div>
+    <h1 class="h3 mb-1">Ngân hàng câu hỏi</h1>
+    <p class="text-secondary mb-0">Có thể nhập từng câu trực tiếp hoặc cập nhật nhiều câu bằng Excel.</p>
+  </div>
 </div>
+
+<div class="row g-3 mb-4">
+  <div class="col-lg-6">
+    <div class="card app-card h-100 border-primary-subtle">
+      <div class="card-body p-4 d-flex flex-column flex-sm-row align-items-sm-center gap-3">
+        <div class="flex-grow-1">
+          <div class="small text-primary fw-semibold text-uppercase mb-1">Cách 1 • Dễ dùng</div>
+          <h2 class="h5 mb-1">Nhập từng câu thủ công</h2>
+          <p class="text-secondary mb-0">Phù hợp khi soạn mới, sửa nhanh hoặc chỉ thêm một vài câu hỏi.</p>
+        </div>
+        <a href="/questions/new" class="btn btn-primary text-nowrap">+ Thêm từng câu</a>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card app-card h-100">
+      <div class="card-body p-4 d-flex flex-column flex-sm-row align-items-sm-center gap-3">
+        <div class="flex-grow-1">
+          <div class="small text-success fw-semibold text-uppercase mb-1">Cách 2 • Nhiều câu</div>
+          <h2 class="h5 mb-1">Nhập / cập nhật từ Excel</h2>
+          <p class="text-secondary mb-0">Dùng file mẫu đơn giản với tên cột tiếng Việt; không cần hiểu mã kỹ thuật.</p>
+        </div>
+        <a href="/questions/import" class="btn btn-outline-success text-nowrap">Nhập từ Excel</a>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="card app-card mb-4"><div class="card-body"><form class="row g-3 align-items-end" method="get">
   <div class="col-md-3"><label class="form-label">Khối</label><select class="form-select" name="grade"><option value="">Tất cả</option><% grades.forEach(g=>{ %><option value="<%= g.gradeNo %>" <%= String(filters.grade||'')===String(g.gradeNo)?'selected':'' %>><%= g.name %></option><% }) %></select></div>
   <div class="col-md-3"><label class="form-label">Loại câu hỏi</label><select class="form-select" name="type"><option value="">Tất cả</option><option value="MULTIPLE_CHOICE" <%= filters.type==='MULTIPLE_CHOICE'?'selected':'' %>>Trắc nghiệm</option><option value="TRUE_FALSE" <%= filters.type==='TRUE_FALSE'?'selected':'' %>>Đúng / Sai</option><option value="FILL_BLANK" <%= filters.type==='FILL_BLANK'?'selected':'' %>>Điền từ</option><option value="ESSAY" <%= filters.type==='ESSAY'?'selected':'' %>>Tự luận</option></select></div>
@@ -10,10 +40,11 @@
   <div class="col-md-2"><label class="form-label">Trạng thái</label><select class="form-select" name="status"><option value="">Tất cả</option><option value="DRAFT" <%= filters.status==='DRAFT'?'selected':'' %>>Nháp</option><option value="PUBLISHED" <%= filters.status==='PUBLISHED'?'selected':'' %>>Đã xuất bản</option></select></div>
   <div class="col-md-2 d-flex gap-2"><button class="btn btn-outline-primary flex-grow-1">Lọc</button><a href="/questions" class="btn btn-outline-secondary">×</a></div>
 </form></div></div>
+
 <div class="card app-card"><div class="card-body p-0"><div class="table-responsive"><table class="table align-middle mb-0">
 <thead><tr><th>Câu hỏi</th><th>Khối</th><th>Loại</th><th>Độ khó</th><th>Điểm</th><th>Trạng thái</th><th></th></tr></thead><tbody>
-<% if(!questions.length){ %><tr><td colspan="7" class="text-center text-secondary py-5">Chưa có câu hỏi phù hợp.</td></tr><% } %>
+<% if(!questions.length){ %><tr><td colspan="7" class="text-center text-secondary py-5">Chưa có câu hỏi phù hợp. Bạn có thể thêm từng câu hoặc nhập từ Excel ở phía trên.</td></tr><% } %>
 <% questions.forEach(q=>{ const typeLabel={MULTIPLE_CHOICE:'Trắc nghiệm',TRUE_FALSE:'Đúng/Sai',FILL_BLANK:'Điền từ',ESSAY:'Tự luận'}[q.questionType]||q.questionType; const diff={EASY:'Dễ',MEDIUM:'Vừa',HARD:'Khó'}[q.difficulty]||q.difficulty; %>
-<tr><td style="min-width:320px"><div class="fw-semibold"><%= q.stem %></div><div class="small text-secondary"><%= q.lessonTitle || 'Không gắn bài học' %></div></td><td><%= q.grade ? `Khối ${q.grade}` : '—' %></td><td><span class="badge text-bg-light border"><%= typeLabel %></span></td><td><%= diff %></td><td><%= q.defaultPoints %></td><td><span class="badge <%= q.status==='PUBLISHED'?'text-bg-success':'text-bg-warning' %>"><%= q.status==='PUBLISHED'?'Đã xuất bản':'Bản nháp' %></span></td><td class="text-end text-nowrap"><a href="/questions/<%= q.id %>/edit" class="btn btn-sm btn-outline-primary">Sửa</a><% if(q.status!=='PUBLISHED'){ %><form method="post" action="/questions/<%= q.id %>/publish" class="d-inline"><button class="btn btn-sm btn-success">Xuất bản</button></form><% } %></td></tr>
+<tr><td style="min-width:320px"><div class="fw-semibold"><%= q.stem %></div><div class="small text-secondary"><%= q.lessonTitle || 'Không gắn bài học' %> • ID <%= q.id %></div></td><td><%= q.grade ? `Khối ${q.grade}` : '—' %></td><td><span class="badge text-bg-light border"><%= typeLabel %></span></td><td><%= diff %></td><td><%= q.defaultPoints %></td><td><span class="badge <%= q.status==='PUBLISHED'?'text-bg-success':'text-bg-warning' %>"><%= q.status==='PUBLISHED'?'Đã xuất bản':'Bản nháp' %></span></td><td class="text-end text-nowrap"><a href="/questions/<%= q.id %>/edit" class="btn btn-sm btn-outline-primary">Sửa</a><% if(q.status!=='PUBLISHED'){ %><form method="post" action="/questions/<%= q.id %>/publish" class="d-inline"><button class="btn btn-sm btn-success">Xuất bản</button></form><% } %></td></tr>
 <% }) %></tbody></table></div></div></div>
 <%- include('../partials/app-end') %>

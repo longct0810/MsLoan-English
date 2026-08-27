@@ -1,4 +1,4 @@
-# English Classroom MVP v0.6.0
+# English Classroom MVP v0.6.1
 
 Website responsive quản lý lớp học tiếng Anh dành cho giáo viên, học sinh và phụ huynh.
 
@@ -11,64 +11,80 @@ Website responsive quản lý lớp học tiếng Anh dành cho giáo viên, h�
 - `pg`
 - `exceljs` + `multer` cho import Question Bank
 
-## v0.6.0 có gì mới?
+## v0.6.1 có gì mới?
 
-### 1. Import / Update Question Bank từ file
+### 1. Giữ đầy đủ cách nhập câu hỏi thủ công
 
-Mở:
-
-```text
-/questions/import
-```
-
-Hỗ trợ:
+Tại `/questions`, giáo viên có hai lựa chọn rõ ràng:
 
 ```text
-.xlsx
-.csv
+Nhập từng câu thủ công
+hoặc
+Nhập / cập nhật nhiều câu từ Excel
 ```
 
-Tải template tại:
+Khi nhập thủ công tại `/questions/new`, có hai nút:
+
+```text
+Lưu & thêm câu tiếp theo
+Lưu & về ngân hàng
+```
+
+Phù hợp khi giáo viên đang soạn liên tục nhiều câu nhưng không muốn dùng Excel.
+
+### 2. File Excel mẫu đơn giản hơn
+
+Template mới bỏ các cột kỹ thuật như:
+
+```text
+action
+lesson_id
+difficulty
+status
+```
+
+Giáo viên chỉ cần thao tác với các cột tiếng Việt:
+
+```text
+Mã câu hỏi
+Khối
+Loại câu hỏi
+Nội dung câu hỏi
+Đáp án A
+Đáp án B
+Đáp án C
+Đáp án D
+Đáp án / Gợi ý
+Điểm
+Giải thích / Hướng dẫn chấm
+```
+
+Quy tắc:
+
+- `Mã câu hỏi` để trống => tạo mới.
+- `Mã câu hỏi` có ID hiện có => cập nhật.
+- Không cần nhập `CREATE` / `UPDATE`.
+- `Loại câu hỏi` dùng tiếng Việt: Trắc nghiệm, Đúng/Sai, Điền từ, Tự luận.
+- Câu mới import luôn lưu ở trạng thái `DRAFT` để giáo viên kiểm tra trước khi xuất bản.
+- Các trường kỹ thuật cũ vẫn được parser hỗ trợ để không làm hỏng file template v0.6.0 đã có.
+
+Template gồm 3 sheet:
+
+```text
+Nhap cau hoi  -> sheet giáo viên nhập dữ liệu
+Vi du         -> ví dụ 4 loại câu hỏi
+Huong dan     -> hướng dẫn ngắn gọn
+```
+
+Tải tại:
 
 ```text
 /questions/import/template.xlsx
 ```
 
-Các cột chính:
+Import vẫn dùng nguyên tắc **all-or-nothing**: có một dòng lỗi thì không ghi bất kỳ dòng nào vào database.
 
-```text
-action
-id
-grade
-lesson_id
-question_type
-stem
-option_a
-option_b
-option_c
-option_d
-correct_option
-correct_answer
-explanation
-difficulty
-points
-status
-```
-
-`action` nhận `CREATE` hoặc `UPDATE`. Nếu bỏ trống, có `id` thì UPDATE, không có `id` thì CREATE.
-
-Các `question_type`:
-
-```text
-MULTIPLE_CHOICE
-TRUE_FALSE
-FILL_BLANK
-ESSAY
-```
-
-Import dùng nguyên tắc **all-or-nothing**: nếu có một dòng không hợp lệ thì không cập nhật bất kỳ dòng nào.
-
-### 2. Chấm bài hỗn hợp tự động + thủ công
+### 3. Chấm bài hỗn hợp giữ nguyên từ v0.6.0
 
 ```text
 Student submits exam
@@ -82,9 +98,19 @@ Student submits exam
                  -> Final score
 ```
 
-Giáo viên mở chi tiết bài kiểm tra và bấm **Chấm tự luận** ở lượt làm đang chờ chấm.
-
 Điểm cuối chỉ được ghi vào tiến độ học sinh sau khi phần tự luận đã được chấm đầy đủ.
+
+## Database
+
+**v0.6.1 không thay đổi schema database.**
+
+Nếu database đã ở v0.6.0 thì không cần chạy SQL migration mới.
+
+Render vẫn có thể giữ Build Command:
+
+```bash
+npm install && npm run db:migrate
+```
 
 ## Cấu hình import trong `.env`
 
@@ -99,26 +125,6 @@ QUESTION_IMPORT_MAX_FILE_MB=5
 cp .env.example .env
 npm install
 npm run dev
-```
-
-## Cập nhật Neon từ v0.5.0
-
-Có thể để Render chạy:
-
-```bash
-npm install && npm run db:migrate
-```
-
-Hoặc chạy thủ công:
-
-```text
-db/neon_upgrade_v0.6.0.sql
-```
-
-Dữ liệu demo tự luận:
-
-```text
-db/neon_seed_v0.6.0_demo.sql
 ```
 
 ## Render
@@ -144,4 +150,4 @@ npm start
 /health/db
 ```
 
-Version hiển thị trên giao diện được lấy từ `package.json` và hiện là `v0.6.0`.
+Version hiển thị trên giao diện được lấy từ `package.json` và hiện là `v0.6.1`.

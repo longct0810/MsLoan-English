@@ -6,17 +6,28 @@ const TYPES = ['MULTIPLE_CHOICE','TRUE_FALSE','FILL_BLANK','ESSAY'];
 const DIFFICULTIES = ['EASY','MEDIUM','HARD'];
 const STATUSES = ['DRAFT','PUBLISHED'];
 
-function clean(v){ return String(v || '').trim(); }
+function clean(v){ return String(v ?? '').trim(); }
+function token(value){
+  return clean(value).toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/Đ/g,'D').replace(/[^A-Z0-9]+/g,'_').replace(/^_+|_+$/g,'');
+}
 function normalizeType(value){
-  const v=clean(value).toUpperCase().replace(/[\s-]+/g,'_');
-  const map={MCQ:'MULTIPLE_CHOICE',TRAC_NGHIEM:'MULTIPLE_CHOICE',TRUEFALSE:'TRUE_FALSE',TF:'TRUE_FALSE',DIEN_TU:'FILL_BLANK',FILL:'FILL_BLANK',TU_LUAN:'ESSAY',WRITING:'ESSAY'};
+  const v=token(value);
+  const map={
+    MCQ:'MULTIPLE_CHOICE',MULTIPLE_CHOICE:'MULTIPLE_CHOICE',TRAC_NGHIEM:'MULTIPLE_CHOICE',TRACNGHIEM:'MULTIPLE_CHOICE',
+    TRUEFALSE:'TRUE_FALSE',TRUE_FALSE:'TRUE_FALSE',TF:'TRUE_FALSE',DUNG_SAI:'TRUE_FALSE',DUNGSAI:'TRUE_FALSE',
+    DIEN_TU:'FILL_BLANK',DIENTU:'FILL_BLANK',FILL:'FILL_BLANK',FILL_BLANK:'FILL_BLANK',
+    TU_LUAN:'ESSAY',TULUAN:'ESSAY',WRITING:'ESSAY',ESSAY:'ESSAY',
+  };
   return map[v]||v;
 }
-function normalizeDifficulty(value){const v=clean(value).toUpperCase();return DIFFICULTIES.includes(v)?v:'MEDIUM';}
-function normalizeStatus(value){const v=clean(value).toUpperCase();return STATUSES.includes(v)?v:'DRAFT';}
+function normalizeDifficulty(value){const v=token(value);return DIFFICULTIES.includes(v)?v:'MEDIUM';}
+function normalizeStatus(value){const v=token(value);return STATUSES.includes(v)?v:'DRAFT';}
 function normalizeCorrectOption(value, type){
-  let v=clean(value).toUpperCase();
-  if(type==='TRUE_FALSE'){ if(v==='TRUE')v='A'; if(v==='FALSE')v='B'; }
+  let v=token(value);
+  if(type==='TRUE_FALSE'){
+    if(['TRUE','DUNG','A','YES'].includes(v))v='A';
+    if(['FALSE','SAI','B','NO'].includes(v))v='B';
+  }
   return v;
 }
 
@@ -60,18 +71,18 @@ async function publish(id){const q=await repo.findById(id);if(!q)throw new Error
 function importError(rowNo, message){ return { rowNo, message }; }
 function humanImportError(code){
   const map={
-    INVALID_ACTION:'action chỉ nhận CREATE hoặc UPDATE.',
-    UPDATE_ID_REQUIRED:'UPDATE bắt buộc có id.',
-    QUESTION_NOT_FOUND:'Không tìm thấy question id cần cập nhật.',
+    INVALID_ACTION:'Hành động chỉ nhận CREATE hoặc UPDATE.',
+    UPDATE_ID_REQUIRED:'Muốn cập nhật cần nhập Mã câu hỏi (ID).',
+    QUESTION_NOT_FOUND:'Không tìm thấy Mã câu hỏi cần cập nhật.',
     INVALID_GRADE:'Khối chỉ nhận 6, 7, 8, 9 hoặc để trống.',
-    INVALID_LESSON:'lesson_id không tồn tại.',
-    INVALID_QUESTION_TYPE:'question_type không hợp lệ.',
-    STEM_REQUIRED:'Thiếu nội dung câu hỏi (stem).',
-    INVALID_POINTS:`points phải > 0 và <= ${env.question.maxPoints}.`,
-    CORRECT_ANSWER_REQUIRED:'Câu điền từ cần correct_answer.',
-    CORRECT_OPTION_REQUIRED:'Thiếu/không đúng correct_option.',
-    OPTIONS_REQUIRED:'Câu trắc nghiệm cần ít nhất 2 lựa chọn.',
-    INVALID_STATUS:'status chỉ nhận DRAFT hoặc PUBLISHED.',
+    INVALID_LESSON:'Bài học liên quan không tồn tại.',
+    INVALID_QUESTION_TYPE:'Loại câu hỏi không hợp lệ. Hãy chọn Trắc nghiệm, Đúng/Sai, Điền từ hoặc Tự luận.',
+    STEM_REQUIRED:'Thiếu Nội dung câu hỏi.',
+    INVALID_POINTS:`Điểm phải > 0 và <= ${env.question.maxPoints}.`,
+    CORRECT_ANSWER_REQUIRED:'Câu Điền từ cần nhập Đáp án / Gợi ý.',
+    CORRECT_OPTION_REQUIRED:'Đáp án đúng không hợp lệ. Trắc nghiệm dùng A/B/C/D; Đúng/Sai dùng Đúng hoặc Sai.',
+    OPTIONS_REQUIRED:'Câu Trắc nghiệm cần ít nhất 2 đáp án lựa chọn.',
+    INVALID_STATUS:'Trạng thái chỉ nhận DRAFT hoặc PUBLISHED.',
   }; return map[code]||code;
 }
 
@@ -85,33 +96,50 @@ async function prepareImportRows(rawRows){
 
   for(const row of rawRows){
     try{
+      const present=row._present||{};
       const id=Number(row.id||0);
-      let action=clean(row.action).toUpperCase(); if(!action) action=id?'UPDATE':'CREATE';
+      let action=clean(row.action).toUpperCase();
+      if(!action) action=id?'UPDATE':'CREATE';
       if(!['CREATE','UPDATE'].includes(action)) throw new Error('INVALID_ACTION');
       if(action==='UPDATE'&&(!Number.isInteger(id)||id<=0)) throw new Error('UPDATE_ID_REQUIRED');
       if(action==='UPDATE'&&!existingIds.has(id)) throw new Error('QUESTION_NOT_FOUND');
 
       let gradeId=null;
       if(clean(row.grade)){
-        const grade=Number(row.grade); if(![6,7,8,9].includes(grade)||!gradeMap.has(grade)) throw new Error('INVALID_GRADE');
+        const grade=Number(row.grade);
+        if(![6,7,8,9].includes(grade)||!gradeMap.has(grade)) throw new Error('INVALID_GRADE');
         gradeId=gradeMap.get(grade);
       }
+
       let lessonId=null;
-      if(clean(row.lessonId)){ lessonId=Number(row.lessonId); if(!Number.isInteger(lessonId)||!lessonIds.has(lessonId)) throw new Error('INVALID_LESSON'); }
+      if(present.lessonId && clean(row.lessonId)){
+        lessonId=Number(row.lessonId);
+        if(!Number.isInteger(lessonId)||!lessonIds.has(lessonId)) throw new Error('INVALID_LESSON');
+      }
 
       const questionType=normalizeType(row.questionType);
-      const difficulty=normalizeDifficulty(row.difficulty);
+      const difficulty = present.difficulty ? normalizeDifficulty(row.difficulty) : (action==='CREATE'?'MEDIUM':null);
       const statusText=clean(row.status);
-      if(statusText&&!STATUSES.includes(statusText.toUpperCase())) throw new Error('INVALID_STATUS');
-      const status=statusText?normalizeStatus(statusText):(action==='UPDATE'?null:'DRAFT');
+      if(present.status && statusText&&!STATUSES.includes(token(statusText))) throw new Error('INVALID_STATUS');
+      const status = present.status ? (statusText?normalizeStatus(statusText):(action==='UPDATE'?null:'DRAFT')) : (action==='CREATE'?'DRAFT':null);
+
+      const combinedAnswer=clean(row.answer);
+      const correctOption=normalizeCorrectOption(clean(row.correctOption)||combinedAnswer,questionType);
+      const correctAnswer=clean(row.correctAnswer)||(['FILL_BLANK','ESSAY'].includes(questionType)?combinedAnswer:'');
+      const pointsText=clean(row.points);
+      const defaultPoints=Number(pointsText||env.question.defaultPoints);
+
       const data=validateData({
         action,id:action==='UPDATE'?id:null,gradeId,lessonId,questionType,
-        stem:clean(row.stem),correctAnswer:clean(row.correctAnswer),explanation:clean(row.explanation),difficulty,
-        defaultPoints:Number(clean(row.points)||env.question.defaultPoints),
-        correctOption:normalizeCorrectOption(row.correctOption,questionType),
+        stem:clean(row.stem),correctAnswer,explanation:clean(row.explanation),difficulty: difficulty || 'MEDIUM',
+        defaultPoints,correctOption,
         options:{A:clean(row.optionA),B:clean(row.optionB),C:clean(row.optionC),D:clean(row.optionD)},
         status,
+        _hasLessonColumn:Boolean(present.lessonId),
+        _hasDifficultyColumn:Boolean(present.difficulty),
       });
+      // For update from the simplified template, preserve advanced fields that are not present in the file.
+      if(action==='UPDATE'&&!present.difficulty) data.difficulty=null;
       items.push(data);
     }catch(error){errors.push(importError(row.rowNo,humanImportError(error.message)));}
   }

@@ -1,6 +1,7 @@
 <%- include('../partials/app-start', { title }) %>
 <% const f=form||question||{}; const opts=question?.options||[]; const opt=(k)=> (form?form[`option${k}`]:opts.find(o=>o.optionKey===k)?.optionText)||''; const correct=form?.correctOption || opts.find(o=>o.isCorrect)?.optionKey || ''; %>
-<div class="d-flex justify-content-between align-items-center mb-4"><div><h1 class="h3 mb-1"><%= title %></h1><p class="text-secondary mb-0">Hỗ trợ trắc nghiệm, đúng/sai, điền từ và tự luận.</p></div><a href="/questions" class="btn btn-outline-secondary">Quay lại</a></div>
+<div class="d-flex justify-content-between align-items-center mb-4"><div><h1 class="h3 mb-1"><%= title %></h1><p class="text-secondary mb-0">Nhập câu hỏi trực tiếp trên web: chọn loại câu, nhập nội dung và đáp án phù hợp.</p></div><a href="/questions" class="btn btn-outline-secondary">Quay lại</a></div>
+<% if(success){ %><div class="alert alert-success"><%= success %></div><% } %>
 <% if(error){ %><div class="alert alert-danger"><%= error %></div><% } %>
 <form method="post" action="<%= question ? `/questions/${question.id}/update` : '/questions' %>" class="card app-card"><div class="card-body p-4">
 <div class="row g-3">
@@ -19,7 +20,15 @@
 <div id="fillBlock" class="d-none"><label class="form-label">Đáp án đúng *</label><input class="form-control" name="correctAnswer" value="<%= f.correctAnswer||'' %>" placeholder="Ví dụ: went"></div>
 <div id="essayBlock" class="d-none"><label class="form-label">Đáp án / gợi ý tham khảo</label><textarea class="form-control" name="essayModelAnswer" rows="4" placeholder="Không bắt buộc. Dùng làm gợi ý cho giáo viên khi chấm."><%= f.questionType==='ESSAY'?(f.correctAnswer||''):'' %></textarea><div class="form-text">Câu tự luận không được hệ thống tự chấm.</div></div>
 <div class="mt-4"><label class="form-label">Giải thích / hướng dẫn chấm</label><textarea class="form-control" name="explanation" rows="3"><%= f.explanation||'' %></textarea></div>
-<div class="d-flex gap-2 mt-4"><button class="btn btn-primary">Lưu câu hỏi</button><a href="/questions" class="btn btn-outline-secondary">Hủy</a></div>
+<div class="d-flex flex-wrap gap-2 mt-4">
+<% if(question){ %>
+  <button class="btn btn-primary">Lưu thay đổi</button>
+<% } else { %>
+  <button class="btn btn-primary" name="submitAction" value="addAnother">Lưu & thêm câu tiếp theo</button>
+  <button class="btn btn-outline-primary" name="submitAction" value="backToList">Lưu & về ngân hàng</button>
+<% } %>
+<a href="/questions" class="btn btn-outline-secondary">Hủy</a>
+</div>
 </div></form>
 <script>
 (function(){

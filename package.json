@@ -1,7 +1,7 @@
 {
   "name": "english-classroom-mvp",
-  "version": "0.6.0",
-  "description": "Responsive English classroom management web app - bulk question import and mixed auto/manual exam grading",
+  "version": "0.6.1",
+  "description": "Responsive English classroom management web app - friendly manual question entry and simplified bulk Excel import",
   "main": "src/server.js",
   "scripts": {
     "dev": "node --watch src/server.js",
@@ -17,10 +17,10 @@
     "connect-pg-simple": "^10.0.0",
     "dotenv": "^17.4.2",
     "ejs": "^6.0.1",
-    "exceljs": "^4.4.0",
     "express": "^5.2.1",
     "express-session": "^1.19.0",
-    "multer": "^2.2.0",
-    "pg": "^8.23.0"
+    "pg": "^8.23.0",
+    "exceljs": "^4.4.0",
+    "multer": "^2.0.2"
   }
 }

@@ -1,37 +1,60 @@
 <%- include('../partials/app-start', { title }) %>
 <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3 mb-4">
-  <div><h1 class="h3 mb-1">Import / cập nhật câu hỏi hàng loạt</h1><p class="text-secondary mb-0">Hỗ trợ file <strong>.xlsx</strong> và <strong>.csv</strong>. Toàn bộ file được kiểm tra trước khi ghi database.</p></div>
-  <div class="d-flex gap-2"><a href="/questions/import/template.xlsx" class="btn btn-outline-success">Tải file mẫu Excel</a><a href="/questions" class="btn btn-outline-secondary">Quay lại</a></div>
+  <div>
+    <h1 class="h3 mb-1">Nhập câu hỏi từ Excel</h1>
+    <p class="text-secondary mb-0">File mẫu dùng tên cột tiếng Việt và chỉ giữ những thông tin giáo viên thường cần nhập.</p>
+  </div>
+  <div class="d-flex gap-2"><a href="/questions/import/template.xlsx" class="btn btn-success">Tải file mẫu đơn giản</a><a href="/questions" class="btn btn-outline-secondary">Quay lại</a></div>
 </div>
+
+<div class="alert alert-info border-0">
+  <strong>Không bắt buộc dùng Excel.</strong> Nếu chỉ thêm một vài câu, bạn có thể <a href="/questions/new" class="alert-link">nhập từng câu trực tiếp trên web</a>.
+</div>
+
 <% if(error){ %><div class="alert alert-danger"><%= error %></div><% } %>
 <% if(result){ %>
-  <% if(result.ok){ %><div class="alert alert-success"><strong>Import thành công.</strong> Tổng <%= result.total %> dòng: tạo mới <%= result.created %>, cập nhật <%= result.updated %>.</div><% } else { %>
-    <div class="alert alert-warning"><strong>File chưa được cập nhật vào database.</strong> Có <%= result.errors.length %> dòng lỗi. Hãy sửa file rồi import lại.</div>
-    <div class="card app-card mb-4"><div class="card-body p-0"><div class="table-responsive"><table class="table mb-0 align-middle"><thead><tr><th>Dòng</th><th>Lỗi</th></tr></thead><tbody><% result.errors.forEach(e=>{ %><tr><td><%= e.rowNo %></td><td class="text-danger"><%= e.message %></td></tr><% }) %></tbody></table></div></div></div>
+  <% if(result.ok){ %><div class="alert alert-success"><strong>Import thành công.</strong> Tổng <%= result.total %> dòng: tạo mới <%= result.created %>, cập nhật <%= result.updated %>. Câu mới được lưu ở trạng thái <strong>Bản nháp</strong> để giáo viên kiểm tra trước khi xuất bản.</div><% } else { %>
+    <div class="alert alert-warning"><strong>Chưa có dữ liệu nào được ghi vào database.</strong> Có <%= result.errors.length %> dòng cần sửa.</div>
+    <div class="card app-card mb-4"><div class="card-body p-0"><div class="table-responsive"><table class="table mb-0 align-middle"><thead><tr><th>Dòng Excel</th><th>Nội dung cần sửa</th></tr></thead><tbody><% result.errors.forEach(e=>{ %><tr><td class="fw-semibold"><%= e.rowNo %></td><td class="text-danger"><%= e.message %></td></tr><% }) %></tbody></table></div></div></div>
   <% } %>
 <% } %>
+
 <div class="row g-4">
   <div class="col-xl-7"><div class="card app-card"><div class="card-body p-4">
-    <h2 class="h5">Chọn file câu hỏi</h2>
+    <h2 class="h5">1. Chọn file đã nhập</h2>
     <form method="post" action="/questions/import" enctype="multipart/form-data" class="mt-3">
       <label class="form-label">File Excel / CSV</label>
       <input class="form-control" type="file" name="questionFile" accept=".xlsx,.csv" required>
-      <div class="form-text">Giới hạn theo QUESTION_IMPORT_MAX_FILE_MB và QUESTION_IMPORT_MAX_ROWS trong .env.</div>
-      <button class="btn btn-primary mt-3">Kiểm tra và cập nhật</button>
+      <div class="form-text">Nên dùng file mẫu Excel tải từ hệ thống. Giới hạn dung lượng và số dòng được cấu hình trong .env.</div>
+      <button class="btn btn-primary mt-3">Kiểm tra và nhập dữ liệu</button>
     </form>
   </div></div></div>
+
   <div class="col-xl-5"><div class="card app-card"><div class="card-body p-4">
-    <h2 class="h5">Quy tắc file</h2>
-    <ul class="small text-secondary mb-0">
-      <li><code>action</code>: CREATE hoặc UPDATE. Nếu bỏ trống: có <code>id</code> thì UPDATE, không có thì CREATE.</li>
-      <li><code>question_type</code>: MULTIPLE_CHOICE, TRUE_FALSE, FILL_BLANK, ESSAY.</li>
-      <li>Trắc nghiệm: nhập option_a..option_d và correct_option A/B/C/D.</li>
-      <li>Đúng/Sai: correct_option nhận TRUE/FALSE hoặc A/B.</li>
-      <li>Điền từ: nhập correct_answer.</li>
-      <li>Tự luận: correct_answer có thể dùng làm đáp án/gợi ý tham khảo; giáo viên vẫn chấm thủ công.</li>
-      <li><code>status</code>: DRAFT hoặc PUBLISHED.</li>
-      <li>Nếu bất kỳ dòng nào lỗi, hệ thống <strong>không ghi dòng nào</strong>.</li>
-    </ul>
+    <h2 class="h5">2. Cách điền rất ngắn gọn</h2>
+    <ol class="small text-secondary mb-0 ps-3">
+      <li class="mb-2"><strong>Mã câu hỏi</strong>: để trống khi thêm mới. Khi muốn sửa hàng loạt, nhập ID câu hỏi đang có.</li>
+      <li class="mb-2"><strong>Loại câu hỏi</strong>: chọn Trắc nghiệm, Đúng/Sai, Điền từ hoặc Tự luận.</li>
+      <li class="mb-2"><strong>Đáp án / Gợi ý</strong>: Trắc nghiệm ghi A/B/C/D; Đúng/Sai ghi Đúng hoặc Sai; Điền từ ghi đáp án; Tự luận ghi gợi ý chấm.</li>
+      <li><strong>Câu mới luôn là Bản nháp</strong>, sau khi kiểm tra giáo viên mới bấm Xuất bản.</li>
+    </ol>
   </div></div></div>
 </div>
+
+<div class="card app-card mt-4"><div class="card-body p-4">
+  <h2 class="h5">Các cột trong file mẫu</h2>
+  <div class="table-responsive"><table class="table table-sm align-middle mb-0">
+    <thead><tr><th>Cột</th><th>Nhập gì?</th><th>Bắt buộc?</th></tr></thead>
+    <tbody>
+      <tr><td>Mã câu hỏi</td><td>Để trống khi thêm mới; nhập ID khi cập nhật câu đang có.</td><td>Không</td></tr>
+      <tr><td>Khối</td><td>6, 7, 8 hoặc 9.</td><td>Không</td></tr>
+      <tr><td>Loại câu hỏi</td><td>Trắc nghiệm / Đúng-Sai / Điền từ / Tự luận.</td><td>Có</td></tr>
+      <tr><td>Nội dung câu hỏi</td><td>Nội dung giáo viên muốn hỏi học sinh.</td><td>Có</td></tr>
+      <tr><td>Đáp án A–D</td><td>Chỉ cần nhập cho câu Trắc nghiệm.</td><td>Theo loại</td></tr>
+      <tr><td>Đáp án / Gợi ý</td><td>A/B/C/D, Đúng/Sai, đáp án điền từ hoặc gợi ý chấm tự luận.</td><td>Theo loại</td></tr>
+      <tr><td>Điểm</td><td>Để trống sẽ dùng điểm mặc định.</td><td>Không</td></tr>
+      <tr><td>Giải thích / Hướng dẫn chấm</td><td>Giải thích đáp án hoặc tiêu chí giáo viên dùng khi chấm.</td><td>Không</td></tr>
+    </tbody>
+  </table></div>
+</div></div>
 <%- include('../partials/app-end') %>

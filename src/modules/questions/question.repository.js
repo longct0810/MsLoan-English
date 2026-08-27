@@ -187,7 +187,15 @@ async function bulkUpsert(items, userId) {
   if (env.demo.enabled) {
     let created = 0, updated = 0;
     for (const item of items) {
-      if (item.action === 'UPDATE') { await update(item.id, item); updated += 1; }
+      if (item.action === 'UPDATE') {
+        const current = (demoStore.questions || []).find((q) => q.id === item.id);
+        const merged = {
+          ...item,
+          lessonId: item._hasLessonColumn ? item.lessonId : (current?.lessonId || null),
+          difficulty: item._hasDifficultyColumn ? item.difficulty : (current?.difficulty || 'MEDIUM'),
+        };
+        await update(item.id, merged); updated += 1;
+      }
       else { await create(item, userId); created += 1; }
     }
     return { created, updated, total: items.length };
@@ -200,10 +208,19 @@ async function bulkUpsert(items, userId) {
       let questionId;
       if (item.action === 'UPDATE') {
         const result = await client.query(`
-          UPDATE questions SET grade_id=$2,lesson_id=$3,question_type=$4,stem=$5,correct_answer=NULLIF($6,''),
-                 explanation=NULLIF($7,''),difficulty=$8,default_points=$9,status=COALESCE($10,status),updated_at=NOW()
+          UPDATE questions
+             SET grade_id=$2,
+                 lesson_id=CASE WHEN $11::boolean THEN $3 ELSE lesson_id END,
+                 question_type=$4,
+                 stem=$5,
+                 correct_answer=NULLIF($6,''),
+                 explanation=NULLIF($7,''),
+                 difficulty=CASE WHEN $12::boolean THEN $8 ELSE difficulty END,
+                 default_points=$9,
+                 status=COALESCE($10,status),
+                 updated_at=NOW()
            WHERE id=$1 RETURNING id
-        `, [item.id,item.gradeId||null,item.lessonId||null,item.questionType,item.stem,item.correctAnswer||'',item.explanation||'',item.difficulty,item.defaultPoints,item.status||null]);
+        `, [item.id,item.gradeId||null,item.lessonId||null,item.questionType,item.stem,item.correctAnswer||'',item.explanation||'',item.difficulty||'MEDIUM',item.defaultPoints,item.status||null,Boolean(item._hasLessonColumn),Boolean(item._hasDifficultyColumn)]);
         if (!result.rows[0]) throw new Error(`QUESTION_NOT_FOUND:${item.id}`);
         questionId = result.rows[0].id; updated += 1;
       } else {
