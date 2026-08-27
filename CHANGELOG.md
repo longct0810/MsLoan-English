@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.13.3 - Safe 403 Error Page
+
+### Operations
+- Sửa lỗi `appName is not defined` khi middleware CSRF hoặc same-origin render trang 403 trước view middleware.
+- Trang 403 có fallback config độc lập, tương tự trang 500.
+
 ## v0.13.2 - Render Error Handling
 
 ### Operations

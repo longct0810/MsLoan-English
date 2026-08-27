@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const env = require('../config/env');
 
 function ensureCsrfToken(req, res, next) {
   if (!req.session.csrfToken) req.session.csrfToken = crypto.randomBytes(32).toString('hex');
@@ -17,10 +18,22 @@ function sameOrigin(req) {
   return true;
 }
 
+function renderForbidden(req, res) {
+  return res.status(403).render('errors/403', {
+    title: 'Yêu cầu không hợp lệ',
+    appName: env.app.name,
+    appShortName: env.app.shortName,
+    appVersion: env.app.version,
+    csrfToken: req.session?.csrfToken || '',
+    bootstrapCssUrl: env.assets.bootstrapCssUrl,
+    bootstrapJsUrl: env.assets.bootstrapJsUrl,
+  });
+}
+
 function requireSameOrigin(req, res, next) {
   if (['GET', 'HEAD', 'OPTIONS'].includes(req.method) || sameOrigin(req)) return next();
   if (req.path.startsWith('/api/')) return res.status(403).json({ message: 'Cross-site request blocked' });
-  return res.status(403).render('errors/403', { title: 'Yêu cầu không hợp lệ' });
+  return renderForbidden(req, res);
 }
 
 function requireCsrfToken(req, res, next) {
@@ -29,7 +42,7 @@ function requireCsrfToken(req, res, next) {
   const supplied = req.get('x-csrf-token') || req.body?._csrf;
   if (supplied && supplied === req.session.csrfToken) return next();
   if (req.path.startsWith('/api/')) return res.status(403).json({ message: 'CSRF token invalid' });
-  return res.status(403).render('errors/403', { title: 'Yêu cầu không hợp lệ' });
+  return renderForbidden(req, res);
 }
 
 module.exports = { ensureCsrfToken, requireSameOrigin, requireCsrfToken };

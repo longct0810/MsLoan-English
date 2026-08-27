@@ -1,12 +1,11 @@
-<%- include('../partials/head', { title, appName: appName || 'English Classroom', csrfToken: csrfToken || '', bootstrapCssUrl: bootstrapCssUrl || '', bootstrapJsUrl: bootstrapJsUrl || '' }) %>
+<%- include('../partials/head', { title, appName: typeof appName !== 'undefined' ? appName : 'English Classroom', csrfToken: typeof csrfToken !== 'undefined' ? csrfToken : '', bootstrapCssUrl: typeof bootstrapCssUrl !== 'undefined' ? bootstrapCssUrl : '', bootstrapJsUrl: typeof bootstrapJsUrl !== 'undefined' ? bootstrapJsUrl : '' }) %>
 <div class="min-vh-100 d-flex align-items-center justify-content-center p-4">
 	<div class="card border-0 shadow-sm p-4" style="max-width:700px">
 		<h1 class="h3">Có lỗi xảy ra</h1>
 		<p class="text-secondary">Hệ thống chưa thể xử lý yêu cầu.</p>
-		<% if (error) { %><pre class="bg-light p-3 small overflow-auto"><%= error.stack %></pre><% } %>
+		<% if (typeof error !== 'undefined' && error) { %><pre class="bg-light p-3 small overflow-auto"><%= error.stack %></pre><% } %>
 		<a class="btn btn-primary align-self-start" href="/home">Về trang chủ</a>
 	</div>
 </div>
-<script src="<%= bootstrapJsUrl || '' %>"></script>
 </body>
 </html>

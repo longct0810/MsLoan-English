@@ -1,4 +1,4 @@
-<%- include('../partials/head', { title }) %>
+<%- include('../partials/head', { title, appName: typeof appName !== 'undefined' ? appName : 'English Classroom', csrfToken: typeof csrfToken !== 'undefined' ? csrfToken : '', bootstrapCssUrl: typeof bootstrapCssUrl !== 'undefined' ? bootstrapCssUrl : '', bootstrapJsUrl: typeof bootstrapJsUrl !== 'undefined' ? bootstrapJsUrl : '' }) %>
 <div class="min-vh-100 d-flex align-items-center justify-content-center p-4">
   <div class="text-center">
     <div class="display-4 fw-bold text-primary">403</div>
