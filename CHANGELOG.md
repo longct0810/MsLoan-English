@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.13.2 - Render Error Handling
+
+### Operations
+- Sửa trang lỗi 500 để không phát sinh lỗi `appName is not defined` khi lỗi xảy ra trước middleware view data.
+- Truyền fallback application config trực tiếp khi render error page.
+- Hiển thị nút quay về `/home` an toàn cho cả phiên đăng nhập và chưa đăng nhập.
+
 ## v0.13.1 - Responsive Report Filter
 
 ### UI

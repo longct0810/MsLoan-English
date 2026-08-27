@@ -95,6 +95,12 @@ app.use((err, req, res, next) => {
   }
   res.status(500).render('errors/500', {
     title: 'Có lỗi xảy ra',
+    appName: env.app.name,
+    appShortName: env.app.shortName,
+    appVersion: env.app.version,
+    csrfToken: req.session?.csrfToken || '',
+    bootstrapCssUrl: env.assets.bootstrapCssUrl,
+    bootstrapJsUrl: env.assets.bootstrapJsUrl,
     error: env.app.nodeEnv === 'development' ? err : null,
   });
 });
