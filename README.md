@@ -1,125 +1,61 @@
-# English Classroom MVP v0.6.1
+# English Classroom MVP v0.7.0
 
-Website responsive quản lý lớp học tiếng Anh dành cho giáo viên, học sinh và phụ huynh.
+Website responsive quản lý lớp học tiếng Anh dành cho giáo viên, học viên và phụ huynh.
 
-## Stack
-
+## Công nghệ
 - Node.js 20+
 - Express 5 + EJS
 - Bootstrap 5
 - PostgreSQL / Neon
-- `pg`
-- `exceljs` + `multer` cho import Question Bank
+- `pg`, `bcryptjs`, `express-session`, `connect-pg-simple`
+- ExcelJS + Multer cho import Question Bank
 
-## v0.6.1 có gì mới?
+## Chức năng chính đến v0.7.0
 
-### 1. Giữ đầy đủ cách nhập câu hỏi thủ công
+### Teacher Portal
+- Dashboard.
+- CRUD lớp học khối 6–9.
+- CRUD học viên.
+- Gắn học viên vào một hoặc nhiều lớp.
+- Tạo tài khoản STUDENT và PARENT cùng lúc khi thêm học viên.
+- Dùng lại tài khoản phụ huynh nếu cùng email đã tồn tại.
+- Buổi học, điểm danh, nhận xét học viên.
+- Bài học & tài liệu.
+- Bài tập, nộp bài và chấm bài.
+- Question Bank: nhập thủ công hoặc import/update Excel/CSV.
+- Online Exam: trắc nghiệm tự chấm + tự luận giáo viên chấm.
 
-Tại `/questions`, giáo viên có hai lựa chọn rõ ràng:
+### Student Portal
+- Dashboard, tài liệu, bài tập, tiến độ.
+- Làm bài kiểm tra online, autosave, countdown, xem kết quả.
 
-```text
-Nhập từng câu thủ công
-hoặc
-Nhập / cập nhật nhiều câu từ Excel
-```
+### Parent Portal
+- Theo dõi nhiều con trên cùng một tài khoản phụ huynh.
+- Điểm, chuyên cần, bài tập và nhận xét giáo viên.
 
-Khi nhập thủ công tại `/questions/new`, có hai nút:
-
-```text
-Lưu & thêm câu tiếp theo
-Lưu & về ngân hàng
-```
-
-Phù hợp khi giáo viên đang soạn liên tục nhiều câu nhưng không muốn dùng Excel.
-
-### 2. File Excel mẫu đơn giản hơn
-
-Template mới bỏ các cột kỹ thuật như:
-
-```text
-action
-lesson_id
-difficulty
-status
-```
-
-Giáo viên chỉ cần thao tác với các cột tiếng Việt:
+## Luồng tạo học viên v0.7.0
 
 ```text
-Mã câu hỏi
-Khối
-Loại câu hỏi
-Nội dung câu hỏi
-Đáp án A
-Đáp án B
-Đáp án C
-Đáp án D
-Đáp án / Gợi ý
-Điểm
-Giải thích / Hướng dẫn chấm
+Teacher tạo học viên
+       │
+       ├─ Student profile
+       ├─ STUDENT user account
+       ├─ Class membership
+       │
+       └─ Parent information
+              │
+              ├─ email PARENT đã tồn tại → dùng lại
+              └─ chưa tồn tại → tạo PARENT account
+                         │
+                         └─ parent_students
 ```
 
-Quy tắc:
+Email học viên và email phụ huynh phải khác nhau. Mật khẩu học viên tối thiểu 8 ký tự. Với phụ huynh mới, cần nhập mật khẩu; nếu email phụ huynh đã có tài khoản PARENT thì có thể để trống mật khẩu để dùng lại tài khoản đó.
 
-- `Mã câu hỏi` để trống => tạo mới.
-- `Mã câu hỏi` có ID hiện có => cập nhật.
-- Không cần nhập `CREATE` / `UPDATE`.
-- `Loại câu hỏi` dùng tiếng Việt: Trắc nghiệm, Đúng/Sai, Điền từ, Tự luận.
-- Câu mới import luôn lưu ở trạng thái `DRAFT` để giáo viên kiểm tra trước khi xuất bản.
-- Các trường kỹ thuật cũ vẫn được parser hỗ trợ để không làm hỏng file template v0.6.0 đã có.
+## Xóa an toàn
+Nút **Xóa** học viên/lớp dùng soft delete. Dữ liệu điểm, bài kiểm tra, bài tập, chuyên cần và lịch sử không bị xóa vật lý khỏi PostgreSQL.
 
-Template gồm 3 sheet:
-
-```text
-Nhap cau hoi  -> sheet giáo viên nhập dữ liệu
-Vi du         -> ví dụ 4 loại câu hỏi
-Huong dan     -> hướng dẫn ngắn gọn
-```
-
-Tải tại:
-
-```text
-/questions/import/template.xlsx
-```
-
-Import vẫn dùng nguyên tắc **all-or-nothing**: có một dòng lỗi thì không ghi bất kỳ dòng nào vào database.
-
-### 3. Chấm bài hỗn hợp giữ nguyên từ v0.6.0
-
-```text
-Student submits exam
-        |
-        +--> MCQ / TRUE_FALSE / FILL_BLANK
-        |        -> Auto grading
-        |
-        +--> ESSAY
-                 -> PENDING_GRADING
-                 -> Teacher grades
-                 -> Final score
-```
-
-Điểm cuối chỉ được ghi vào tiến độ học sinh sau khi phần tự luận đã được chấm đầy đủ.
-
-## Database
-
-**v0.6.1 không thay đổi schema database.**
-
-Nếu database đã ở v0.6.0 thì không cần chạy SQL migration mới.
-
-Render vẫn có thể giữ Build Command:
-
-```bash
-npm install && npm run db:migrate
-```
-
-## Cấu hình import trong `.env`
-
-```env
-QUESTION_IMPORT_MAX_ROWS=2000
-QUESTION_IMPORT_MAX_FILE_MB=5
-```
-
-## Cài đặt
+## Chạy local
 
 ```bash
 cp .env.example .env
@@ -127,9 +63,33 @@ npm install
 npm run dev
 ```
 
-## Render
+Demo mode:
 
-Build Command:
+```env
+DEMO_MODE=true
+```
+
+## PostgreSQL / Neon
+Production dùng:
+
+```env
+DEMO_MODE=false
+DATABASE_URL=postgresql://...
+```
+
+Nâng database hiện tại từ v0.6.x:
+
+```bash
+npm run db:migrate
+```
+
+Hoặc chạy thủ công trên Neon SQL Editor:
+
+```text
+db/neon_upgrade_v0.7.0.sql
+```
+
+Build Command trên Render:
 
 ```bash
 npm install && npm run db:migrate
@@ -141,13 +101,21 @@ Start Command:
 npm start
 ```
 
-`DATABASE_URL` tiếp tục đặt trong **Render → Environment**, không commit `.env` lên GitHub.
-
-## Health check
+## Route mới v0.7.0
 
 ```text
-/health
-/health/db
+GET  /students/new
+POST /students
+GET  /students/:id/edit
+POST /students/:id
+POST /students/:id/delete
+
+GET  /classes/new
+POST /classes
+GET  /classes/:id/edit
+POST /classes/:id
+POST /classes/:id/delete
 ```
 
-Version hiển thị trên giao diện được lấy từ `package.json` và hiện là `v0.6.1`.
+## Version
+Version hiện tại được lấy từ `package.json` và hiển thị trên Login, Navbar, Sidebar, Footer và health endpoint.

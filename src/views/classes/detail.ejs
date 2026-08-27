@@ -4,15 +4,15 @@
   <div class="d-flex flex-column flex-md-row gap-3 align-items-md-center">
     <span class="grade-pill large">G<%= classItem.grade %></span>
     <div class="flex-grow-1"><h1 class="h3 mb-1"><%= classItem.name %></h1><div class="text-secondary"><%= classItem.schedule %> • Năm học <%= classItem.schoolYear %></div></div>
-    <div class="d-flex flex-wrap gap-2"><a class="btn btn-outline-primary" href="/lessons?classId=<%= classItem.id %>">Bài học</a><a class="btn btn-outline-primary" href="/assignments?classId=<%= classItem.id %>">Bài tập</a><a class="btn btn-outline-primary" href="/sessions?classId=<%= classItem.id %>">Lịch buổi học</a><a class="btn btn-primary" href="/sessions/new?classId=<%= classItem.id %>">+ Tạo buổi / Điểm danh</a></div>
+    <div class="d-flex flex-wrap gap-2"><a class="btn btn-outline-secondary" href="/classes/<%= classItem.id %>/edit">Sửa lớp</a><a class="btn btn-outline-primary" href="/lessons?classId=<%= classItem.id %>">Bài học</a><a class="btn btn-outline-primary" href="/assignments?classId=<%= classItem.id %>">Bài tập</a><a class="btn btn-outline-primary" href="/sessions?classId=<%= classItem.id %>">Lịch buổi học</a><a class="btn btn-primary" href="/sessions/new?classId=<%= classItem.id %>">+ Tạo buổi / Điểm danh</a></div>
   </div>
 </div>
 
 <div class="card app-card">
-  <div class="card-header d-flex justify-content-between align-items-center"><div><strong>Học viên trong lớp</strong><div class="small text-secondary"><%= classItem.students.length %> học viên</div></div><input class="form-control form-control-sm table-search" placeholder="Tìm học viên..." data-table-search="#studentTable"></div>
+  <div class="card-header d-flex flex-column flex-md-row gap-2 justify-content-between align-items-md-center"><div><strong>Học viên trong lớp</strong><div class="small text-secondary"><%= classItem.students.length %> học viên</div></div><div class="d-flex gap-2"><input class="form-control form-control-sm table-search" placeholder="Tìm học viên..." data-table-search="#studentTable"><a class="btn btn-sm btn-primary text-nowrap" href="/students/new?classId=<%= classItem.id %>">+ Thêm học viên</a></div></div>
   <div class="table-responsive">
     <table class="table align-middle mb-0" id="studentTable">
-      <thead><tr><th>Học viên</th><th>Trường / lớp</th><th>Điểm TB</th><th>Chuyên cần</th><th>Phụ huynh</th></tr></thead>
+      <thead><tr><th>Học viên</th><th>Trường / lớp</th><th>Điểm TB</th><th>Chuyên cần</th><th>Phụ huynh</th><th></th></tr></thead>
       <tbody>
         <% classItem.students.forEach(s => { %>
           <tr>
@@ -20,7 +20,7 @@
             <td><%= s.school %><div class="small text-secondary"><%= s.schoolClass %></div></td>
             <td><span class="score-badge <%= s.averageScore >= 8 ? 'good' : s.averageScore < 7 ? 'warn' : '' %>"><%= s.averageScore %></span></td>
             <td><%= s.attendanceRate %>%</td>
-            <td><%= s.parentPhone %></td>
+            <td><%= s.parentName || '—' %><div class="small text-secondary"><%= s.parentPhone || '' %></div></td><td class="text-end"><a class="btn btn-sm btn-outline-primary" href="/students/<%= s.id %>/edit">Sửa</a></td>
           </tr>
         <% }) %>
       </tbody>

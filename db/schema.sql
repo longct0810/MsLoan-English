@@ -351,3 +351,15 @@ ALTER TABLE exam_answers ADD CONSTRAINT exam_answers_grading_status_check
 CREATE INDEX IF NOT EXISTS idx_exam_attempts_pending_grading ON exam_attempts(exam_id, status) WHERE status='PENDING_GRADING';
 CREATE INDEX IF NOT EXISTS idx_exam_answers_grading_status ON exam_answers(attempt_id, grading_status);
 COMMIT;
+
+-- v0.7.0 - Student/Class CRUD, linked parent accounts and safe soft-delete metadata.
+BEGIN;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS phone VARCHAR(30);
+ALTER TABLE students ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+ALTER TABLE students ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+ALTER TABLE classes ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+ALTER TABLE classes ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+CREATE INDEX IF NOT EXISTS idx_students_active ON students(id) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_classes_active ON classes(id) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_users_role_email ON users(role, LOWER(email));
+COMMIT;

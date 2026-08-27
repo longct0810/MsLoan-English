@@ -1,0 +1,24 @@
+<%- include('../partials/app-start', { title }) %>
+<%
+  const editing = Boolean(classItem && classItem.id);
+  const value = (name, fallback = '') => (formData && formData[name] !== undefined && formData[name] !== null ? formData[name] : fallback);
+%>
+<div class="mb-3"><a href="/classes" class="text-decoration-none">← Danh sách lớp</a></div>
+<div class="row justify-content-center"><div class="col-xl-8">
+  <div class="mb-4"><h1 class="h3 mb-1"><%= editing ? 'Chỉnh sửa lớp' : 'Thêm lớp mới' %></h1><p class="text-secondary mb-0">Cấu hình khối, năm học và lịch học.</p></div>
+  <% if (errors && errors.length) { %><div class="alert alert-danger"><ul class="mb-0"><% errors.forEach(e => { %><li><%= e %></li><% }) %></ul></div><% } %>
+  <form method="post" action="<%= editing ? '/classes/' + classItem.id : '/classes' %>">
+    <div class="card app-card"><div class="card-body p-4">
+      <div class="row g-3">
+        <div class="col-md-8"><label class="form-label">Tên lớp <span class="text-danger">*</span></label><input class="form-control" name="name" required value="<%= value('name') %>" placeholder="English 7 - T3/T6"></div>
+        <div class="col-md-4"><label class="form-label">Khối <span class="text-danger">*</span></label><select class="form-select" name="grade" required><option value="">-- Chọn khối --</option><% grades.forEach(g => { %><option value="<%= g.gradeNo %>" <%= String(value('grade'))===String(g.gradeNo) ? 'selected' : '' %>><%= g.name %></option><% }) %></select></div>
+        <div class="col-md-5"><label class="form-label">Năm học <span class="text-danger">*</span></label><input class="form-control" name="schoolYear" required value="<%= value('schoolYear') %>" placeholder="2026-2027"></div>
+        <div class="col-md-7"><label class="form-label">Lịch học</label><input class="form-control" name="schedule" value="<%= value('schedule') %>" placeholder="Thứ 3, Thứ 6 • 17:30"></div>
+        <div class="col-md-5"><label class="form-label">Trạng thái</label><select class="form-select" name="status"><option value="ACTIVE" <%= value('status','ACTIVE')==='ACTIVE' ? 'selected' : '' %>>Đang hoạt động</option><option value="INACTIVE" <%= value('status')==='INACTIVE' ? 'selected' : '' %>>Tạm dừng</option></select></div>
+      </div>
+      <hr class="my-4">
+      <div class="d-flex gap-2 justify-content-end"><a class="btn btn-outline-secondary" href="/classes">Hủy</a><button class="btn btn-primary"><%= editing ? 'Lưu thay đổi' : 'Tạo lớp' %></button></div>
+    </div></div>
+  </form>
+</div></div>
+<%- include('../partials/app-end') %>

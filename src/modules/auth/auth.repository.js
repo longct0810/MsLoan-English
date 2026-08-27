@@ -4,7 +4,7 @@ const demoStore = require('../../shared/demo-store');
 
 async function findByEmail(email) {
   if (env.demo.enabled) {
-    return demoStore.users.find((u) => u.email.toLowerCase() === email.toLowerCase()) || null;
+    return demoStore.users.find((u) => u.email.toLowerCase() === email.toLowerCase() && u.status !== 'INACTIVE') || null;
   }
 
   const { rows } = await pool.query(
