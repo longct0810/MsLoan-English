@@ -1,0 +1,3 @@
+const test=require('node:test'); const assert=require('node:assert/strict'); const fs=require('node:fs'); const path=require('node:path');
+const read=(f)=>fs.readFileSync(path.join(__dirname,'..',f),'utf8');
+test('v0.16 session journal migration and routes',()=>{ const m=read('db/neon_upgrade_v0.16.0.sql'); const r=read('src/modules/sessions/session.routes.js'); const repo=read('src/modules/sessions/session.repository.js'); assert.match(m,/session_goal/i); assert.match(m,/parent_summary/i); assert.match(m,/completed_at/i); assert.match(r,/\/sessions\/:id\/journal/); assert.match(r,/copy-previous/); assert.match(repo,/saveJournal/); });

@@ -7,7 +7,7 @@
     <div class="display-6 fw-bold text-warning my-3">Chờ giáo viên chấm tự luận</div>
     <div class="text-secondary">Phần tự động chấm tạm tính: <strong><%= attempt.autoScore||0 %>/<%= attempt.maxScore %></strong></div>
   <% } else { %>
-    <div class="display-5 fw-bold text-primary my-3"><%= attempt.score %>/<%= attempt.maxScore %></div>
+    <div class="display-5 fw-bold text-primary my-3"><%= attempt.score %>/<%= attempt.maxScore %></div><div class="fw-semibold <%= attempt.passed?'text-success':'text-danger' %>"><%= attempt.passed?'Đạt':'Chưa đạt' %> • Mức đạt <%= attempt.exam.passScorePercent||50 %>%</div>
   <% } %>
   <div class="text-secondary mt-1">Nộp lúc <%= attempt.submittedAt?new Date(attempt.submittedAt).toLocaleString('vi-VN'):'—' %></div>
 </div>
@@ -32,7 +32,7 @@
       <% if(q.correctAnswer){ %><div class="alert alert-light border mt-3 mb-0"><strong>Gợi ý/đáp án tham khảo:</strong><br><%= q.correctAnswer %></div><% } %>
     <% } else { %><div class="alert alert-warning mt-3 mb-0">Giáo viên chưa chấm câu tự luận này.</div><% } %>
   <% } else { %>
-    <div class="mt-2"><% q.options.forEach(o=>{ const selected=String(ans.selectedOptionId||'')===String(o.id); %><div class="py-1 <%= o.isCorrect?'text-success fw-semibold':selected?'text-danger':'' %>"><%= o.optionKey %>. <%= o.optionText %> <%= o.isCorrect?'✓':'' %> <%= selected&&!o.isCorrect?'← Bạn chọn':'' %></div><% }) %></div>
+    <div class="mt-2"><% q.options.forEach(o=>{ const selected=String(ans.selectedOptionKey||'')===String(o.optionKey); %><div class="py-1 <%= o.isCorrect?'text-success fw-semibold':selected?'text-danger':'' %>"><%= o.optionKey %>. <%= o.optionText %> <%= o.isCorrect?'✓':'' %> <%= selected&&!o.isCorrect?'← Bạn chọn':'' %></div><% }) %></div>
   <% } %>
   <% if(q.explanation && (!manual || ans.gradingStatus==='MANUALLY_GRADED')){ %><div class="alert alert-light border mt-3 mb-0"><strong>Giải thích / hướng dẫn:</strong> <%= q.explanation %></div><% } %>
 </div></div>

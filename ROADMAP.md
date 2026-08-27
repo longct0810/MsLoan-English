@@ -8,14 +8,14 @@
 ## ✅ v0.15.0 — Teacher Report Center
 Đã hoàn thành: báo cáo theo lớp/tháng, KPI, học viên cần chú ý, chi tiết học viên, CSV/Excel/Print-PDF và class-scoped authorization.
 
-## v0.16.0 — Sổ đầu bài điện tử
+## v0.16.0 ✅ — Sổ đầu bài điện tử
 - Tối ưu luồng mở buổi học → điểm danh → nội dung đã dạy → bài tập về nhà → nhận xét → hoàn thành buổi học.
 - Template nội dung buổi học và sao chép từ buổi trước.
 - Nhận xét nhanh theo học sinh và mẫu nhận xét.
 - Khi hoàn thành buổi học, tự cập nhật tiến độ và tạo thông báo cho phụ huynh.
 - Trang lịch sử sổ đầu bài theo lớp/tháng.
 
-## v0.17.0 — Skill Tracking
+## v0.17.0 (tiếp theo) — Skill Tracking
 - Chuẩn hóa kỹ năng: Vocabulary, Grammar, Reading, Listening, Writing, Speaking, Pronunciation.
 - Gắn skill vào Question, Assignment, Exam và Lesson.
 - Tự động tổng hợp năng lực học sinh theo dữ liệu làm bài.

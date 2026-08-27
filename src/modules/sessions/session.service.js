@@ -64,6 +64,24 @@ async function addStudentNote(sessionId, input, authorName, actorUserId, isAdmin
   }, authorName, actorUserId, isAdmin);
 }
 
+async function saveJournal(sessionId, input, actorUserId, isAdmin = false) {
+  if (!await repo.findById(sessionId, actorUserId, isAdmin)) throw new Error('SESSION_NOT_FOUND');
+  const clean = (value, max = 5000) => String(value || '').trim().slice(0, max);
+  return repo.saveJournal(sessionId, {
+    sessionGoal: clean(input.sessionGoal, 3000),
+    lessonSummary: clean(input.lessonSummary, 8000),
+    homework: clean(input.homework, 5000),
+    teacherSummary: clean(input.teacherSummary, 8000),
+    parentSummary: clean(input.parentSummary, 5000),
+    nextSessionPlan: clean(input.nextSessionPlan, 5000),
+    parentPublished: input.parentPublished === 'on' || input.parentPublished === true,
+  }, actorUserId, isAdmin);
+}
+
+async function copyPreviousJournal(sessionId, actorUserId, isAdmin = false) {
+  return repo.copyPreviousJournal(sessionId, actorUserId, isAdmin);
+}
+
 async function completeSession(sessionId, actorUserId, isAdmin = false) {
   if (!await repo.findById(sessionId, actorUserId, isAdmin)) throw new Error('SESSION_NOT_FOUND');
   return repo.complete(sessionId, actorUserId, isAdmin);
@@ -76,5 +94,7 @@ module.exports = {
   createSession,
   saveAttendance,
   addStudentNote,
+  saveJournal,
+  copyPreviousJournal,
   completeSession,
 };

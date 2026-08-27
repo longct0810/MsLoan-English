@@ -1,4 +1,4 @@
-# English Classroom MVP v0.15.0
+# English Classroom MVP v0.18.0
 
 Website responsive quản lý lớp học tiếng Anh dành cho giáo viên, học viên và phụ huynh.
 
@@ -10,11 +10,11 @@ Website responsive quản lý lớp học tiếng Anh dành cho giáo viên, h�
 - `pg`, `bcryptjs`, `express-session`, `connect-pg-simple`
 - ExcelJS + Multer cho import Question Bank
 
-## Chức năng chính đến v0.15.0
+## Chức năng chính đến v0.18.0
 
 
 
-### Teacher Report Center v0.15.0
+### Teacher Report Center v0.18.0
 - Báo cáo giáo viên tại `/reports`, lọc theo tháng và lớp.
 - KPI: số học viên, điểm trung bình /10, chuyên cần, tỷ lệ nộp bài, số bài/bài thi chờ chấm.
 - Tổng quan theo lớp và danh sách học viên cần chú ý dựa trên điểm, chuyên cần và bài quá hạn.
@@ -23,11 +23,11 @@ Website responsive quản lý lớp học tiếng Anh dành cho giáo viên, h�
 - Toàn bộ report được scope theo class ownership của TEACHER; ADMIN được xem toàn cục.
 - `student_scores` có thêm `class_id` để tránh score của class khác lọt vào báo cáo multi-teacher.
 
-### Nâng database từ v0.14.1 lên v0.15.0
-Chạy thủ công trên Neon SQL Editor **trước khi deploy source v0.15.0**:
+### Nâng database từ v0.14.1 lên v0.18.0
+Chạy thủ công trên Neon SQL Editor **trước khi deploy source v0.18.0**:
 
 ```text
-db/neon_upgrade_v0.15.0.sql
+db/neon_upgrade_v0.18.0.sql
 ```
 
 Migration chỉ thêm `student_scores.class_id`, backfill an toàn dữ liệu cũ và tạo index phục vụ báo cáo. Không xóa dữ liệu hiện có.
@@ -54,7 +54,7 @@ Nâng database theo từng version bằng file upgrade tương ứng trên Neon 
 
 ```text
 db/neon_upgrade_v0.14.0.sql
-db/neon_upgrade_v0.15.0.sql
+db/neon_upgrade_v0.18.0.sql
 ```
 
 > Không dùng `npm run db:migrate` trên database production hiện có vì script này vẫn đang chạy toàn bộ `db/schema.sql`.
@@ -206,3 +206,15 @@ POST /classes/:id/delete
 
 ## Version
 Version hiện tại được lấy từ `package.json` và hiển thị trên Login, Navbar, Sidebar, Footer và health endpoint.
+
+
+## v0.18.0
+Sổ đầu bài điện tử được tích hợp trực tiếp vào chi tiết buổi học. Khi nâng từ v0.15.0, chạy `db/neon_upgrade_v0.18.0.sql` trên Neon trước khi deploy.
+
+
+## v0.18.0
+Skill Tracking: chạy `db/neon_upgrade_v0.18.0.sql` sau khi database đã ở v0.16.0.
+
+
+## v0.18.0
+Assignment 2.0 lưu tệp bài nộp trong PostgreSQL/Neon (phù hợp quy mô lớp nhỏ). Trước production lớn nên chuyển binary sang object storage. Chạy `db/neon_upgrade_v0.18.0.sql` sau v0.17.0.

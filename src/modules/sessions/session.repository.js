@@ -50,6 +50,12 @@ async function findAll({ classId } = {}, actorUserId = null, isAdmin = false) {
            s.topic,
            s.lesson_summary AS "lessonSummary",
            s.homework,
+           s.session_goal AS "sessionGoal",
+           s.teacher_summary AS "teacherSummary",
+           s.parent_summary AS "parentSummary",
+           s.next_session_plan AS "nextSessionPlan",
+           s.parent_published AS "parentPublished",
+           s.completed_at AS "completedAt",
            s.status,
            c.name AS "className",
            g.grade_no AS grade,
@@ -114,6 +120,12 @@ async function findById(id, actorUserId = null, isAdmin = false) {
            s.topic,
            s.lesson_summary AS "lessonSummary",
            s.homework,
+           s.session_goal AS "sessionGoal",
+           s.teacher_summary AS "teacherSummary",
+           s.parent_summary AS "parentSummary",
+           s.next_session_plan AS "nextSessionPlan",
+           s.parent_published AS "parentPublished",
+           s.completed_at AS "completedAt",
            s.status,
            c.name AS "className",
            c.school_year AS "schoolYear",
@@ -407,6 +419,62 @@ async function addNote(sessionId, data, authorName, actorUserId = null, isAdmin 
   return rows[0];
 }
 
+async function saveJournal(sessionId, data, actorUserId = null, isAdmin = false) {
+  const id = normalizeId(sessionId);
+  if (!id) throw new Error('SESSION_NOT_FOUND');
+  if (env.demo.enabled) {
+    const session = demoStore.classSessions.find((item) => item.id === id);
+    const classItem = session ? demoStore.classes.find((item) => item.id === session.classId && item.status !== 'DELETED') : null;
+    if (!session || !classItem || (!isAdmin && actorUserId && Number(classItem.teacherId) !== Number(actorUserId))) throw new Error('SESSION_NOT_FOUND');
+    Object.assign(session, data, { updatedAt: new Date().toISOString() });
+    return session;
+  }
+  const { rows } = await pool.query(`
+    UPDATE class_sessions s
+       SET session_goal=$4, lesson_summary=$5, homework=$6, teacher_summary=$7, parent_summary=$8,
+           next_session_plan=$9, parent_published=$10, updated_at=NOW()
+      FROM classes c
+     WHERE s.id=$1 AND c.id=s.class_id AND c.deleted_at IS NULL
+       AND ($3::boolean OR $2::bigint IS NULL OR c.teacher_id=$2)
+     RETURNING s.id
+  `, [id, actorUserId, isAdmin, data.sessionGoal || '', data.lessonSummary || '', data.homework || '',
+      data.teacherSummary || '', data.parentSummary || '', data.nextSessionPlan || '', Boolean(data.parentPublished)]);
+  if (!rows[0]) throw new Error('SESSION_NOT_FOUND');
+  return rows[0];
+}
+
+async function copyPreviousJournal(sessionId, actorUserId = null, isAdmin = false) {
+  const current = await findById(sessionId, actorUserId, isAdmin);
+  if (!current) throw new Error('SESSION_NOT_FOUND');
+  if (env.demo.enabled) {
+    const previous = demoStore.classSessions
+      .filter((item) => item.classId === current.classId && item.id !== current.id && item.sessionDate < current.sessionDate)
+      .sort((a,b) => String(b.sessionDate).localeCompare(String(a.sessionDate)))[0];
+    if (!previous) return null;
+    current.sessionGoal = previous.nextSessionPlan || previous.sessionGoal || '';
+    current.lessonSummary = previous.lessonSummary || '';
+    current.homework = previous.homework || '';
+    return current;
+  }
+  const { rows } = await pool.query(`
+    WITH current_session AS (
+      SELECT s.id,s.class_id,s.session_date FROM class_sessions s JOIN classes c ON c.id=s.class_id
+       WHERE s.id=$1 AND c.deleted_at IS NULL AND ($3::boolean OR $2::bigint IS NULL OR c.teacher_id=$2)
+    ), previous_session AS (
+      SELECT p.* FROM class_sessions p JOIN current_session cs ON cs.class_id=p.class_id
+       WHERE p.id<>cs.id AND p.session_date<cs.session_date
+       ORDER BY p.session_date DESC,p.id DESC LIMIT 1
+    )
+    UPDATE class_sessions s
+       SET session_goal=COALESCE(NULLIF(p.next_session_plan,''),p.session_goal,''),
+           lesson_summary=COALESCE(p.lesson_summary,''), homework=COALESCE(p.homework,''), updated_at=NOW()
+      FROM previous_session p
+     WHERE s.id=$1
+     RETURNING s.id
+  `,[id,actorUserId,isAdmin]);
+  return rows[0] || null;
+}
+
 async function complete(sessionId, actorUserId = null, isAdmin = false) {
   const id = normalizeId(sessionId);
   if (!id) throw new Error('SESSION_NOT_FOUND');
@@ -415,20 +483,22 @@ async function complete(sessionId, actorUserId = null, isAdmin = false) {
     const classItem = session ? demoStore.classes.find((item) => item.id === session.classId && item.status !== 'DELETED') : null;
     if (!session || !classItem || (!isAdmin && actorUserId && Number(classItem.teacherId) !== Number(actorUserId))) throw new Error('SESSION_NOT_FOUND');
     session.status = 'COMPLETED';
+    session.completedAt = new Date().toISOString();
+    session.completedBy = actorUserId || null;
+    if (session.parentSummary) session.parentPublished = true;
     return session;
   }
   const { rows } = await pool.query(`
     UPDATE class_sessions s
-       SET status = 'COMPLETED', updated_at = NOW()
+       SET status='COMPLETED', completed_at=COALESCE(completed_at,NOW()), completed_by=$2,
+           parent_published=CASE WHEN NULLIF(parent_summary,'') IS NOT NULL THEN TRUE ELSE parent_published END, updated_at=NOW()
       FROM classes c
-     WHERE s.id = $1
-       AND c.id=s.class_id
-       AND c.deleted_at IS NULL
+     WHERE s.id=$1 AND c.id=s.class_id AND c.deleted_at IS NULL
        AND ($3::boolean OR $2::bigint IS NULL OR c.teacher_id=$2)
-     RETURNING s.id, s.status
+     RETURNING s.id,s.status,s.completed_at AS "completedAt"
   `, [id, actorUserId, isAdmin]);
   if (!rows[0]) throw new Error('SESSION_NOT_FOUND');
   return rows[0];
 }
 
-module.exports = { findAll, findById, create, saveAttendance, addNote, complete };
+module.exports = { findAll, findById, create, saveAttendance, addNote, saveJournal, copyPreviousJournal, complete };

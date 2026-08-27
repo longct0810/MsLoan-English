@@ -401,3 +401,140 @@ CREATE INDEX IF NOT EXISTS idx_exam_attempts_student_submitted
   ON exam_attempts(student_id, submitted_at DESC)
   WHERE submitted_at IS NOT NULL;
 COMMIT;
+
+-- v0.16.0 - Electronic class journal / session log.
+BEGIN;
+
+-- v0.16.0 - Electronic class journal / session log.
+ALTER TABLE class_sessions ADD COLUMN IF NOT EXISTS session_goal TEXT;
+ALTER TABLE class_sessions ADD COLUMN IF NOT EXISTS teacher_summary TEXT;
+ALTER TABLE class_sessions ADD COLUMN IF NOT EXISTS parent_summary TEXT;
+ALTER TABLE class_sessions ADD COLUMN IF NOT EXISTS next_session_plan TEXT;
+ALTER TABLE class_sessions ADD COLUMN IF NOT EXISTS parent_published BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE class_sessions ADD COLUMN IF NOT EXISTS completed_at TIMESTAMPTZ;
+ALTER TABLE class_sessions ADD COLUMN IF NOT EXISTS completed_by BIGINT REFERENCES users(id) ON DELETE SET NULL;
+
+CREATE INDEX IF NOT EXISTS idx_class_sessions_completed
+  ON class_sessions(class_id, completed_at DESC)
+  WHERE status='COMPLETED';
+
+COMMIT;
+
+-- v0.17.0 - Skill Tracking.
+BEGIN;
+
+-- v0.17.0 - Skill Tracking.
+CREATE TABLE IF NOT EXISTS skills (
+  code VARCHAR(40) PRIMARY KEY,
+  label VARCHAR(100) NOT NULL,
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  is_active BOOLEAN NOT NULL DEFAULT TRUE
+);
+
+INSERT INTO skills(code,label,sort_order) VALUES
+ ('VOCABULARY','Vocabulary',10),('GRAMMAR','Grammar',20),('READING','Reading',30),
+ ('LISTENING','Listening',40),('WRITING','Writing',50),('SPEAKING','Speaking',60),
+ ('PRONUNCIATION','Pronunciation',70)
+ON CONFLICT(code) DO UPDATE SET label=EXCLUDED.label,sort_order=EXCLUDED.sort_order,is_active=TRUE;
+
+CREATE TABLE IF NOT EXISTS assignment_skills (
+  assignment_id BIGINT NOT NULL REFERENCES assignments(id) ON DELETE CASCADE,
+  skill_code VARCHAR(40) NOT NULL REFERENCES skills(code),
+  weight NUMERIC(6,3) NOT NULL DEFAULT 1 CHECK(weight > 0),
+  PRIMARY KEY(assignment_id,skill_code)
+);
+
+CREATE TABLE IF NOT EXISTS question_skills (
+  question_id BIGINT NOT NULL REFERENCES questions(id) ON DELETE CASCADE,
+  skill_code VARCHAR(40) NOT NULL REFERENCES skills(code),
+  weight NUMERIC(6,3) NOT NULL DEFAULT 1 CHECK(weight > 0),
+  PRIMARY KEY(question_id,skill_code)
+);
+
+CREATE TABLE IF NOT EXISTS student_skill_events (
+  id BIGSERIAL PRIMARY KEY,
+  student_id BIGINT NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+  class_id BIGINT REFERENCES classes(id) ON DELETE SET NULL,
+  skill_code VARCHAR(40) NOT NULL REFERENCES skills(code),
+  source_type VARCHAR(20) NOT NULL CHECK(source_type IN ('LEGACY','ASSIGNMENT','EXAM','MANUAL')),
+  source_id BIGINT NOT NULL DEFAULT 0,
+  score NUMERIC(8,2) NOT NULL,
+  max_score NUMERIC(8,2) NOT NULL CHECK(max_score > 0),
+  weight NUMERIC(6,3) NOT NULL DEFAULT 1 CHECK(weight > 0),
+  recorded_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_student_skill_event_source
+  ON student_skill_events(student_id,skill_code,source_type,source_id);
+CREATE INDEX IF NOT EXISTS idx_student_skill_events_student_date
+  ON student_skill_events(student_id,skill_code,recorded_at DESC);
+CREATE INDEX IF NOT EXISTS idx_student_skill_events_class_date
+  ON student_skill_events(class_id,skill_code,recorded_at DESC) WHERE class_id IS NOT NULL;
+
+-- Preserve the old student_skills data as an initial baseline.
+INSERT INTO student_skill_events(student_id,class_id,skill_code,source_type,source_id,score,max_score,weight,recorded_at)
+SELECT ss.student_id,
+       (SELECT MIN(cs.class_id) FROM class_students cs WHERE cs.student_id=ss.student_id AND cs.status='ACTIVE'
+         HAVING COUNT(*)=1),
+       UPPER(ss.skill),'LEGACY',0,ss.score,10,0.5,NOW()
+  FROM student_skills ss
+  JOIN skills sk ON sk.code=UPPER(ss.skill)
+ON CONFLICT(student_id,skill_code,source_type,source_id) DO NOTHING;
+
+COMMIT;
+
+-- v0.18.0 - Assignment 2.0.
+BEGIN;
+
+-- v0.18.0 - Assignment 2.0: file/audio submissions and skill rubric grading.
+ALTER TABLE assignments ADD COLUMN IF NOT EXISTS submission_mode VARCHAR(20) NOT NULL DEFAULT 'TEXT';
+ALTER TABLE assignments DROP CONSTRAINT IF EXISTS assignments_submission_mode_check;
+ALTER TABLE assignments ADD CONSTRAINT assignments_submission_mode_check CHECK(submission_mode IN ('TEXT','FILE','AUDIO','MIXED'));
+ALTER TABLE assignments ADD COLUMN IF NOT EXISTS rubric_enabled BOOLEAN NOT NULL DEFAULT FALSE;
+
+ALTER TABLE assignment_submissions ADD COLUMN IF NOT EXISTS rubric_scores JSONB NOT NULL DEFAULT '{}'::jsonb;
+ALTER TABLE assignment_submissions ADD COLUMN IF NOT EXISTS rubric_feedback TEXT;
+
+CREATE TABLE IF NOT EXISTS assignment_submission_assets (
+  id BIGSERIAL PRIMARY KEY,
+  assignment_id BIGINT NOT NULL,
+  student_id BIGINT NOT NULL,
+  file_name VARCHAR(255) NOT NULL,
+  mime_type VARCHAR(150) NOT NULL,
+  size_bytes BIGINT NOT NULL CHECK(size_bytes >= 0),
+  content BYTEA NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CONSTRAINT fk_assignment_submission_asset FOREIGN KEY(assignment_id,student_id)
+    REFERENCES assignment_submissions(assignment_id,student_id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_assignment_submission_assets_submission
+  ON assignment_submission_assets(assignment_id,student_id,created_at);
+
+COMMIT;
+
+-- v0.19.0 - Exam 2.0: pools, randomization, immutable snapshots and student overrides.
+BEGIN;
+ALTER TABLE exams ADD COLUMN IF NOT EXISTS selection_mode VARCHAR(20) NOT NULL DEFAULT 'MANUAL';
+ALTER TABLE exams ADD COLUMN IF NOT EXISTS randomize_questions BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE exams ADD COLUMN IF NOT EXISTS randomize_options BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE exams ADD COLUMN IF NOT EXISTS pass_score_percent NUMERIC(5,2) NOT NULL DEFAULT 50;
+ALTER TABLE exams DROP CONSTRAINT IF EXISTS exams_selection_mode_check;
+ALTER TABLE exams ADD CONSTRAINT exams_selection_mode_check CHECK(selection_mode IN ('MANUAL','POOL'));
+ALTER TABLE exams DROP CONSTRAINT IF EXISTS exams_pass_score_percent_check;
+ALTER TABLE exams ADD CONSTRAINT exams_pass_score_percent_check CHECK(pass_score_percent BETWEEN 0 AND 100);
+CREATE TABLE IF NOT EXISTS exam_pool_rules (id BIGSERIAL PRIMARY KEY,exam_id BIGINT NOT NULL REFERENCES exams(id) ON DELETE CASCADE,skill_code VARCHAR(40) REFERENCES skills(code) ON DELETE RESTRICT,difficulty VARCHAR(20),question_type VARCHAR(30),question_count INTEGER NOT NULL CHECK(question_count BETWEEN 1 AND 200),sort_order INTEGER NOT NULL DEFAULT 0);
+ALTER TABLE exam_pool_rules DROP CONSTRAINT IF EXISTS exam_pool_rules_difficulty_check;
+ALTER TABLE exam_pool_rules ADD CONSTRAINT exam_pool_rules_difficulty_check CHECK(difficulty IS NULL OR difficulty IN ('EASY','MEDIUM','HARD'));
+ALTER TABLE exam_pool_rules DROP CONSTRAINT IF EXISTS exam_pool_rules_question_type_check;
+ALTER TABLE exam_pool_rules ADD CONSTRAINT exam_pool_rules_question_type_check CHECK(question_type IS NULL OR question_type IN ('MULTIPLE_CHOICE','TRUE_FALSE','FILL_BLANK','ESSAY'));
+CREATE INDEX IF NOT EXISTS idx_exam_pool_rules_exam ON exam_pool_rules(exam_id,sort_order,id);
+CREATE TABLE IF NOT EXISTS exam_question_snapshots (exam_id BIGINT NOT NULL REFERENCES exams(id) ON DELETE CASCADE,question_id BIGINT NOT NULL,question_type VARCHAR(30) NOT NULL,stem TEXT NOT NULL,correct_answer TEXT,explanation TEXT,difficulty VARCHAR(20),points NUMERIC(8,2) NOT NULL CHECK(points >= 0),sort_order INTEGER NOT NULL DEFAULT 0,options JSONB NOT NULL DEFAULT '[]'::jsonb,skill_codes JSONB NOT NULL DEFAULT '[]'::jsonb,snapshotted_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),PRIMARY KEY(exam_id,question_id));
+CREATE INDEX IF NOT EXISTS idx_exam_question_snapshots_order ON exam_question_snapshots(exam_id,sort_order,question_id);
+CREATE TABLE IF NOT EXISTS exam_attempt_questions (attempt_id BIGINT NOT NULL REFERENCES exam_attempts(id) ON DELETE CASCADE,question_id BIGINT NOT NULL,sort_order INTEGER NOT NULL DEFAULT 0,option_order JSONB NOT NULL DEFAULT '[]'::jsonb,PRIMARY KEY(attempt_id,question_id));
+CREATE INDEX IF NOT EXISTS idx_exam_attempt_questions_order ON exam_attempt_questions(attempt_id,sort_order,question_id);
+CREATE TABLE IF NOT EXISTS exam_student_overrides (exam_id BIGINT NOT NULL REFERENCES exams(id) ON DELETE CASCADE,student_id BIGINT NOT NULL REFERENCES students(id) ON DELETE CASCADE,extra_minutes INTEGER NOT NULL DEFAULT 0 CHECK(extra_minutes BETWEEN 0 AND 1440),max_attempts_override INTEGER CHECK(max_attempts_override BETWEEN 1 AND 20),reopen_until TIMESTAMPTZ,is_enabled BOOLEAN NOT NULL DEFAULT TRUE,updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),PRIMARY KEY(exam_id,student_id));
+CREATE INDEX IF NOT EXISTS idx_exam_student_overrides_student ON exam_student_overrides(student_id,exam_id) WHERE is_enabled=TRUE;
+ALTER TABLE exam_attempts ADD COLUMN IF NOT EXISTS effective_duration_minutes INTEGER;
+ALTER TABLE exam_answers ADD COLUMN IF NOT EXISTS selected_option_key VARCHAR(20);
+COMMIT;

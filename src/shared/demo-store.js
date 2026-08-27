@@ -70,6 +70,7 @@ const demoStore = {
     { assignmentId: 3, studentId: 5, status: 'LATE', score: null, submittedAt: null, submissionText: '', teacherFeedback: '' },
     { assignmentId: 6, studentId: 5, status: 'NOT_STARTED', score: null, submittedAt: null, submissionText: '', teacherFeedback: '' },
   ],
+  assignmentSubmissionAssets: [],
   studentScores: [
     { id: 1, studentId: 3, title: 'Quiz Unit 1', category: 'Grammar', score: 7.5, maxScore: 10, recordedAt: '2026-08-05' },
     { id: 2, studentId: 3, title: 'Vocabulary Unit 1', category: 'Vocabulary', score: 8.2, maxScore: 10, recordedAt: '2026-08-10' },
@@ -79,6 +80,13 @@ const demoStore = {
     { id: 6, studentId: 5, title: 'Quiz Unit 1', category: 'Grammar', score: 6.5, maxScore: 10, recordedAt: '2026-08-06' },
     { id: 7, studentId: 5, title: 'Reading Practice', category: 'Reading', score: 7.2, maxScore: 10, recordedAt: '2026-08-15' },
     { id: 8, studentId: 5, title: 'Listening Check', category: 'Listening', score: 6.0, maxScore: 10, recordedAt: '2026-08-23' },
+  ],
+  assignmentSkills: [
+    { assignmentId: 2, skillCode: 'GRAMMAR', weight: 1 },
+    { assignmentId: 4, skillCode: 'LISTENING', weight: 1 },
+  ],
+  questionSkills: [
+    { questionId: 1, skillCode: 'GRAMMAR', weight: 1 },
   ],
   studentSkills: [
     { studentId: 3, skill: 'Vocabulary', score: 7.8 },
@@ -99,7 +107,7 @@ const demoStore = {
     { id: 2, studentId: 5, classSessionId: 2, category: 'HOMEWORK', isParentVisible: true, note: 'Minh cần hoàn thành bài đúng hạn và ôn lại cấu trúc câu cơ bản. Listening đang là kỹ năng cần ưu tiên.', createdAt: '2026-08-24', author: env.demo.teacher.fullName },
   ],
   classSessions: [
-    { id: 1, classId: 2, teacherId: 1, sessionDate: '2026-08-25', startTime: '17:30', endTime: '19:00', topic: 'Unit 2 – Past Simple & Speaking', lessonSummary: 'Ôn Past Simple, luyện hỏi đáp về hoạt động cuối tuần và speaking theo cặp.', homework: 'Workbook Unit 2 trang 24–25; luyện nghe 10 phút.', status: 'COMPLETED' },
+    { id: 1, classId: 2, teacherId: 1, sessionDate: '2026-08-25', startTime: '17:30', endTime: '19:00', topic: 'Unit 2 – Past Simple & Speaking', lessonSummary: 'Ôn Past Simple, luyện hỏi đáp về hoạt động cuối tuần và speaking theo cặp.', homework: 'Workbook Unit 2 trang 24–25; luyện nghe 10 phút.', sessionGoal: 'Củng cố Past Simple và speaking theo cặp.', teacherSummary: 'Đa số học sinh nắm được cấu trúc. Cần hỗ trợ thêm nhóm yếu phần động từ bất quy tắc.', parentSummary: 'Lớp đã ôn Past Simple và luyện nói theo cặp. Vui lòng nhắc học sinh hoàn thành Workbook.', nextSessionPlan: 'Listening Unit 2 và chữa homework.', parentPublished: true, completedAt: '2026-08-25T19:00:00+07:00', status: 'COMPLETED' },
     { id: 2, classId: 3, teacherId: 1, sessionDate: '2026-08-26', startTime: '19:00', endTime: '20:30', topic: 'Unit 1 – Teen Life & Listening', lessonSummary: 'Reading ngắn, từ vựng Teen Life, nghe ý chính và thảo luận nhóm.', homework: 'Vocabulary Review và Listening Practice.', status: 'IN_PROGRESS' },
     { id: 3, classId: 4, teacherId: 1, sessionDate: '2026-08-27', startTime: '19:00', endTime: '20:30', topic: 'Exam Review – Grammar', lessonSummary: 'Ôn cấu trúc trọng tâm trước bài kiểm tra.', homework: 'Hoàn thành Exam Review.', status: 'PLANNED' },
   ],
@@ -135,7 +143,7 @@ const demoStore = {
     { id: 14, questionId: 5, optionKey: 'D', optionText: 'cook', isCorrect: false, sortOrder: 4 },
   ],
   exams: [
-    { id: 1, classId: 2, title: 'Unit 2 Online Quiz', description: 'Kiểm tra nhanh Past Simple và Healthy Living.', instructions: 'Đọc kỹ câu hỏi. Hệ thống tự động lưu đáp án.', durationMinutes: 20, startAt: '2026-08-27T08:00:00+07:00', endAt: '2026-09-30T22:00:00+07:00', maxAttempts: 2, showResult: true, status: 'PUBLISHED', publishedAt: '2026-08-27T08:00:00+07:00' },
+    { id: 1, classId: 2, title: 'Unit 2 Online Quiz', description: 'Kiểm tra nhanh Past Simple và Healthy Living.', instructions: 'Đọc kỹ câu hỏi. Hệ thống tự động lưu đáp án.', durationMinutes: 20, startAt: '2026-08-27T08:00:00+07:00', endAt: '2026-09-30T22:00:00+07:00', maxAttempts: 2, showResult: true, selectionMode: 'MANUAL', randomizeQuestions: false, randomizeOptions: false, passScorePercent: 50, status: 'PUBLISHED', publishedAt: '2026-08-27T08:00:00+07:00' },
   ],
   examQuestions: [
     { examId: 1, questionId: 1, sortOrder: 1, points: 1 },
@@ -147,6 +155,10 @@ const demoStore = {
   ],
   examAttempts: [],
   examAnswers: [],
+  examPoolRules: [],
+  examQuestionSnapshots: [],
+  examAttemptQuestions: [],
+  examStudentOverrides: [],
   attendanceRecords: [
     { studentId: 3, date: '2026-08-11', status: 'PRESENT' },
     { studentId: 3, date: '2026-08-14', status: 'PRESENT' },

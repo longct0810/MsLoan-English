@@ -9,6 +9,8 @@ web.post('/sessions', requireRole('TEACHER', 'ADMIN'), controller.create);
 web.get('/sessions/:id', requireRole('TEACHER', 'ADMIN'), controller.detail);
 web.post('/sessions/:id/attendance', requireRole('TEACHER', 'ADMIN'), controller.saveAttendance);
 web.post('/sessions/:id/notes', requireRole('TEACHER', 'ADMIN'), controller.addNote);
+web.post('/sessions/:id/journal', requireRole('TEACHER', 'ADMIN'), controller.saveJournal);
+web.post('/sessions/:id/copy-previous', requireRole('TEACHER', 'ADMIN'), controller.copyPrevious);
 web.post('/sessions/:id/complete', requireRole('TEACHER', 'ADMIN'), controller.complete);
 
 const api = express.Router();

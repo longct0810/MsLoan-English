@@ -2,6 +2,7 @@ const env = require('../../config/env');
 const repo = require('./question.repository');
 const { parseQuestionFile, buildTemplateBuffer } = require('./question.import');
 const classService = require('../classes/class.service');
+const skillRepo = require('../skills/skill.repository');
 
 const TYPES = ['MULTIPLE_CHOICE', 'TRUE_FALSE', 'FILL_BLANK', 'ESSAY'];
 const DIFFICULTIES = ['EASY', 'MEDIUM', 'HARD'];
@@ -135,13 +136,16 @@ async function form(id = null, userId, isAdmin = false) {
   const question = rawQuestion && await canAccess(rawQuestion, userId, isAdmin, accessibleLessonIds)
     ? rawQuestion
     : null;
-  return { grades, lessons, question };
+  const [skills, selectedSkillCodes] = await Promise.all([skillRepo.findSkills(), question ? skillRepo.getQuestionSkills(question.id) : Promise.resolve([])]);
+  return { grades, lessons, question: question ? {...question, skillCodes:selectedSkillCodes} : null, skills };
 }
 
 async function create(body, userId, isAdmin = false) {
   const data = parse(body);
   await ensureLessonAccess(data.lessonId, userId, isAdmin);
-  return repo.create(data, userId);
+  const created = await repo.create(data, userId);
+  await skillRepo.setQuestionSkills(created.id, body.skillCodes);
+  return created;
 }
 
 async function update(id, body, userId, isAdmin = false) {
@@ -149,7 +153,9 @@ async function update(id, body, userId, isAdmin = false) {
   if (!await canAccess(existing, userId, isAdmin)) throw new Error('QUESTION_NOT_FOUND');
   const data = parse(body);
   await ensureLessonAccess(data.lessonId, userId, isAdmin);
-  return repo.update(id, data, userId, isAdmin);
+  const updated = await repo.update(id, data, userId, isAdmin);
+  await skillRepo.setQuestionSkills(id, body.skillCodes);
+  return updated;
 }
 
 async function publish(id, userId, isAdmin = false) {

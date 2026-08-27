@@ -31,6 +31,7 @@
         <a class="nav-link <%= currentPath.startsWith('/questions') ? 'active' : '' %>" href="/questions">Ngân hàng câu hỏi</a>
         <a class="nav-link <%= currentPath.startsWith('/exams') ? 'active' : '' %>" href="/exams">Kiểm tra</a>
         <a class="nav-link <%= currentPath.startsWith('/reports') ? 'active' : '' %>" href="/reports">Báo cáo</a>
+        <a class="nav-link <%= currentPath.startsWith('/skills') ? 'active' : '' %>" href="/skills">Theo dõi kỹ năng</a>
       <% } %>
 
       <% if (isStudent) { %>
@@ -96,6 +97,7 @@
             <a class="nav-link <%= currentPath.startsWith('/questions') ? 'active' : '' %>" href="/questions">Ngân hàng câu hỏi</a>
             <a class="nav-link <%= currentPath.startsWith('/exams') ? 'active' : '' %>" href="/exams">Kiểm tra</a>
             <a class="nav-link <%= currentPath.startsWith('/reports') ? 'active' : '' %>" href="/reports">Báo cáo</a>
+        <a class="nav-link <%= currentPath.startsWith('/skills') ? 'active' : '' %>" href="/skills">Theo dõi kỹ năng</a>
           <% } %>
           <% if (isStudent) { %>
             <a class="nav-link" href="/student">Trang chủ</a>

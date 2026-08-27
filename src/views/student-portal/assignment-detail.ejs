@@ -10,11 +10,15 @@
       <% if (assignment.submission.status === 'GRADED') { %>
         <div class="alert alert-success">Bài đã được chấm. Điểm: <strong><%= assignment.submission.score %>/<%= assignment.maxScore %></strong></div>
       <% } %>
-      <form method="post" action="/student/assignments/<%= assignment.id %>/submit">
+      <form method="post" action="/student/assignments/<%= assignment.id %>/submit" enctype="multipart/form-data">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
         <label class="form-label">Nội dung trả lời</label>
         <textarea class="form-control" name="submissionText" rows="10" <%= assignment.submission.status === 'GRADED' ? 'disabled' : '' %> placeholder="Nhập bài làm tại đây..."><%= assignment.submission.submissionText || '' %></textarea>
+        <% if (assignment.submissionMode !== 'TEXT') { %><div class="mt-3"><label class="form-label"><%= assignment.submissionMode==='AUDIO'?'Tệp ghi âm':'Tệp đính kèm' %></label><input class="form-control" type="file" name="attachments" multiple <%= assignment.submission.status==='GRADED'?'disabled':'' %> <%= assignment.submissionMode==='AUDIO'?'accept="audio/*"':'' %>><div class="form-text">Tối đa <%= assignmentConfig?.uploadMaxFiles || 3 %> tệp; mỗi tệp tối đa <%= assignmentConfig?.uploadMaxFileMb || 10 %> MB.</div></div><% } %>
+        <% if ((assignment.submission.assets||[]).length) { %><div class="mt-3"><div class="small fw-semibold">Tệp đã nộp</div><div class="list-group mt-2"><% assignment.submission.assets.forEach(asset=>{ %><a class="list-group-item list-group-item-action" target="_blank" href="/student/assignments/<%= assignment.id %>/assets/<%= asset.id %>"><%= asset.fileName %> <span class="small text-secondary">(<%= Math.ceil(asset.sizeBytes/1024) %> KB)</span></a><% }) %></div></div><% } %>
         <% if (assignment.submission.status !== 'GRADED') { %><button class="btn btn-primary mt-3">Nộp bài</button><% } %>
       </form>
+      <% if (assignment.submission.rubricScores && Object.keys(assignment.submission.rubricScores).length) { %><div class="mt-4"><div class="fw-semibold mb-2">Rubric</div><div class="d-flex flex-wrap gap-2"><% Object.entries(assignment.submission.rubricScores).forEach(([k,v])=>{ %><span class="badge text-bg-light border"><%= k %>: <%= v %></span><% }) %></div></div><% } %>
       <% if (assignment.submission.teacherFeedback) { %><div class="teacher-feedback mt-4"><div class="fw-semibold mb-1">Nhận xét của giáo viên</div><%= assignment.submission.teacherFeedback %></div><% } %>
     </div></div>
   </div>

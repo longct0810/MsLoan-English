@@ -1,0 +1,1 @@
+const express=require('express'); const c=require('./skill.controller'); const {requireRole}=require('../../middleware/auth.middleware'); const router=express.Router(); router.get('/skills',requireRole('TEACHER','ADMIN'),c.index); module.exports=router;

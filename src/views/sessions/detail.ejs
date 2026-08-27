@@ -20,6 +20,9 @@
 <% if (flash === 'created') { %><div class="alert alert-success">Đã tạo buổi học. Anh có thể bắt đầu điểm danh.</div><% } %>
 <% if (flash === 'note') { %><div class="alert alert-success">Đã lưu nhận xét học viên.</div><% } %>
 <% if (flash === 'completed') { %><div class="alert alert-success">Buổi học đã được đánh dấu hoàn thành.</div><% } %>
+<% if (flash === 'journal') { %><div class="alert alert-success">Đã lưu sổ đầu bài.</div><% } %>
+<% if (flash === 'copied') { %><div class="alert alert-info">Đã sao chép nội dung phù hợp từ buổi học trước.</div><% } %>
+<% if (flash === 'noPrevious') { %><div class="alert alert-warning">Không tìm thấy buổi học trước để sao chép.</div><% } %>
 <% if (errorMessage) { %><div class="alert alert-danger"><%= errorMessage %></div><% } %>
 
 <div class="session-hero p-4 mb-4">
@@ -88,13 +91,19 @@
 
   <div class="col-xxl-4">
     <div class="card app-card mb-4">
-      <div class="card-header"><strong>Nội dung buổi học</strong></div>
+      <div class="card-header d-flex justify-content-between align-items-center"><div><strong>Sổ đầu bài điện tử</strong><div class="small text-secondary">Kế hoạch, nội dung thực dạy và thông tin gửi phụ huynh.</div></div><form method="post" action="/sessions/<%= session.id %>/copy-previous"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="btn btn-sm btn-outline-secondary">Sao chép buổi trước</button></form></div>
       <div class="card-body">
-        <div class="small text-secondary fw-semibold mb-1">KẾ HOẠCH / GHI CHÚ</div>
-        <p class="session-text"><%= session.lessonSummary || 'Chưa có nội dung chi tiết.' %></p>
-        <hr>
-        <div class="small text-secondary fw-semibold mb-1">BÀI TẬP VỀ NHÀ</div>
-        <p class="session-text mb-0"><%= session.homework || 'Chưa giao bài tập.' %></p>
+        <form method="post" action="/sessions/<%= session.id %>/journal">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <div class="mb-3"><label class="form-label small fw-semibold">Mục tiêu buổi học</label><textarea class="form-control" name="sessionGoal" rows="2"><%= session.sessionGoal || '' %></textarea></div>
+          <div class="mb-3"><label class="form-label small fw-semibold">Nội dung đã dạy</label><textarea class="form-control" name="lessonSummary" rows="4"><%= session.lessonSummary || '' %></textarea></div>
+          <div class="mb-3"><label class="form-label small fw-semibold">Bài tập về nhà</label><textarea class="form-control" name="homework" rows="3"><%= session.homework || '' %></textarea></div>
+          <div class="mb-3"><label class="form-label small fw-semibold">Ghi chú nội bộ giáo viên</label><textarea class="form-control" name="teacherSummary" rows="3"><%= session.teacherSummary || '' %></textarea></div>
+          <div class="mb-3"><label class="form-label small fw-semibold">Tóm tắt gửi phụ huynh</label><textarea class="form-control" name="parentSummary" rows="3" placeholder="Nội dung ngắn gọn phụ huynh có thể đọc"><%= session.parentSummary || '' %></textarea></div>
+          <div class="mb-3"><label class="form-label small fw-semibold">Kế hoạch buổi tiếp theo</label><textarea class="form-control" name="nextSessionPlan" rows="2"><%= session.nextSessionPlan || '' %></textarea></div>
+          <div class="form-check mb-3"><input class="form-check-input" type="checkbox" name="parentPublished" id="parentPublished" <%= session.parentPublished ? 'checked' : '' %>><label class="form-check-label" for="parentPublished">Cho phụ huynh xem tóm tắt buổi học</label></div>
+          <button class="btn btn-primary w-100">Lưu sổ đầu bài</button>
+        </form>
       </div>
     </div>
 

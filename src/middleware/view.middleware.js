@@ -13,6 +13,7 @@ function injectViewData(req, res, next) {
   res.locals.demoAccounts = env.demo;
   res.locals.examConfig = env.exam;
   res.locals.questionConfig = env.question;
+  res.locals.assignmentConfig = env.assignment;
   next();
 }
 

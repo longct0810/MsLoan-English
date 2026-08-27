@@ -70,7 +70,7 @@ async function detail(req, res, next) {
     res.render('sessions/detail', {
       title: session.topic || 'Chi tiết buổi học',
       session,
-      flash: req.query.saved ? 'attendance' : req.query.created ? 'created' : req.query.note ? 'note' : req.query.completed ? 'completed' : '',
+      flash: req.query.saved ? 'attendance' : req.query.created ? 'created' : req.query.note ? 'note' : req.query.completed ? 'completed' : req.query.journal ? 'journal' : req.query.copied ? 'copied' : req.query.noPrevious ? 'noPrevious' : '',
       errorMessage: '',
     });
   } catch (error) {
@@ -106,6 +106,20 @@ async function addNote(req, res, next) {
   }
 }
 
+async function saveJournal(req, res, next) {
+  try {
+    await service.saveJournal(req.params.id, req.body, req.session.user.id, req.session.user.role === 'ADMIN');
+    res.redirect(`/sessions/${req.params.id}?journal=1`);
+  } catch (error) { next(error); }
+}
+
+async function copyPrevious(req, res, next) {
+  try {
+    const copied = await service.copyPreviousJournal(req.params.id, req.session.user.id, req.session.user.role === 'ADMIN');
+    res.redirect(`/sessions/${req.params.id}?${copied ? 'copied=1' : 'noPrevious=1'}`);
+  } catch (error) { next(error); }
+}
+
 async function complete(req, res, next) {
   try {
     await service.completeSession(req.params.id, req.session.user.id, req.session.user.role === 'ADMIN');
@@ -124,4 +138,4 @@ async function apiList(req, res, next) {
   }
 }
 
-module.exports = { index, newForm, create, detail, saveAttendance, addNote, complete, apiList };
+module.exports = { index, newForm, create, detail, saveAttendance, addNote, saveJournal, copyPrevious, complete, apiList };

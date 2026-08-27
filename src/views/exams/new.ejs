@@ -1,7 +1,78 @@
 <%- include('../partials/app-start', { title }) %>
-<div class="d-flex justify-content-between align-items-center mb-4"><div><h1 class="h3 mb-1">Tạo bài kiểm tra</h1><p class="text-secondary mb-0">Chọn câu hỏi đã xuất bản từ Question Bank.</p></div><a href="/exams" class="btn btn-outline-secondary">Quay lại</a></div>
+<%
+  const toArray = (v) => Array.isArray(v) ? v : (v == null ? [] : [v]);
+  const selectedQuestionIds = toArray(form?.questionIds).map(String);
+  const poolSkills = toArray(form?.poolSkill), poolDifficulties = toArray(form?.poolDifficulty), poolTypes = toArray(form?.poolQuestionType), poolCounts = toArray(form?.poolCount);
+  const poolRows = Math.max(3, poolSkills.length, poolDifficulties.length, poolTypes.length, poolCounts.length);
+  const selectionMode = form?.selectionMode || 'MANUAL';
+%>
+<div class="d-flex flex-column flex-lg-row justify-content-between gap-3 mb-4">
+  <div><h1 class="h3 mb-1"><%= exam ? 'Sửa bài kiểm tra' : 'Tạo bài kiểm tra' %></h1><p class="text-secondary mb-0">Chọn câu thủ công hoặc sinh đề từ Question Pool theo kỹ năng/độ khó.</p></div>
+  <a href="/exams" class="btn btn-outline-secondary">Quay lại</a>
+</div>
 <% if(error){ %><div class="alert alert-danger"><%= error %></div><% } %>
-<form method="post" action="<%= exam ? `/exams/${exam.id}/update` : '/exams' %>" id="examForm"><div class="row g-4"><div class="col-xl-5"><div class="card app-card"><div class="card-body p-4"><h2 class="h5 mb-3">Thông tin đề</h2><div class="mb-3"><label class="form-label">Lớp *</label><select class="form-select" name="classId" id="classId" required><option value="">-- Chọn lớp --</option><% classes.forEach(c=>{ %><option value="<%= c.id %>" data-grade="<%= c.grade %>" <%= String(form?.classId||'')===String(c.id)?'selected':'' %>><%= c.name %></option><% }) %></select></div><div class="mb-3"><label class="form-label">Tên bài kiểm tra *</label><input class="form-control" name="title" required value="<%= form?.title||'' %>"></div><div class="mb-3"><label class="form-label">Mô tả</label><textarea class="form-control" name="description" rows="2"><%= form?.description||'' %></textarea></div><div class="mb-3"><label class="form-label">Hướng dẫn</label><textarea class="form-control" name="instructions" rows="3"><%= form?.instructions||'' %></textarea></div><div class="row g-3"><div class="col-6"><label class="form-label">Thời gian</label><div class="input-group"><input class="form-control" type="number" min="1" max="<%= examConfig.maxDurationMinutes %>" name="durationMinutes" value="<%= form?.durationMinutes||examConfig.defaultDurationMinutes %>"><span class="input-group-text">phút</span></div></div><div class="col-6"><label class="form-label">Số lần làm</label><input class="form-control" type="number" min="1" max="<%= examConfig.maxAttempts %>" name="maxAttempts" value="<%= form?.maxAttempts||examConfig.defaultMaxAttempts %>"></div><div class="col-12"><label class="form-label">Mở đề</label><input class="form-control" type="datetime-local" name="startAt" value="<%= form?.startAt||'' %>"></div><div class="col-12"><label class="form-label">Đóng đề</label><input class="form-control" type="datetime-local" name="endAt" value="<%= form?.endAt||'' %>"></div></div><div class="form-check form-switch mt-3"><input type="hidden" name="showResult" value="0"><input class="form-check-input" type="checkbox" name="showResult" id="showResult" <%= form?.showResult!==undefined ? (form.showResult?'checked':'') : 'checked' %>><label class="form-check-label" for="showResult">Cho học sinh xem đáp án/kết quả sau khi nộp</label></div></div></div></div>
-<div class="col-xl-7"><div class="card app-card"><div class="card-header d-flex align-items-center justify-content-between"><div><strong>Chọn câu hỏi</strong><div class="small text-secondary">Chỉ hiển thị câu phù hợp với khối của lớp đã chọn.</div></div><span class="badge text-bg-primary" id="selectedCount">0 câu</span></div><div class="card-body p-0 exam-question-picker"><% questions.forEach(q=>{ %><label class="question-pick-row d-flex gap-3 p-3 border-bottom" data-grade="<%= q.grade||'' %>"><input class="form-check-input mt-1 question-check" type="checkbox" name="questionIds" value="<%= q.id %>" <%= (Array.isArray(form?.questionIds)?form.questionIds:[form?.questionIds]).map(String).includes(String(q.id))?'checked':'' %>><div class="flex-grow-1"><div class="fw-semibold"><%= q.stem %></div><div class="small text-secondary mt-1">Khối <%= q.grade||'—' %> • <%= {MULTIPLE_CHOICE:'Trắc nghiệm',TRUE_FALSE:'Đúng/Sai',FILL_BLANK:'Điền từ',ESSAY:'Tự luận'}[q.questionType] %> • <%= q.difficulty %> • <%= q.defaultPoints %> điểm</div></div></label><% }) %><div class="p-4 text-center text-secondary d-none" id="noQuestions">Không có câu hỏi đã xuất bản phù hợp.</div></div></div><button class="btn btn-primary mt-3 w-100"><%= exam ? 'Cập nhật bản nháp' : 'Lưu bản nháp' %></button></div></div></form>
-<script>(function(){const cls=document.getElementById('classId'),rows=[...document.querySelectorAll('.question-pick-row')],checks=[...document.querySelectorAll('.question-check')],count=document.getElementById('selectedCount'),empty=document.getElementById('noQuestions');function update(){const grade=cls.selectedOptions[0]?.dataset.grade||'';let visible=0;rows.forEach(r=>{const show=!grade||r.dataset.grade===grade;r.classList.toggle('d-none',!show);if(show)visible++;});empty.classList.toggle('d-none',visible>0);count.textContent=`${checks.filter(x=>x.checked).length} câu`;}cls.addEventListener('change',update);checks.forEach(x=>x.addEventListener('change',update));update();})();</script>
+<form method="post" action="<%= exam ? `/exams/${exam.id}/update` : '/exams' %>" id="examForm">
+<div class="row g-4">
+  <div class="col-xl-5">
+    <div class="card app-card"><div class="card-body p-4">
+      <h2 class="h5 mb-3">Thông tin đề</h2>
+      <div class="mb-3"><label class="form-label">Lớp *</label><select class="form-select" name="classId" id="classId" required><option value="">-- Chọn lớp --</option><% classes.forEach(c=>{ %><option value="<%= c.id %>" data-grade="<%= c.grade %>" <%= String(form?.classId||'')===String(c.id)?'selected':'' %>><%= c.name %></option><% }) %></select></div>
+      <div class="mb-3"><label class="form-label">Tên bài kiểm tra *</label><input class="form-control" name="title" required value="<%= form?.title||'' %>"></div>
+      <div class="mb-3"><label class="form-label">Mô tả</label><textarea class="form-control" name="description" rows="2"><%= form?.description||'' %></textarea></div>
+      <div class="mb-3"><label class="form-label">Hướng dẫn</label><textarea class="form-control" name="instructions" rows="3"><%= form?.instructions||'' %></textarea></div>
+      <div class="row g-3">
+        <div class="col-6"><label class="form-label">Thời gian</label><div class="input-group"><input class="form-control" type="number" min="1" max="<%= examConfig.maxDurationMinutes %>" name="durationMinutes" value="<%= form?.durationMinutes||examConfig.defaultDurationMinutes %>"><span class="input-group-text">phút</span></div></div>
+        <div class="col-6"><label class="form-label">Số lần làm</label><input class="form-control" type="number" min="1" max="<%= examConfig.maxAttempts %>" name="maxAttempts" value="<%= form?.maxAttempts||examConfig.defaultMaxAttempts %>"></div>
+        <div class="col-6"><label class="form-label">Điểm đạt (%)</label><input class="form-control" type="number" min="0" max="100" step="0.01" name="passScorePercent" value="<%= form?.passScorePercent ?? 50 %>"></div>
+        <div class="col-6 d-flex align-items-end"><div class="small text-secondary pb-2">Dùng để hiển thị Đạt / Chưa đạt.</div></div>
+        <div class="col-12"><label class="form-label">Mở đề</label><input class="form-control" type="datetime-local" name="startAt" value="<%= form?.startAt||'' %>"></div>
+        <div class="col-12"><label class="form-label">Đóng đề</label><input class="form-control" type="datetime-local" name="endAt" value="<%= form?.endAt||'' %>"></div>
+      </div>
+      <div class="form-check form-switch mt-3"><input type="hidden" name="showResult" value="0"><input class="form-check-input" type="checkbox" name="showResult" id="showResult" <%= form?.showResult!==undefined ? (['on','1','true',true].includes(form.showResult)?'checked':'') : 'checked' %>><label class="form-check-label" for="showResult">Cho học sinh xem đáp án/kết quả</label></div>
+      <div class="form-check form-switch mt-2"><input type="hidden" name="randomizeQuestions" value="0"><input class="form-check-input" type="checkbox" name="randomizeQuestions" id="randomizeQuestions" <%= ['on','1','true',true].includes(form?.randomizeQuestions)?'checked':'' %>><label class="form-check-label" for="randomizeQuestions">Xáo trộn thứ tự câu theo từng lượt làm</label></div>
+      <div class="form-check form-switch mt-2"><input type="hidden" name="randomizeOptions" value="0"><input class="form-check-input" type="checkbox" name="randomizeOptions" id="randomizeOptions" <%= ['on','1','true',true].includes(form?.randomizeOptions)?'checked':'' %>><label class="form-check-label" for="randomizeOptions">Xáo trộn thứ tự đáp án</label></div>
+    </div></div>
+  </div>
+  <div class="col-xl-7">
+    <div class="card app-card mb-3"><div class="card-body p-4">
+      <h2 class="h5 mb-3">Nguồn câu hỏi</h2>
+      <div class="btn-group w-100" role="group">
+        <input class="btn-check" type="radio" name="selectionMode" id="modeManual" value="MANUAL" <%= selectionMode!=='POOL'?'checked':'' %>><label class="btn btn-outline-primary" for="modeManual">Chọn thủ công</label>
+        <input class="btn-check" type="radio" name="selectionMode" id="modePool" value="POOL" <%= selectionMode==='POOL'?'checked':'' %>><label class="btn btn-outline-primary" for="modePool">Question Pool</label>
+      </div>
+    </div></div>
+
+    <div class="card app-card" id="manualPicker">
+      <div class="card-header d-flex align-items-center justify-content-between"><div><strong>Chọn câu hỏi</strong><div class="small text-secondary">Chỉ hiển thị câu phù hợp với khối của lớp.</div></div><span class="badge text-bg-primary" id="selectedCount">0 câu</span></div>
+      <div class="card-body p-0 exam-question-picker"><% questions.forEach(q=>{ %><label class="question-pick-row d-flex gap-3 p-3 border-bottom" data-grade="<%= q.grade||'' %>"><input class="form-check-input mt-1 question-check" type="checkbox" name="questionIds" value="<%= q.id %>" <%= selectedQuestionIds.includes(String(q.id))?'checked':'' %>><div class="flex-grow-1"><div class="fw-semibold"><%= q.stem %></div><div class="small text-secondary mt-1">Khối <%= q.grade||'—' %> • <%= {MULTIPLE_CHOICE:'Trắc nghiệm',TRUE_FALSE:'Đúng/Sai',FILL_BLANK:'Điền từ',ESSAY:'Tự luận'}[q.questionType] %> • <%= q.difficulty %> • <%= q.defaultPoints %> điểm</div></div></label><% }) %><div class="p-4 text-center text-secondary d-none" id="noQuestions">Không có câu hỏi phù hợp.</div></div>
+    </div>
+
+    <div class="card app-card d-none" id="poolPicker">
+      <div class="card-header"><strong>Quy tắc sinh đề</strong><div class="small text-secondary">Mỗi dòng lấy ngẫu nhiên số câu phù hợp; hệ thống không chọn trùng câu giữa các dòng.</div></div>
+      <div class="card-body p-3">
+        <div id="poolRules">
+          <% for(let i=0;i<poolRows;i++){ %>
+          <div class="row g-2 mb-2 pool-rule-row">
+            <div class="col-md-4"><select class="form-select" name="poolSkill"><option value="">Tất cả kỹ năng</option><% skills.forEach(sk=>{ %><option value="<%= sk.code %>" <%= String(poolSkills[i]||'')===String(sk.code)?'selected':'' %>><%= sk.label %></option><% }) %></select></div>
+            <div class="col-md-3"><select class="form-select" name="poolDifficulty"><option value="">Mọi độ khó</option><% ['EASY','MEDIUM','HARD'].forEach(d=>{ %><option value="<%= d %>" <%= String(poolDifficulties[i]||'')===d?'selected':'' %>><%= d %></option><% }) %></select></div>
+            <div class="col-md-3"><select class="form-select" name="poolQuestionType"><option value="">Mọi loại</option><% [['MULTIPLE_CHOICE','Trắc nghiệm'],['TRUE_FALSE','Đúng/Sai'],['FILL_BLANK','Điền từ'],['ESSAY','Tự luận']].forEach(t=>{ %><option value="<%= t[0] %>" <%= String(poolTypes[i]||'')===t[0]?'selected':'' %>><%= t[1] %></option><% }) %></select></div>
+            <div class="col-md-2"><input class="form-control" type="number" min="0" max="200" name="poolCount" placeholder="Số câu" value="<%= poolCounts[i]||'' %>"></div>
+          </div>
+          <% } %>
+        </div>
+        <div class="alert alert-light border mb-0 mt-3 small">Khi lưu bản nháp, hệ thống sinh danh sách câu theo các quy tắc. Khi <strong>Xuất bản</strong>, toàn bộ nội dung câu hỏi/đáp án được snapshot và không bị thay đổi nếu Question Bank được sửa sau đó.</div>
+      </div>
+    </div>
+    <button class="btn btn-primary mt-3 w-100"><%= exam ? 'Cập nhật bản nháp' : 'Lưu bản nháp' %></button>
+  </div>
+</div>
+</form>
+<script>
+(function(){
+  const cls=document.getElementById('classId'),rows=[...document.querySelectorAll('.question-pick-row')],checks=[...document.querySelectorAll('.question-check')],count=document.getElementById('selectedCount'),empty=document.getElementById('noQuestions'),manual=document.getElementById('manualPicker'),pool=document.getElementById('poolPicker');
+  function updateQuestions(){const grade=cls.selectedOptions[0]?.dataset.grade||'';let visible=0;rows.forEach(r=>{const show=!grade||!r.dataset.grade||r.dataset.grade===grade;r.classList.toggle('d-none',!show);if(show)visible++;});empty.classList.toggle('d-none',visible>0);count.textContent=`${checks.filter(x=>x.checked).length} câu`;}
+  function updateMode(){const isPool=document.getElementById('modePool').checked;manual.classList.toggle('d-none',isPool);pool.classList.toggle('d-none',!isPool);}
+  cls.addEventListener('change',updateQuestions);checks.forEach(x=>x.addEventListener('change',updateQuestions));document.querySelectorAll('input[name="selectionMode"]').forEach(x=>x.addEventListener('change',updateMode));updateQuestions();updateMode();
+})();
+</script>
 <%- include('../partials/app-end') %>

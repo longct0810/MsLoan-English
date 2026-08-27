@@ -8,7 +8,10 @@ const MESSAGES = {
   CLASS_NOT_FOUND: 'Không tìm thấy lớp.',
   LESSON_CLASS_MISMATCH: 'Bài học không thuộc lớp đã chọn.',
   INVALID_SCORE: 'Điểm chấm không hợp lệ.',
-  SUBMISSION_REQUIRED: 'Vui lòng nhập nội dung bài làm trước khi nộp.',
+  SUBMISSION_REQUIRED: 'Vui lòng nhập nội dung hoặc tệp bài làm trước khi nộp.',
+  FILE_REQUIRED: 'Bài tập này yêu cầu đính kèm tệp.',
+  AUDIO_REQUIRED: 'Bài Speaking này yêu cầu ít nhất một tệp audio.',
+  RUBRIC_REQUIRED: 'Vui lòng chấm đầy đủ các tiêu chí rubric.',
   GRADED_LOCKED: 'Bài đã được giáo viên chấm và đang khóa nộp lại.',
 };
 
@@ -91,7 +94,7 @@ async function grade(req, res, next) {
     await service.grade(req.params.id, req.params.studentId, req.body, req.session.user.id, req.session.user.role === 'ADMIN');
     res.redirect(`/assignments/${req.params.id}?graded=1#student-${req.params.studentId}`);
   } catch (error) {
-    if (error.message === 'INVALID_SCORE') {
+    if (['INVALID_SCORE', 'RUBRIC_REQUIRED', 'INVALID_RUBRIC_SCORE'].includes(error.message)) {
       const assignment = await service.detail(req.params.id, req.session.user.id, req.session.user.role === 'ADMIN');
       if (!assignment) return res.status(404).render('errors/404', { title: 'Không tìm thấy bài tập' });
       return res.status(400).render('assignments/detail', { title: assignment.title, assignment, notice: null, error: message(error) });
@@ -110,10 +113,10 @@ async function studentDetail(req, res, next) {
 
 async function studentSubmit(req, res, next) {
   try {
-    await service.submitStudentAssignment(req.params.id, req.session.user.id, req.body);
+    await service.submitStudentAssignment(req.params.id, req.session.user.id, req.body, req.files || []);
     res.redirect(`/student/assignments/${req.params.id}?submitted=1`);
   } catch (error) {
-    if (['SUBMISSION_REQUIRED', 'GRADED_LOCKED'].includes(error.message)) {
+    if (['SUBMISSION_REQUIRED','FILE_REQUIRED','AUDIO_REQUIRED','GRADED_LOCKED'].includes(error.message)) {
       const assignment = await service.getStudentAssignment(req.params.id, req.session.user.id);
       if (!assignment) return res.status(404).render('errors/404', { title: 'Không tìm thấy bài tập' });
       return res.status(400).render('student-portal/assignment-detail', { title: assignment.title, assignment, error: message(error), submitted: false });
@@ -122,8 +125,10 @@ async function studentSubmit(req, res, next) {
   }
 }
 
+async function asset(req,res,next){try{const asset=await service.getAsset(req.params.id,req.params.assetId,req.session.user.id,req.session.user.role);if(!asset)return res.status(404).render('errors/404',{title:'Không tìm thấy tệp'});res.setHeader('Content-Type',asset.mimeType||'application/octet-stream');res.setHeader('Content-Disposition',`inline; filename*=UTF-8''${encodeURIComponent(asset.fileName||'file')}`);res.setHeader('Content-Length',asset.sizeBytes||asset.content.length);res.send(asset.content);}catch(e){next(e);}}
+
 async function apiList(req, res, next) {
   try { res.json({ data: (await service.list(req.query, req.session.user.id, req.session.user.role === 'ADMIN')).assignments }); } catch (error) { next(error); }
 }
 
-module.exports = { index, newForm, create, editForm, update, detail, publish, grade, studentDetail, studentSubmit, apiList };
+module.exports = { index, newForm, create, editForm, update, detail, publish, grade, studentDetail, studentSubmit, asset, apiList };

@@ -1,11 +1,14 @@
 const repo = require('./assignment.repository');
 const classService = require('../classes/class.service');
+const skillRepo = require('../skills/skill.repository');
 
 async function canAccess(assignment, userId, isAdmin) {
   return Boolean(assignment && (isAdmin || await classService.getClassDetail(assignment.classId, userId, false)));
 }
 
 function clean(value) { return String(value || '').trim(); }
+function submissionMode(value){return ['TEXT','FILE','AUDIO','MIXED'].includes(String(value||'').toUpperCase())?String(value).toUpperCase():'TEXT';}
+function checked(value){return value==='on'||value===true||value==='true'||value==='1';}
 
 function normalizeDueAt(value) {
   const text = clean(value);
@@ -53,7 +56,7 @@ async function newForm(query = {}, userId, isAdmin = false) {
   const classes = isAdmin ? await repo.findClasses() : await classService.getClasses(userId, false);
   const selectedClassId = Number(query.classId || 0) || null;
   const lessons = await getAccessibleLessons(userId, isAdmin, selectedClassId);
-  return { classes, lessons };
+  return { classes, lessons, skills: await skillRepo.findSkills() };
 }
 
 async function create(body, userId, isAdmin = false) {
@@ -66,7 +69,7 @@ async function create(body, userId, isAdmin = false) {
   if (!await classService.getClassDetail(classId, userId, isAdmin)) throw new Error('CLASS_NOT_FOUND');
   await validateLessonClass(lessonId, classId, userId, isAdmin);
   if (!Number.isFinite(maxScore) || maxScore <= 0 || maxScore > 1000) throw new Error('INVALID_MAX_SCORE');
-  return repo.create({
+  const created = await repo.create({
     classId,
     lessonId: Number.isInteger(lessonId) && lessonId > 0 ? lessonId : null,
     title,
@@ -75,15 +78,20 @@ async function create(body, userId, isAdmin = false) {
     type: ['HOMEWORK', 'PRACTICE', 'QUIZ'].includes(body.type) ? body.type : 'HOMEWORK',
     dueAt: normalizeDueAt(body.dueAt),
     maxScore,
+    submissionMode: submissionMode(body.submissionMode),
+    rubricEnabled: checked(body.rubricEnabled),
   }, userId);
+  await skillRepo.setAssignmentSkills(created.id, body.skillCodes);
+  created.skillCodes = await skillRepo.getAssignmentSkills(created.id);
+  return created;
 }
 
 
 async function editForm(id, userId, isAdmin = false) {
   const assignment = await detail(id, userId, isAdmin);
   if (!assignment) return { assignment: null, classes: [], lessons: [] };
-  const [classes, lessons] = await Promise.all([newForm({}, userId, isAdmin).then((data) => data.classes), getAccessibleLessons(userId, isAdmin, assignment.classId)]);
-  return { assignment, classes, lessons };
+  const [formData, lessons, selectedSkillCodes] = await Promise.all([newForm({}, userId, isAdmin), getAccessibleLessons(userId, isAdmin, assignment.classId), skillRepo.getAssignmentSkills(assignment.id)]);
+  return { assignment: {...assignment, skillCodes:selectedSkillCodes}, classes:formData.classes, lessons, skills:formData.skills };
 }
 
 async function update(id, body, userId, isAdmin = false) {
@@ -96,7 +104,7 @@ async function update(id, body, userId, isAdmin = false) {
   if (!title) throw new Error('TITLE_REQUIRED');
   await validateLessonClass(lessonId, classId, userId, isAdmin);
   if (!Number.isFinite(maxScore) || maxScore <= 0 || maxScore > 1000) throw new Error('INVALID_MAX_SCORE');
-  return repo.update(id, {
+  const updated = await repo.update(id, {
     classId,
     lessonId: Number.isInteger(lessonId) && lessonId > 0 ? lessonId : null,
     title,
@@ -105,13 +113,19 @@ async function update(id, body, userId, isAdmin = false) {
     type: ['HOMEWORK','PRACTICE','QUIZ'].includes(body.type) ? body.type : 'HOMEWORK',
     dueAt: normalizeDueAt(body.dueAt),
     maxScore,
+    submissionMode: submissionMode(body.submissionMode),
+    rubricEnabled: checked(body.rubricEnabled),
   });
+  await skillRepo.setAssignmentSkills(id, body.skillCodes);
+  return updated;
 }
 
 async function detail(id, userId, isAdmin = false) {
   const assignment = await repo.findById(id);
   if (!await canAccess(assignment, userId, isAdmin)) return null;
   if (assignment) {
+    assignment.skillCodes = await skillRepo.getAssignmentSkills(assignment.id);
+    assignment.skillCatalog = await skillRepo.findSkills();
     assignment.students = assignment.students.map((student) => ({
       ...student,
       submission: { ...student.submission, statusMeta: statusMeta(student.submission.status) },
@@ -128,9 +142,16 @@ async function publish(id, userId, isAdmin = false) {
 async function grade(id, studentId, body, userId, isAdmin = false) {
   const assignment = await detail(id, userId, isAdmin);
   if (!assignment) throw new Error('ASSIGNMENT_NOT_FOUND');
-  const score = Number(body.score);
-  if (!Number.isFinite(score) || score < 0 || score > Number(assignment.maxScore)) throw new Error('INVALID_SCORE');
-  return repo.grade(id, studentId, { score, teacherFeedback: clean(body.teacherFeedback) });
+  let score; const rubricScores={};
+  if (assignment.rubricEnabled && assignment.skillCodes.length) {
+    const perMax=Number(assignment.maxScore)/assignment.skillCodes.length;
+    for(const code of assignment.skillCodes){const value=Number(body[`rubric_${code}`]);if(!Number.isFinite(value)||value<0||value>perMax+0.0001)throw new Error('RUBRIC_REQUIRED');rubricScores[code]=Number(value.toFixed(2));}
+    score=Number(Object.values(rubricScores).reduce((sum,v)=>sum+v,0).toFixed(2));
+  } else score=Number(body.score);
+  if (!Number.isFinite(score) || score < 0 || score > Number(assignment.maxScore)+0.0001) throw new Error('INVALID_SCORE');
+  const graded = await repo.grade(id, studentId, { score, teacherFeedback: clean(body.teacherFeedback), rubricScores, rubricFeedback: clean(body.rubricFeedback) });
+  await skillRepo.recordAssignmentGrade(id, studentId);
+  return graded;
 }
 
 async function getStudentAssignment(id, userId) {
@@ -139,8 +160,15 @@ async function getStudentAssignment(id, userId) {
   return assignment;
 }
 
-async function submitStudentAssignment(id, userId, body) {
-  return repo.submitStudentAssignment(id, userId, clean(body.submissionText));
+async function submitStudentAssignment(id, userId, body, files=[]) {
+  return repo.submitStudentAssignment(id, userId, { submissionText: clean(body.submissionText), files });
 }
 
-module.exports = { list, newForm, create, editForm, update, detail, publish, grade, getStudentAssignment, submitStudentAssignment, statusMeta };
+async function getAsset(assignmentId, assetId, userId, role) {
+  const isAdmin=role==='ADMIN';
+  let assignment; if(role==='STUDENT') assignment=await getStudentAssignment(assignmentId,userId); else assignment=await detail(assignmentId,userId,isAdmin);
+  if(!assignment) return null; const asset=await repo.findAsset(assetId,assignmentId); if(!asset)return null;
+  if(role==='STUDENT' && Number(asset.studentId)!==Number(assignment.student.id)) return null; return asset;
+}
+
+module.exports = { list, newForm, create, editForm, update, detail, publish, grade, getStudentAssignment, submitStudentAssignment, getAsset, statusMeta };

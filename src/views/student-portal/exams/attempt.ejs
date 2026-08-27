@@ -11,7 +11,7 @@
       <textarea class="form-control exam-answer-input" name="answer_<%= q.id %>" data-question-id="<%= q.id %>" data-answer-kind="text" rows="7" placeholder="Nhập câu trả lời tự luận..."><%= q.answer.answerText||'' %></textarea>
       <div class="form-text">Câu này sẽ được giáo viên chấm sau khi bạn nộp bài.</div>
     <% } else { %>
-      <div class="vstack gap-2"><% q.options.forEach(o=>{ %><label class="exam-option"><input class="form-check-input exam-answer-input" type="radio" name="answer_<%= q.id %>" data-question-id="<%= q.id %>" data-answer-kind="option" value="<%= o.id %>" <%= String(q.answer.selectedOptionId||'')===String(o.id)?'checked':'' %>><span><strong><%= o.optionKey %>.</strong> <%= o.optionText %></span></label><% }) %></div>
+      <div class="vstack gap-2"><% q.options.forEach(o=>{ %><label class="exam-option"><input class="form-check-input exam-answer-input" type="radio" name="answer_<%= q.id %>" data-question-id="<%= q.id %>" data-answer-kind="option" value="<%= o.optionKey %>" <%= String(q.answer.selectedOptionKey||'')===String(o.optionKey)?'checked':'' %>><span><strong><%= o.optionKey %>.</strong> <%= o.optionText %></span></label><% }) %></div>
     <% } %>
   </div></div>
 <% }) %>
@@ -21,7 +21,7 @@
 (function(){
   const attemptId=<%- JSON.stringify(attempt.id) %>, deadline=new Date(<%- JSON.stringify(attempt.deadline) %>).getTime(), timer=document.getElementById('timer'), state=document.getElementById('saveState'), form=document.getElementById('attemptForm');let submitting=false;const timers=new Map();
   function tick(){const ms=Math.max(0,deadline-Date.now()),total=Math.floor(ms/1000),m=Math.floor(total/60),s=total%60;timer.textContent=`${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;timer.classList.toggle('text-danger',total<300);if(ms<=0&&!submitting){submitting=true;document.getElementById('autoSubmitted').value='1';form.requestSubmit();}}
-  async function save(input){const q=input.dataset.questionId;const payload={questionId:Number(q)};if(input.dataset.answerKind==='option'){if(!input.checked)return;payload.selectedOptionId=Number(input.value);}else payload.answerText=input.value;state.textContent='Đang lưu...';state.classList.remove('text-danger');try{const r=await fetch(`/api/v1/exam-attempts/${attemptId}/answers`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});if(!r.ok)throw new Error();state.textContent='Đã lưu';}catch(e){state.textContent='Chưa lưu được';state.classList.add('text-danger');}}
+  async function save(input){const q=input.dataset.questionId;const payload={questionId:Number(q)};if(input.dataset.answerKind==='option'){if(!input.checked)return;payload.selectedOptionKey=input.value;}else payload.answerText=input.value;state.textContent='Đang lưu...';state.classList.remove('text-danger');try{const r=await fetch(`/api/v1/exam-attempts/${attemptId}/answers`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});if(!r.ok)throw new Error();state.textContent='Đã lưu';}catch(e){state.textContent='Chưa lưu được';state.classList.add('text-danger');}}
   document.querySelectorAll('.exam-answer-input').forEach(input=>{const evt=input.dataset.answerKind==='text'?'input':'change';input.addEventListener(evt,()=>{const key=input.dataset.questionId;clearTimeout(timers.get(key));timers.set(key,setTimeout(()=>save(input),input.dataset.answerKind==='text'?<%= examConfig.autosaveDebounceMs %>:50));});});
   form.addEventListener('submit',()=>{submitting=true;});tick();setInterval(tick,1000);
 })();

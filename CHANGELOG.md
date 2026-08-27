@@ -1,5 +1,37 @@
 # Changelog
 
+## v0.19.0
+- Exam 2.0 với Question Pool, rule theo skill/difficulty/question type.
+- Random thứ tự câu hỏi và đáp án.
+- Pass score, student override cho thời gian/số lần làm/reopen.
+- Immutable `exam_question_snapshots` khi publish.
+- Lưu thứ tự câu/đáp án theo từng attempt.
+- Migration `db/neon_upgrade_v0.19.0.sql`.
+
+
+## v0.18.0
+- Assignment 2.0: TEXT/FILE/AUDIO/MIXED submission.
+- Upload tối đa 3 tệp, hỗ trợ audio Speaking, PDF, ảnh, Word; tệp được bảo vệ theo ownership.
+- Rubric chấm theo các skill đã gắn; đồng bộ Skill Tracking.
+- Migration `db/neon_upgrade_v0.18.0.sql`.
+
+
+## v0.17.0
+- Skill Tracking chuẩn hóa 7 kỹ năng tiếng Anh.
+- Gắn kỹ năng cho Question và Assignment.
+- Tự tạo skill event khi chấm Assignment/Exam.
+- Dashboard `/skills` theo lớp/học viên; duy trì tương thích với `student_skills`.
+- Migration `db/neon_upgrade_v0.17.0.sql`.
+
+
+## v0.16.0
+- Sổ đầu bài điện tử cho từng buổi học.
+- Lưu mục tiêu, nội dung thực dạy, homework, ghi chú nội bộ, tóm tắt phụ huynh và kế hoạch buổi sau.
+- Sao chép nội dung từ buổi trước.
+- Ghi thời điểm/người hoàn thành buổi học.
+- Migration Neon riêng `db/neon_upgrade_v0.16.0.sql`.
+
+
 ## v0.15.0 - Teacher Report Center
 
 ### Teacher Reports

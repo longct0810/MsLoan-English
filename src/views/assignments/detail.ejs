@@ -21,10 +21,15 @@
             <div class="d-flex align-items-center gap-2 flex-wrap"><strong><%= student.fullName %></strong><span class="badge <%= student.submission.statusMeta.className %>"><%= student.submission.statusMeta.label %></span></div>
             <div class="small text-secondary mt-1"><%= student.school || '' %> <%= student.schoolClass ? '• ' + student.schoolClass : '' %><% if (student.submission.submittedAt) { %> • Nộp <%= new Date(student.submission.submittedAt).toLocaleString('vi-VN') %><% } %></div>
             <% if (student.submission.submissionText) { %><div class="submission-box mt-3"><div class="small fw-semibold mb-1">Bài làm</div><%= student.submission.submissionText %></div><% } %>
+            <% if ((student.submission.assets||[]).length) { %><div class="mt-3"><div class="small fw-semibold mb-1">Tệp đính kèm</div><div class="d-flex flex-wrap gap-2"><% student.submission.assets.forEach(asset=>{ %><a class="btn btn-sm btn-outline-secondary" target="_blank" href="/assignments/<%= assignment.id %>/assets/<%= asset.id %>"><%= asset.mimeType.startsWith('audio/')?'▶ ':'' %><%= asset.fileName %></a><% }) %></div></div><% } %>
           </div>
           <form method="post" action="/assignments/<%= assignment.id %>/submissions/<%= student.id %>/grade" class="grade-form">
             <div class="row g-2">
-              <div class="col-4 col-lg-12"><label class="form-label small">Điểm</label><input class="form-control" name="score" type="number" min="0" max="<%= assignment.maxScore %>" step="0.25" required value="<%= student.submission.score !== null ? student.submission.score : '' %>"></div>
+              <% if (assignment.rubricEnabled && assignment.skillCodes.length) { const perMax=assignment.maxScore/assignment.skillCodes.length; %>
+                <div class="col-12"><div class="small fw-semibold">Rubric kỹ năng</div></div>
+                <% assignment.skillCodes.forEach(code=>{ %><div class="col-6 col-lg-12"><label class="form-label small"><%= code %> / <%= perMax.toFixed(2) %></label><input class="form-control" name="rubric_<%= code %>" type="number" min="0" max="<%= perMax %>" step="0.25" required value="<%= student.submission.rubricScores?.[code] ?? '' %>"></div><% }) %>
+                <div class="col-12"><label class="form-label small">Nhận xét rubric</label><textarea class="form-control" name="rubricFeedback" rows="2"><%= student.submission.rubricFeedback || '' %></textarea></div>
+              <% } else { %><div class="col-4 col-lg-12"><label class="form-label small">Điểm</label><input class="form-control" name="score" type="number" min="0" max="<%= assignment.maxScore %>" step="0.25" required value="<%= student.submission.score !== null ? student.submission.score : '' %>"></div><% } %>
               <div class="col-8 col-lg-12"><label class="form-label small">Phản hồi</label><textarea class="form-control" name="teacherFeedback" rows="2"><%= student.submission.teacherFeedback || '' %></textarea></div>
               <div class="col-12"><button class="btn btn-sm btn-primary w-100">Lưu điểm</button></div>
             </div>

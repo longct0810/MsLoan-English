@@ -82,6 +82,8 @@ async function findAll(filters = {}) {
            a.status,
            a.due_at AS "dueAt",
            a.max_score::float AS "maxScore",
+           a.submission_mode AS "submissionMode",
+           a.rubric_enabled AS "rubricEnabled",
            a.created_at AS "createdAt",
            c.name AS "className",
            l.title AS "lessonTitle",
@@ -113,8 +115,7 @@ async function findById(value) {
       .filter((student) => student.classIds.includes(assignment.classId))
       .map((student) => ({
         ...student,
-        submission: demoStore.assignmentSubmissions.find((s) => s.assignmentId === id && s.studentId === student.id)
-          || { status: 'NOT_STARTED', score: null, submittedAt: null, submissionText: '', teacherFeedback: '' },
+        submission: (()=>{const sub=demoStore.assignmentSubmissions.find((s)=>s.assignmentId===id&&s.studentId===student.id)||{status:'NOT_STARTED',score:null,submittedAt:null,submissionText:'',teacherFeedback:'',rubricScores:{},rubricFeedback:''};return {...sub,assets:(demoStore.assignmentSubmissionAssets||[]).filter(a=>a.assignmentId===id&&a.studentId===student.id).map(({content,...a})=>a)};})(),
       }))
       .sort((a, b) => a.fullName.localeCompare(b.fullName, 'vi'));
     return { ...assignment, className: classItem?.name || '', grade: classItem?.grade || null, lessonTitle: lesson?.title || null, students };
@@ -131,6 +132,8 @@ async function findById(value) {
            a.status,
            a.due_at AS "dueAt",
            a.max_score::float AS "maxScore",
+           a.submission_mode AS "submissionMode",
+           a.rubric_enabled AS "rubricEnabled",
            a.published_at AS "publishedAt",
            a.created_at AS "createdAt",
            c.name AS "className",
@@ -169,12 +172,16 @@ async function findById(value) {
       submittedAt: student.submittedAt,
       submissionText: student.submissionText,
       teacherFeedback: student.teacherFeedback,
+      rubricScores: student.rubricScores || {},
+      rubricFeedback: student.rubricFeedback || '',
+      assets: student.assets || [],
     };
     delete student.submissionStatus;
     delete student.score;
     delete student.submittedAt;
     delete student.submissionText;
     delete student.teacherFeedback;
+    delete student.rubricScores; delete student.rubricFeedback; delete student.assets;
   });
 
   return { ...assignmentResult.rows[0], students };
@@ -200,6 +207,8 @@ async function create(data, userId) {
       dueAt: data.dueAt || null,
       status: 'DRAFT',
       maxScore: Number(data.maxScore || 10),
+      submissionMode: data.submissionMode || 'TEXT',
+      rubricEnabled: Boolean(data.rubricEnabled),
       createdBy: Number(userId),
     };
     demoStore.assignments.push(assignment);
@@ -217,10 +226,10 @@ async function create(data, userId) {
     }
     const { rows } = await client.query(`
       INSERT INTO assignments
-        (class_id, lesson_id, title, description, instructions, due_at, status, created_by, type, max_score)
-      VALUES ($1, $2, $3, NULLIF($4,''), NULLIF($5,''), NULLIF($6,'')::timestamptz, 'DRAFT', $7, $8, $9)
-      RETURNING id, class_id AS "classId", lesson_id AS "lessonId", title, status, due_at AS "dueAt", max_score::float AS "maxScore"
-    `, [data.classId, data.lessonId || null, data.title, data.description || '', data.instructions || '', data.dueAt || '', userId, data.type || 'HOMEWORK', data.maxScore || 10]);
+        (class_id, lesson_id, title, description, instructions, due_at, status, created_by, type, max_score, submission_mode, rubric_enabled)
+      VALUES ($1, $2, $3, NULLIF($4,''), NULLIF($5,''), NULLIF($6,'')::timestamptz, 'DRAFT', $7, $8, $9, $10, $11)
+      RETURNING id, class_id AS "classId", lesson_id AS "lessonId", title, status, due_at AS "dueAt", max_score::float AS "maxScore", submission_mode AS "submissionMode", rubric_enabled AS "rubricEnabled"
+    `, [data.classId, data.lessonId || null, data.title, data.description || '', data.instructions || '', data.dueAt || '', userId, data.type || 'HOMEWORK', data.maxScore || 10, data.submissionMode || 'TEXT', Boolean(data.rubricEnabled)]);
     await client.query('COMMIT');
     return rows[0];
   } catch (error) {
@@ -254,6 +263,8 @@ async function update(value, data) {
       type: data.type || 'HOMEWORK',
       dueAt: data.dueAt || null,
       maxScore: Number(data.maxScore || 10),
+      submissionMode: data.submissionMode || 'TEXT',
+      rubricEnabled: Boolean(data.rubricEnabled),
     });
     return assignment;
   }
@@ -270,11 +281,11 @@ async function update(value, data) {
     const { rows } = await client.query(`
       UPDATE assignments
          SET class_id=$2, lesson_id=$3, title=$4, description=NULLIF($5,''), instructions=NULLIF($6,''),
-             due_at=NULLIF($7,'')::timestamptz, type=$8, max_score=$9
+             due_at=NULLIF($7,'')::timestamptz, type=$8, max_score=$9, submission_mode=$10, rubric_enabled=$11
        WHERE id=$1
       RETURNING id, class_id AS "classId", lesson_id AS "lessonId", title, status,
-                due_at AS "dueAt", max_score::float AS "maxScore"
-    `, [id, data.classId, data.lessonId || null, data.title, data.description || '', data.instructions || '', data.dueAt || '', data.type || 'HOMEWORK', data.maxScore || 10]);
+                due_at AS "dueAt", max_score::float AS "maxScore", submission_mode AS "submissionMode", rubric_enabled AS "rubricEnabled"
+    `, [id, data.classId, data.lessonId || null, data.title, data.description || '', data.instructions || '', data.dueAt || '', data.type || 'HOMEWORK', data.maxScore || 10, data.submissionMode || 'TEXT', Boolean(data.rubricEnabled)]);
     if (!rows[0]) throw new Error('ASSIGNMENT_NOT_FOUND');
     await client.query('COMMIT');
     return rows[0];
@@ -322,6 +333,8 @@ async function grade(assignmentIdValue, studentIdValue, data) {
     submission.status = 'GRADED';
     submission.score = Number(data.score);
     submission.teacherFeedback = data.teacherFeedback || '';
+    submission.rubricScores = data.rubricScores || {};
+    submission.rubricFeedback = data.rubricFeedback || '';
     let existingScore = demoStore.studentScores.find((item) => item.assignmentId === assignmentId && item.studentId === studentId);
     if (!existingScore) {
       existingScore = demoStore.studentScores.find((item) => item.studentId === studentId && !item.assignmentId && item.title === assignment.title);
@@ -360,12 +373,12 @@ async function grade(assignmentIdValue, studentIdValue, data) {
 
     const { rows } = await client.query(`
       INSERT INTO assignment_submissions
-        (assignment_id, student_id, status, score, teacher_feedback, updated_at)
-      VALUES ($1,$2,'GRADED',$3,NULLIF($4,''),NOW())
+        (assignment_id, student_id, status, score, teacher_feedback, rubric_scores, rubric_feedback, updated_at)
+      VALUES ($1,$2,'GRADED',$3,NULLIF($4,''),$5::jsonb,NULLIF($6,''),NOW())
       ON CONFLICT (assignment_id,student_id)
-      DO UPDATE SET status='GRADED', score=EXCLUDED.score, teacher_feedback=EXCLUDED.teacher_feedback, updated_at=NOW()
-      RETURNING assignment_id AS "assignmentId", student_id AS "studentId", status, score::float AS score, teacher_feedback AS "teacherFeedback"
-    `, [assignmentId, studentId, score, data.teacherFeedback || '']);
+      DO UPDATE SET status='GRADED', score=EXCLUDED.score, teacher_feedback=EXCLUDED.teacher_feedback, rubric_scores=EXCLUDED.rubric_scores, rubric_feedback=EXCLUDED.rubric_feedback, updated_at=NOW()
+      RETURNING assignment_id AS "assignmentId", student_id AS "studentId", status, score::float AS score, teacher_feedback AS "teacherFeedback", rubric_scores AS "rubricScores", rubric_feedback AS "rubricFeedback"
+    `, [assignmentId, studentId, score, data.teacherFeedback || '', JSON.stringify(data.rubricScores || {}), data.rubricFeedback || '']);
 
     await client.query(`
       UPDATE student_scores
@@ -428,9 +441,9 @@ async function findStudentAssignment(assignmentIdValue, userIdValue) {
     if (!assignment) return null;
     const classItem = demoStore.classes.find((item) => item.id === assignment.classId);
     const lesson = demoStore.lessons.find((item) => item.id === assignment.lessonId);
-    const submission = demoStore.assignmentSubmissions.find((item) => item.assignmentId === assignmentId && item.studentId === student.id)
-      || { status: 'NOT_STARTED', score: null, submittedAt: null, submissionText: '', teacherFeedback: '' };
-    return { ...assignment, className: classItem?.name || '', lessonTitle: lesson?.title || null, student, submission };
+    const raw = demoStore.assignmentSubmissions.find((item) => item.assignmentId === assignmentId && item.studentId === student.id) || { status:'NOT_STARTED',score:null,submittedAt:null,submissionText:'',teacherFeedback:'',rubricScores:{},rubricFeedback:'' };
+    const submission={...raw,assets:(demoStore.assignmentSubmissionAssets||[]).filter(a=>a.assignmentId===assignmentId&&a.studentId===student.id).map(({content,...a})=>a)};
+    return { ...assignment, submissionMode:assignment.submissionMode||'TEXT',rubricEnabled:Boolean(assignment.rubricEnabled),className: classItem?.name || '', lessonTitle: lesson?.title || null, student, submission };
   }
 
   const { rows } = await pool.query(`
@@ -444,6 +457,8 @@ async function findStudentAssignment(assignmentIdValue, userIdValue) {
            a.status,
            a.due_at AS "dueAt",
            a.max_score::float AS "maxScore",
+           a.submission_mode AS "submissionMode",
+           a.rubric_enabled AS "rubricEnabled",
            c.name AS "className",
            l.title AS "lessonTitle",
            st.id AS "studentId",
@@ -452,7 +467,10 @@ async function findStudentAssignment(assignmentIdValue, userIdValue) {
            sub.score::float AS score,
            sub.submitted_at AS "submittedAt",
            COALESCE(sub.submission_text,'') AS "submissionText",
-           COALESCE(sub.teacher_feedback,'') AS "teacherFeedback"
+           COALESCE(sub.teacher_feedback,'') AS "teacherFeedback",
+           COALESCE(sub.rubric_scores,'{}'::jsonb) AS "rubricScores",
+           COALESCE(sub.rubric_feedback,'') AS "rubricFeedback",
+           COALESCE((SELECT json_agg(json_build_object('id',asa.id,'fileName',asa.file_name,'mimeType',asa.mime_type,'sizeBytes',asa.size_bytes) ORDER BY asa.id) FROM assignment_submission_assets asa WHERE asa.assignment_id=a.id AND asa.student_id=st.id),'[]'::json) AS assets
       FROM student_accounts sa
       JOIN students st ON st.id=sa.student_id
       JOIN class_students cs ON cs.student_id=st.id AND cs.status='ACTIVE'
@@ -479,41 +497,59 @@ async function findStudentAssignment(assignmentIdValue, userIdValue) {
     className: row.className,
     lessonTitle: row.lessonTitle,
     student: { id: row.studentId, fullName: row.studentName },
-    submission: { status: row.submissionStatus, score: row.score, submittedAt: row.submittedAt, submissionText: row.submissionText, teacherFeedback: row.teacherFeedback },
+    submissionMode: row.submissionMode || 'TEXT', rubricEnabled: Boolean(row.rubricEnabled),
+    submission: { status: row.submissionStatus, score: row.score, submittedAt: row.submittedAt, submissionText: row.submissionText, teacherFeedback: row.teacherFeedback, rubricScores: row.rubricScores || {}, rubricFeedback: row.rubricFeedback || '', assets: row.assets || [] },
   };
 }
 
-async function submitStudentAssignment(assignmentIdValue, userIdValue, submissionText) {
+async function submitStudentAssignment(assignmentIdValue, userIdValue, payload = {}) {
   const assignment = await findStudentAssignment(assignmentIdValue, userIdValue);
   if (!assignment) throw new Error('ASSIGNMENT_NOT_FOUND');
   if (assignment.submission.status === 'GRADED') throw new Error('GRADED_LOCKED');
-  const text = String(submissionText || '').trim();
-  if (!text) throw new Error('SUBMISSION_REQUIRED');
-
+  const text = String(payload.submissionText || '').trim();
+  const files = Array.isArray(payload.files) ? payload.files : [];
+  const existingAssets = assignment.submission.assets || [];
+  const hasFiles = files.length > 0 || existingAssets.length > 0;
+  const mode = assignment.submissionMode || 'TEXT';
+  if (mode === 'TEXT' && !text) throw new Error('SUBMISSION_REQUIRED');
+  if (mode === 'FILE' && !hasFiles) throw new Error('FILE_REQUIRED');
+  if (mode === 'AUDIO' && ![...files, ...existingAssets].some((file) => String(file.mimetype || file.mimeType || '').startsWith('audio/'))) throw new Error('AUDIO_REQUIRED');
+  if (mode === 'MIXED' && !text && !hasFiles) throw new Error('SUBMISSION_REQUIRED');
   const late = assignment.dueAt && new Date() > new Date(assignment.dueAt);
   const status = late ? 'LATE' : 'SUBMITTED';
 
   if (env.demo.enabled) {
     let submission = demoStore.assignmentSubmissions.find((item) => item.assignmentId === assignment.id && item.studentId === assignment.student.id);
-    if (!submission) {
-      submission = { assignmentId: assignment.id, studentId: assignment.student.id };
-      demoStore.assignmentSubmissions.push(submission);
+    if (!submission) { submission = { assignmentId: assignment.id, studentId: assignment.student.id }; demoStore.assignmentSubmissions.push(submission); }
+    Object.assign(submission, { status, score: null, submittedAt: new Date().toISOString(), submissionText: text, teacherFeedback: '', rubricScores: {}, rubricFeedback: '' });
+    demoStore.assignmentSubmissionAssets = demoStore.assignmentSubmissionAssets || [];
+    if (files.length) {
+      demoStore.assignmentSubmissionAssets = demoStore.assignmentSubmissionAssets.filter(x=>!(x.assignmentId===assignment.id&&x.studentId===assignment.student.id));
+      files.forEach((file,index)=>demoStore.assignmentSubmissionAssets.push({id:Date.now()+index,assignmentId:assignment.id,studentId:assignment.student.id,fileName:file.originalname,mimeType:file.mimetype,sizeBytes:file.size,content:file.buffer}));
     }
-    Object.assign(submission, { status, score: null, submittedAt: new Date().toISOString(), submissionText: text, teacherFeedback: '' });
     return submission;
   }
 
-  const { rows } = await pool.query(`
-    INSERT INTO assignment_submissions
-      (assignment_id,student_id,status,score,submitted_at,submission_text,teacher_feedback,updated_at)
-    VALUES ($1,$2,$3,NULL,NOW(),$4,NULL,NOW())
-    ON CONFLICT (assignment_id,student_id)
-    DO UPDATE SET status=EXCLUDED.status, score=NULL, submitted_at=NOW(), submission_text=EXCLUDED.submission_text,
-                  teacher_feedback=NULL, updated_at=NOW()
-    RETURNING assignment_id AS "assignmentId", student_id AS "studentId", status,
-              submitted_at AS "submittedAt", submission_text AS "submissionText"
-  `, [assignment.id, assignment.student.id, status, text]);
-  return rows[0];
+  const client=await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const {rows}=await client.query(`INSERT INTO assignment_submissions
+      (assignment_id,student_id,status,score,submitted_at,submission_text,teacher_feedback,rubric_scores,rubric_feedback,updated_at)
+      VALUES($1,$2,$3,NULL,NOW(),NULLIF($4,''),NULL,'{}'::jsonb,NULL,NOW())
+      ON CONFLICT(assignment_id,student_id) DO UPDATE SET status=EXCLUDED.status,score=NULL,submitted_at=NOW(),submission_text=EXCLUDED.submission_text,teacher_feedback=NULL,rubric_scores='{}'::jsonb,rubric_feedback=NULL,updated_at=NOW()
+      RETURNING assignment_id AS "assignmentId",student_id AS "studentId",status,submitted_at AS "submittedAt",COALESCE(submission_text,'') AS "submissionText"`,[assignment.id,assignment.student.id,status,text]);
+    if(files.length){
+      await client.query('DELETE FROM assignment_submission_assets WHERE assignment_id=$1 AND student_id=$2',[assignment.id,assignment.student.id]);
+      for(const file of files) await client.query(`INSERT INTO assignment_submission_assets(assignment_id,student_id,file_name,mime_type,size_bytes,content) VALUES($1,$2,$3,$4,$5,$6)`,[assignment.id,assignment.student.id,String(file.originalname||'file').slice(0,255),file.mimetype||'application/octet-stream',file.size||file.buffer?.length||0,file.buffer]);
+    }
+    await client.query('COMMIT'); return rows[0];
+  }catch(e){await client.query('ROLLBACK');throw e;}finally{client.release();}
+}
+
+async function findAsset(assetIdValue, assignmentIdValue) {
+  const assetId=normalizeId(assetIdValue), assignmentId=normalizeId(assignmentIdValue); if(!assetId||!assignmentId)return null;
+  if(env.demo.enabled){return (demoStore.assignmentSubmissionAssets||[]).find(x=>x.id===assetId&&x.assignmentId===assignmentId)||null;}
+  const {rows}=await pool.query(`SELECT id,assignment_id AS "assignmentId",student_id AS "studentId",file_name AS "fileName",mime_type AS "mimeType",size_bytes AS "sizeBytes",content FROM assignment_submission_assets WHERE id=$1 AND assignment_id=$2`,[assetId,assignmentId]); return rows[0]||null;
 }
 
 module.exports = {
@@ -527,4 +563,5 @@ module.exports = {
   grade,
   findStudentAssignment,
   submitStudentAssignment,
+  findAsset,
 };

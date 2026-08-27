@@ -102,6 +102,10 @@ const env = {
     defaultShowResult: optional('EXAM_DEFAULT_SHOW_RESULT', 'true').trim().toLowerCase() === 'true',
     autosaveDebounceMs: Number(optional('EXAM_AUTOSAVE_DEBOUNCE_MS', '500')),
   },
+  assignment: {
+    uploadMaxFileMb: Number(optional('ASSIGNMENT_UPLOAD_MAX_FILE_MB', '10')),
+    uploadMaxFiles: Number(optional('ASSIGNMENT_UPLOAD_MAX_FILES', '3')),
+  },
   question: {
     defaultPoints: Number(optional('QUESTION_DEFAULT_POINTS', '1')),
     maxPoints: Number(optional('QUESTION_MAX_POINTS', '100')),
