@@ -1,5 +1,31 @@
 # Changelog
 
+## v0.15.0 - Teacher Report Center
+
+### Teacher Reports
+- Kích hoạt menu `Báo cáo` cho TEACHER/ADMIN tại `/reports`.
+- Bộ lọc theo tháng và lớp, giữ toàn bộ dữ liệu trong phạm vi class ownership của actor.
+- KPI: học viên, điểm trung bình quy đổi thang 10, chuyên cần, tỷ lệ nộp bài và số bài/bài thi đang chờ chấm.
+- Bảng tổng quan theo lớp: sĩ số, điểm, chuyên cần, nộp bài, chờ chấm và số học viên cần chú ý.
+- Danh sách học viên cần chú ý dựa trên điểm dưới 7, chuyên cần dưới 90% và bài quá hạn; có mức ưu tiên cao/trung bình.
+- Báo cáo chi tiết từng học viên: điểm số, bài tập, bài kiểm tra, chuyên cần, kỹ năng hiện có và nhận xét giáo viên gắn với buổi học.
+- Xuất báo cáo CSV, Excel `.xlsx` và In / lưu PDF từ trình duyệt.
+
+### Data Integrity & Authorization
+- Thêm `student_scores.class_id` để score có thể được scope an toàn theo lớp/giáo viên.
+- Backfill score từ Assignment/Exam; score legacy chỉ được tự gắn class khi học viên có đúng một lớp active.
+- Assignment/Exam grading mới luôn ghi `class_id` vào `student_scores`.
+- Teacher Report không đọc score của class ngoài ownership; student detail cũng kiểm tra ownership.
+- Dữ liệu skill trong report chi tiết bị ẩn khi học viên đồng thời thuộc class active của giáo viên khác, tránh lộ dữ liệu tổng hợp chưa có class scope.
+
+### Database
+- Thêm migration `db/neon_upgrade_v0.15.0.sql`.
+- Thêm index `idx_student_scores_class_recorded` và `idx_exam_attempts_student_submitted`.
+
+### Quality
+- Thêm test report ownership, class filter authorization, student detail authorization và KPI/attention.
+- Tổng bộ test tăng từ 25 lên 30 test.
+
 ## v0.14.1 - Account Password Management
 
 ### Account Security

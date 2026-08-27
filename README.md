@@ -1,4 +1,4 @@
-# English Classroom MVP v0.14.1
+# English Classroom MVP v0.15.0
 
 Website responsive quản lý lớp học tiếng Anh dành cho giáo viên, học viên và phụ huynh.
 
@@ -10,9 +10,27 @@ Website responsive quản lý lớp học tiếng Anh dành cho giáo viên, h�
 - `pg`, `bcryptjs`, `express-session`, `connect-pg-simple`
 - ExcelJS + Multer cho import Question Bank
 
-## Chức năng chính đến v0.14.1
+## Chức năng chính đến v0.15.0
 
 
+
+### Teacher Report Center v0.15.0
+- Báo cáo giáo viên tại `/reports`, lọc theo tháng và lớp.
+- KPI: số học viên, điểm trung bình /10, chuyên cần, tỷ lệ nộp bài, số bài/bài thi chờ chấm.
+- Tổng quan theo lớp và danh sách học viên cần chú ý dựa trên điểm, chuyên cần và bài quá hạn.
+- Báo cáo chi tiết từng học viên gồm điểm, bài tập, kiểm tra, chuyên cần, kỹ năng hiện có và nhận xét gắn với buổi học.
+- Xuất CSV, Excel `.xlsx` và In / lưu PDF.
+- Toàn bộ report được scope theo class ownership của TEACHER; ADMIN được xem toàn cục.
+- `student_scores` có thêm `class_id` để tránh score của class khác lọt vào báo cáo multi-teacher.
+
+### Nâng database từ v0.14.1 lên v0.15.0
+Chạy thủ công trên Neon SQL Editor **trước khi deploy source v0.15.0**:
+
+```text
+db/neon_upgrade_v0.15.0.sql
+```
+
+Migration chỉ thêm `student_scores.class_id`, backfill an toàn dữ liệu cũ và tạo index phục vụ báo cáo. Không xóa dữ liệu hiện có.
 
 ### Account Security v0.14.1
 - Tất cả tài khoản `ADMIN`, `TEACHER`, `STUDENT`, `PARENT` có thể tự đổi mật khẩu tại `/account/password`.
@@ -32,13 +50,14 @@ Website responsive quản lý lớp học tiếng Anh dành cho giáo viên, h�
 - Mở rộng `assignment_submissions.score`, `student_scores.score/max_score` thành `NUMERIC(8,2)`.
 - Thêm migration `db/neon_upgrade_v0.14.0.sql` và test hardening.
 
-Nâng database từ v0.13.x lên v0.14.x: chạy thủ công trên Neon SQL Editor:
+Nâng database theo từng version bằng file upgrade tương ứng trên Neon SQL Editor. Ví dụ:
 
 ```text
 db/neon_upgrade_v0.14.0.sql
+db/neon_upgrade_v0.15.0.sql
 ```
 
-> Không dùng `npm run db:migrate` trên database production hiện có vì script này đang chạy toàn bộ `db/schema.sql`. v0.14.1 không có thay đổi schema nên không cần chạy thêm SQL.
+> Không dùng `npm run db:migrate` trên database production hiện có vì script này vẫn đang chạy toàn bộ `db/schema.sql`.
 
 ### Teacher Portal
 - Dashboard.

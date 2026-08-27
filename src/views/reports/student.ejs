@@ -1,0 +1,100 @@
+<%- include('../partials/app-start', { title }) %>
+<%
+  const metric = (value, suffix = '') => (value === null || value === undefined ? '—' : `${value}${suffix}`);
+  const norm = (score, maxScore) => Number(maxScore) > 0 ? Math.round((Number(score) / Number(maxScore)) * 1000) / 100 : null;
+  const attended = detail.attendance.filter(item => ['PRESENT','LATE','ONLINE'].includes(item.status)).length;
+  const attendanceRate = detail.attendance.length ? Math.round(attended / detail.attendance.length * 1000) / 10 : null;
+  const scoreValues = detail.scores.map(item => Number(item.maxScore) > 0 ? Number(item.score) / Number(item.maxScore) * 10 : null).filter(Number.isFinite);
+  const avgScore = scoreValues.length ? Math.round(scoreValues.reduce((a,b)=>a+b,0)/scoreValues.length*10)/10 : null;
+%>
+<div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-start gap-3 mb-4">
+  <div>
+    <div class="eyebrow">Báo cáo học viên • <%= detail.month %></div>
+    <h1 class="h3 mb-1"><%= detail.student.fullName %></h1>
+    <div class="text-secondary"><%= detail.classInfo.name %> • Khối <%= detail.classInfo.grade %><% if (detail.student.school) { %> • <%= detail.student.school %><% } %><% if (detail.student.schoolClass) { %> • <%= detail.student.schoolClass %><% } %></div>
+  </div>
+  <div class="d-flex gap-2 no-print">
+    <a class="btn btn-light" href="/reports?month=<%= detail.month %>&classId=<%= detail.classInfo.id %>">← Quay lại</a>
+    <button class="btn btn-outline-primary" onclick="window.print()">In / PDF</button>
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-6 col-lg-3"><div class="metric-card"><div class="metric-label">Điểm TB</div><div class="metric-value"><%= metric(avgScore) %></div><div class="metric-meta">Thang 10</div></div></div>
+  <div class="col-6 col-lg-3"><div class="metric-card"><div class="metric-label">Chuyên cần</div><div class="metric-value"><%= metric(attendanceRate, '%') %></div><div class="metric-meta"><%= attended %>/<%= detail.attendance.length %> lượt</div></div></div>
+  <div class="col-6 col-lg-3"><div class="metric-card"><div class="metric-label">Bài tập</div><div class="metric-value"><%= detail.assignments.length %></div><div class="metric-meta"><%= detail.assignments.filter(item => ['SUBMITTED','LATE','GRADED'].includes(item.submission.status)).length %> đã nộp</div></div></div>
+  <div class="col-6 col-lg-3"><div class="metric-card"><div class="metric-label">Bài kiểm tra</div><div class="metric-value"><%= detail.exams.length %></div><div class="metric-meta">Lượt làm trong tháng</div></div></div>
+</div>
+
+<div class="row g-4">
+  <div class="col-xl-7">
+    <div class="card app-card mb-4">
+      <div class="card-header"><strong>Điểm số</strong></div>
+      <div class="table-responsive">
+        <table class="table align-middle mb-0">
+          <thead><tr><th>Ngày</th><th>Nội dung</th><th>Nhóm</th><th>Điểm</th><th>/10</th></tr></thead>
+          <tbody>
+            <% if (!detail.scores.length) { %><tr><td colspan="5" class="text-center text-secondary py-4">Chưa có điểm trong tháng.</td></tr><% } %>
+            <% detail.scores.forEach(item => { %><tr><td><%= new Date(item.recordedAt).toLocaleDateString('vi-VN') %></td><td class="fw-semibold"><%= item.title %></td><td><%= item.category || '—' %></td><td><%= item.score %>/<%= item.maxScore %></td><td><%= metric(norm(item.score,item.maxScore)) %></td></tr><% }) %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card app-card mb-4">
+      <div class="card-header"><strong>Bài tập</strong></div>
+      <div class="table-responsive">
+        <table class="table align-middle mb-0">
+          <thead><tr><th>Bài tập</th><th>Hạn</th><th>Trạng thái</th><th>Điểm</th></tr></thead>
+          <tbody>
+            <% if (!detail.assignments.length) { %><tr><td colspan="4" class="text-center text-secondary py-4">Không có bài tập trong tháng.</td></tr><% } %>
+            <% detail.assignments.forEach(item => { %><tr><td class="fw-semibold"><%= item.title %></td><td><%= item.dueAt ? new Date(item.dueAt).toLocaleDateString('vi-VN') : '—' %></td><td><%= item.submission.status %></td><td><%= item.submission.score === null || item.submission.score === undefined ? '—' : `${item.submission.score}/${item.maxScore}` %></td></tr><% }) %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card app-card">
+      <div class="card-header"><strong>Chuyên cần</strong></div>
+      <div class="table-responsive">
+        <table class="table align-middle mb-0">
+          <thead><tr><th>Ngày</th><th>Buổi học</th><th>Trạng thái</th><th>Ghi chú</th></tr></thead>
+          <tbody>
+            <% if (!detail.attendance.length) { %><tr><td colspan="4" class="text-center text-secondary py-4">Chưa có dữ liệu chuyên cần.</td></tr><% } %>
+            <% detail.attendance.forEach(item => { %><tr><td><%= new Date(item.date).toLocaleDateString('vi-VN') %></td><td><%= item.topic || '—' %></td><td><%= item.status %></td><td><%= item.note || '—' %></td></tr><% }) %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-xl-5">
+    <div class="card app-card mb-4">
+      <div class="card-header"><strong>Kỹ năng</strong></div>
+      <div class="card-body">
+        <% if (!detail.skillsScoped) { %><div class="alert alert-warning small mb-0">Dữ liệu kỹ năng hiện chưa có class scope và học viên đang thuộc lớp của nhiều giáo viên, vì vậy phần này được ẩn để tránh lộ dữ liệu chéo.</div><% } %>
+        <% if (detail.skillsScoped && !detail.skills.length) { %><div class="text-secondary">Chưa có dữ liệu kỹ năng.</div><% } %>
+        <% detail.skills.forEach(item => { %>
+          <div class="skill-row"><div class="d-flex justify-content-between mb-1"><span class="fw-semibold"><%= item.skill %></span><span><%= item.score %>/10</span></div><div class="progress skill-progress"><div class="progress-bar" style="width:<%= Math.max(0,Math.min(100,Number(item.score)*10)) %>%"></div></div></div>
+        <% }) %>
+      </div>
+    </div>
+
+    <div class="card app-card mb-4">
+      <div class="card-header"><strong>Bài kiểm tra</strong></div>
+      <div class="card-body p-0">
+        <% if (!detail.exams.length) { %><div class="p-4 text-secondary">Chưa có lượt làm bài trong tháng.</div><% } %>
+        <% detail.exams.forEach(item => { %><div class="portal-list-item"><div class="fw-semibold"><%= item.title %></div><div class="small text-secondary"><%= item.submittedAt ? new Date(item.submittedAt).toLocaleString('vi-VN') : 'Chưa nộp' %> • <%= item.status %></div><div class="mt-1"><%= item.score === null || item.score === undefined ? 'Chưa có điểm' : `${item.score}/${item.maxScore}` %></div></div><% }) %>
+      </div>
+    </div>
+
+    <div class="card app-card">
+      <div class="card-header"><strong>Nhận xét giáo viên</strong></div>
+      <div class="card-body">
+        <% if (!detail.notes.length) { %><div class="text-secondary">Chưa có nhận xét trong tháng.</div><% } %>
+        <% detail.notes.forEach(item => { %><div class="quote-note mb-3"><div><%= item.note %></div><div class="small text-secondary mt-2"><%= item.sessionTopic || 'Buổi học' %> • <%= new Date(item.createdAt).toLocaleDateString('vi-VN') %><% if (item.author) { %> • <%= item.author %><% } %></div></div><% }) %>
+      </div>
+    </div>
+  </div>
+</div>
+<%- include('../partials/app-end') %>

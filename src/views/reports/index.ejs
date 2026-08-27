@@ -1,0 +1,104 @@
+<%- include('../partials/app-start', { title }) %>
+<%
+  const metric = (value, suffix = '') => (value === null || value === undefined ? '—' : `${value}${suffix}`);
+  const classQuery = report.selectedClassId ? `&classId=${report.selectedClassId}` : '';
+  const exportQuery = `?month=${encodeURIComponent(report.month)}${classQuery}`;
+%>
+<div class="report-header mb-4 teacher-report-header">
+  <div>
+    <div class="eyebrow">Teacher Report Center</div>
+    <h1 class="h3 mb-1">Báo cáo lớp học</h1>
+    <p class="text-secondary mb-0">Theo dõi kết quả học tập, chuyên cần, bài tập và học viên cần chú ý.</p>
+  </div>
+  <div class="d-flex flex-wrap gap-2 no-print">
+    <a class="btn btn-outline-secondary" href="/reports.csv<%= exportQuery %>">CSV</a>
+    <a class="btn btn-outline-success" href="/reports.xlsx<%= exportQuery %>">Excel</a>
+    <button class="btn btn-outline-primary" type="button" onclick="window.print()">In / PDF</button>
+  </div>
+</div>
+
+<div class="card app-card mb-4 no-print">
+  <div class="card-body">
+    <form method="get" action="/reports" class="teacher-report-filter">
+      <div>
+        <label class="form-label small fw-semibold">Tháng</label>
+        <input class="form-control" type="month" name="month" value="<%= report.month %>">
+      </div>
+      <div>
+        <label class="form-label small fw-semibold">Lớp</label>
+        <select class="form-select" name="classId">
+          <option value="">Tất cả lớp</option>
+          <% report.classes.forEach(item => { %>
+            <option value="<%= item.id %>" <%= Number(report.selectedClassId) === Number(item.id) ? 'selected' : '' %>><%= item.name %></option>
+          <% }) %>
+        </select>
+      </div>
+      <div class="d-flex align-items-end gap-2">
+        <button class="btn btn-primary" type="submit">Xem báo cáo</button>
+        <a class="btn btn-light" href="/reports">Đặt lại</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-6 col-xl"><div class="metric-card h-100"><div class="metric-label">Học viên</div><div class="metric-value"><%= report.metrics.studentCount %></div><div class="metric-meta">Trong phạm vi báo cáo</div></div></div>
+  <div class="col-6 col-xl"><div class="metric-card h-100"><div class="metric-label">Điểm TB</div><div class="metric-value"><%= metric(report.metrics.averageScore) %></div><div class="metric-meta">Quy đổi thang 10</div></div></div>
+  <div class="col-6 col-xl"><div class="metric-card h-100"><div class="metric-label">Chuyên cần</div><div class="metric-value"><%= metric(report.metrics.attendanceRate, '%') %></div><div class="metric-meta">Có mặt / đi muộn / online</div></div></div>
+  <div class="col-6 col-xl"><div class="metric-card h-100"><div class="metric-label">Nộp bài</div><div class="metric-value"><%= metric(report.metrics.submissionRate, '%') %></div><div class="metric-meta">Bài có hạn trong tháng</div></div></div>
+  <div class="col-12 col-xl"><div class="metric-card h-100"><div class="metric-label">Chờ chấm</div><div class="metric-value"><%= report.metrics.pendingGrading %></div><div class="metric-meta">Assignment + Exam</div></div></div>
+</div>
+
+<div class="card app-card mb-4">
+  <div class="card-header d-flex flex-column flex-sm-row justify-content-between gap-2">
+    <div><strong>Tổng quan theo lớp</strong><div class="small text-secondary">Tháng <%= report.month %></div></div>
+    <span class="badge text-bg-light align-self-start"><%= report.classStats.length %> lớp</span>
+  </div>
+  <div class="table-responsive">
+    <table class="table align-middle mb-0 teacher-report-table">
+      <thead><tr><th>Lớp</th><th>Học viên</th><th>Điểm TB</th><th>Chuyên cần</th><th>Nộp bài</th><th>Chờ chấm</th><th>Cần chú ý</th></tr></thead>
+      <tbody>
+        <% if (!report.classStats.length) { %><tr><td colspan="7" class="text-center text-secondary py-5">Chưa có lớp trong phạm vi báo cáo.</td></tr><% } %>
+        <% report.classStats.forEach(item => { %>
+          <tr>
+            <td><div class="fw-semibold"><%= item.name %></div><div class="small text-secondary">Khối <%= item.grade %></div></td>
+            <td><%= item.studentCount %></td>
+            <td><span class="score-badge <%= item.averageScore !== null && item.averageScore >= 7 ? 'good' : 'warn' %>"><%= metric(item.averageScore) %></span></td>
+            <td><%= metric(item.attendanceRate, '%') %></td>
+            <td><%= metric(item.submissionRate, '%') %></td>
+            <td><%= item.pendingGrading %></td>
+            <td><span class="badge <%= item.attentionCount ? 'text-bg-warning' : 'text-bg-success-subtle text-success-emphasis' %>"><%= item.attentionCount %></span></td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="card app-card">
+  <div class="card-header d-flex justify-content-between align-items-center gap-2">
+    <div><strong>Học viên cần chú ý</strong><div class="small text-secondary">Điểm dưới 7, chuyên cần dưới 90% hoặc còn bài quá hạn trong tháng.</div></div>
+    <span class="badge text-bg-warning"><%= report.attention.length %></span>
+  </div>
+  <div class="card-body p-0">
+    <% if (!report.attention.length) { %><div class="p-4 text-secondary">Chưa phát hiện học viên cần chú ý theo tiêu chí hiện tại.</div><% } %>
+    <% report.attention.forEach(item => { %>
+      <div class="teacher-attention-row px-3 px-lg-4 py-3">
+        <div class="d-flex flex-column flex-lg-row align-items-lg-center gap-3">
+          <div class="d-flex align-items-center gap-3 flex-grow-1">
+            <span class="student-avatar"><%= item.fullName.charAt(0) %></span>
+            <div>
+              <div class="fw-semibold"><%= item.fullName %></div>
+              <div class="small text-secondary"><%= item.className %> • <%= item.reasons.join(' • ') %></div>
+            </div>
+          </div>
+          <div class="d-flex align-items-center flex-wrap gap-2">
+            <span class="badge <%= item.priority === 'HIGH' ? 'text-bg-danger' : 'text-bg-warning' %>"><%= item.priority === 'HIGH' ? 'Ưu tiên cao' : 'Cần theo dõi' %></span>
+            <a class="btn btn-sm btn-outline-primary no-print" href="/reports/students/<%= item.studentId %>?month=<%= report.month %>&classId=<%= item.classId %>">Chi tiết</a>
+          </div>
+        </div>
+      </div>
+    <% }) %>
+  </div>
+</div>
+<%- include('../partials/app-end') %>

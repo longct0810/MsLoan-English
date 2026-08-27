@@ -331,9 +331,10 @@ async function grade(assignmentIdValue, studentIdValue, data) {
       existingScore.score = Number(data.score);
       existingScore.maxScore = Number(assignment.maxScore || 10);
       existingScore.recordedAt = new Date().toISOString().slice(0, 10);
+      existingScore.classId = Number(assignment.classId);
     } else {
       const id = Math.max(0, ...demoStore.studentScores.map((item) => item.id)) + 1;
-      demoStore.studentScores.push({ id, studentId, assignmentId, title: assignment.title, category: assignment.type, score: Number(data.score), maxScore: Number(assignment.maxScore || 10), recordedAt: new Date().toISOString().slice(0, 10) });
+      demoStore.studentScores.push({ id, studentId, assignmentId, classId: Number(assignment.classId), title: assignment.title, category: assignment.type, score: Number(data.score), maxScore: Number(assignment.maxScore || 10), recordedAt: new Date().toISOString().slice(0, 10) });
     }
     const scoreRows = demoStore.studentScores.filter((item) => item.studentId === studentId);
     if (scoreRows.length) student.averageScore = Number((scoreRows.reduce((sum, item) => sum + (Number(item.score) / Number(item.maxScore || 10)) * 10, 0) / scoreRows.length).toFixed(2));
@@ -368,22 +369,22 @@ async function grade(assignmentIdValue, studentIdValue, data) {
 
     await client.query(`
       UPDATE student_scores
-         SET assignment_id=$2
+         SET assignment_id=$2, class_id=$4
        WHERE id = (
          SELECT id FROM student_scores
           WHERE student_id=$1 AND assignment_id IS NULL AND title=$3
           ORDER BY recorded_at DESC, id DESC LIMIT 1
        )
          AND NOT EXISTS (SELECT 1 FROM student_scores WHERE student_id=$1 AND assignment_id=$2)
-    `, [studentId, assignmentId, assignment.title]);
+    `, [studentId, assignmentId, assignment.title, assignment.classId]);
 
     await client.query(`
-      INSERT INTO student_scores (student_id, assignment_id, title, category, score, max_score, recorded_at)
-      VALUES ($1,$2,$3,$4,$5,$6,CURRENT_DATE)
+      INSERT INTO student_scores (student_id, assignment_id, class_id, title, category, score, max_score, recorded_at)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,CURRENT_DATE)
       ON CONFLICT (student_id, assignment_id) WHERE assignment_id IS NOT NULL
-      DO UPDATE SET title=EXCLUDED.title, category=EXCLUDED.category, score=EXCLUDED.score,
+      DO UPDATE SET class_id=EXCLUDED.class_id, title=EXCLUDED.title, category=EXCLUDED.category, score=EXCLUDED.score,
                     max_score=EXCLUDED.max_score, recorded_at=CURRENT_DATE
-    `, [studentId, assignmentId, assignment.title, assignment.type, score, assignment.maxScore]);
+    `, [studentId, assignmentId, assignment.classId, assignment.title, assignment.type, score, assignment.maxScore]);
 
     await client.query(`
       INSERT INTO student_progress_summary (student_id, average_score, attendance_rate)

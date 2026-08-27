@@ -213,3 +213,24 @@ textarea.exam-answer-input { min-height: 150px; resize: vertical; }
   letter-spacing: .08em;
 }
 .password-form { max-width: 620px; }
+
+/* v0.15.0 - Teacher Report Center */
+.teacher-report-filter {
+  display: grid;
+  grid-template-columns: minmax(170px, 220px) minmax(220px, 1fr) auto;
+  gap: 12px;
+  align-items: end;
+}
+.teacher-report-table td { white-space: nowrap; }
+.teacher-attention-row + .teacher-attention-row { border-top: 1px solid #f0f1f5; }
+.teacher-attention-row:hover { background: #fafbff; }
+@media (max-width: 767.98px) {
+  .teacher-report-filter { grid-template-columns: 1fr; }
+  .teacher-report-filter > * { min-width: 0; }
+  .teacher-report-filter .d-flex { width: 100%; }
+  .teacher-report-filter .btn { flex: 1 1 auto; white-space: nowrap; }
+}
+@media print {
+  .no-print { display: none !important; }
+  .teacher-report-header { margin-bottom: 12px !important; }
+}

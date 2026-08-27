@@ -1,17 +1,12 @@
-# Roadmap sau v0.14.1
+# Roadmap sau v0.15.0
 
 ## Nguyên tắc ưu tiên
 1. Hoàn thiện các luồng giáo viên đang còn thiếu trước khi bổ sung AI.
 2. Tận dụng dữ liệu đã có (lớp, buổi học, điểm danh, bài tập, kiểm tra, phụ huynh) thay vì tạo module rời rạc.
 3. Mỗi phiên bản lớn phải có test authorization, integration DB và migration an toàn.
 
-## v0.15.0 — Teacher Report Center
-- Kích hoạt menu Báo cáo cho giáo viên.
-- Dashboard theo lớp/tháng: sĩ số, chuyên cần, điểm trung bình, tỷ lệ nộp bài, bài chưa chấm.
-- Danh sách học sinh cần chú ý dựa trên điểm, vắng học và bài quá hạn.
-- Báo cáo chi tiết từng học sinh và từng lớp.
-- Xuất CSV/Excel và Print/PDF.
-- Scope toàn bộ báo cáo theo class ownership.
+## ✅ v0.15.0 — Teacher Report Center
+Đã hoàn thành: báo cáo theo lớp/tháng, KPI, học viên cần chú ý, chi tiết học viên, CSV/Excel/Print-PDF và class-scoped authorization.
 
 ## v0.16.0 — Sổ đầu bài điện tử
 - Tối ưu luồng mở buổi học → điểm danh → nội dung đã dạy → bài tập về nhà → nhận xét → hoàn thành buổi học.

@@ -18,6 +18,7 @@ const lessonRoutes = require('./modules/lessons/lesson.routes');
 const assignmentRoutes = require('./modules/assignments/assignment.routes');
 const questionRoutes = require('./modules/questions/question.routes');
 const examRoutes = require('./modules/exams/exam.routes');
+const reportRoutes = require('./modules/reports/report.routes');
 
 const app = express();
 
@@ -75,6 +76,7 @@ app.use(lessonRoutes.web);
 app.use(assignmentRoutes.web);
 app.use(questionRoutes.web);
 app.use(examRoutes.web);
+app.use(reportRoutes);
 app.use(portalRoutes);
 app.use(env.app.apiPrefix, classRoutes.api);
 app.use(env.app.apiPrefix, studentRoutes.api);

@@ -389,3 +389,15 @@ CREATE INDEX IF NOT EXISTS idx_class_students_active_student_class
 CREATE INDEX IF NOT EXISTS idx_questions_created_by
   ON questions(created_by, id);
 COMMIT;
+
+-- v0.15.0 - Teacher Report Center and class-scoped score reporting.
+BEGIN;
+ALTER TABLE student_scores
+  ADD COLUMN IF NOT EXISTS class_id BIGINT REFERENCES classes(id) ON DELETE SET NULL;
+CREATE INDEX IF NOT EXISTS idx_student_scores_class_recorded
+  ON student_scores(class_id, recorded_at DESC, student_id)
+  WHERE class_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_exam_attempts_student_submitted
+  ON exam_attempts(student_id, submitted_at DESC)
+  WHERE submitted_at IS NOT NULL;
+COMMIT;
