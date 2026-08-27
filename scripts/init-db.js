@@ -316,7 +316,7 @@ async function main() {
   }
 
 
-  // v0.5.0: seed Question Bank and an online exam for Grade 7.
+  // v0.6.0: seed Question Bank (including ESSAY) and an online exam for Grade 7.
   const grade7 = await pool.query(`SELECT id FROM grades WHERE grade_no=7 LIMIT 1`);
   const grade7Id = grade7.rows[0]?.id;
   const seededQuestionIds = [];
@@ -377,6 +377,11 @@ async function main() {
   await ensureQuestion({
     stem: 'Complete: She ___ not go to school yesterday. (do)', type: 'FILL_BLANK', correctAnswer: 'did',
     difficulty: 'HARD', points: 2, explanation: 'Phủ định Past Simple dùng did not + V.',
+  });
+  await ensureQuestion({
+    stem: 'Write 80–100 words about what you did last weekend.', type: 'ESSAY',
+    correctAnswer: 'Use Past Simple, clear organization, and suitable vocabulary.',
+    difficulty: 'MEDIUM', points: 4, explanation: 'Chấm theo nội dung, ngữ pháp, từ vựng và bố cục.',
   });
 
   let examResult = await pool.query(`SELECT id FROM exams WHERE class_id=$1 AND title='Unit 2 Online Quiz' LIMIT 1`, [classIds[7]]);

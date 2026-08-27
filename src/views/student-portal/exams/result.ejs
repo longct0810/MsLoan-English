@@ -1,5 +1,43 @@
 <%- include('../../partials/app-start', { title }) %>
-<div class="result-hero p-4 mb-4 text-center"><div class="eyebrow">KẾT QUẢ BÀI KIỂM TRA</div><h1 class="h3"><%= attempt.exam.title %></h1><div class="display-5 fw-bold text-primary my-3"><%= attempt.score %>/<%= attempt.maxScore %></div><div class="text-secondary">Nộp lúc <%= attempt.submittedAt?new Date(attempt.submittedAt).toLocaleString('vi-VN'):'—' %></div></div>
-<% if(attempt.exam.showResult){ %><div class="row justify-content-center"><div class="col-xl-9"><% attempt.exam.questions.forEach((q,i)=>{ const ans=q.answer; %><div class="card app-card mb-3"><div class="card-body p-4"><div class="d-flex justify-content-between gap-3"><h2 class="h6">Câu <%= i+1 %>. <%= q.stem %></h2><span class="badge <%= ans.isCorrect?'text-bg-success':'text-bg-danger' %>"><%= ans.isCorrect?'Đúng':'Sai' %> • <%= ans.awardedScore||0 %>/<%= q.points %></span></div><% if(q.questionType==='FILL_BLANK'){ %><div class="mt-2">Bạn trả lời: <strong><%= ans.answerText||'—' %></strong></div><div class="text-success">Đáp án: <strong><%= q.correctAnswer %></strong></div><% } else { %><div class="mt-2"><% q.options.forEach(o=>{ const selected=String(ans.selectedOptionId||'')===String(o.id); %><div class="py-1 <%= o.isCorrect?'text-success fw-semibold':selected?'text-danger':'' %>"><%= o.optionKey %>. <%= o.optionText %> <%= o.isCorrect?'✓':'' %> <%= selected&&!o.isCorrect?'← Bạn chọn':'' %></div><% }) %></div><% } %><% if(q.explanation){ %><div class="alert alert-light border mt-3 mb-0"><strong>Giải thích:</strong> <%= q.explanation %></div><% } %></div></div><% }) %></div></div><% } else { %><div class="alert alert-info">Giáo viên đã cấu hình không hiển thị đáp án chi tiết cho bài kiểm tra này.</div><% } %>
+<% const pending = attempt.status==='PENDING_GRADING'; %>
+<div class="result-hero p-4 mb-4 text-center">
+  <div class="eyebrow">KẾT QUẢ BÀI KIỂM TRA</div>
+  <h1 class="h3"><%= attempt.exam.title %></h1>
+  <% if(pending){ %>
+    <div class="display-6 fw-bold text-warning my-3">Chờ giáo viên chấm tự luận</div>
+    <div class="text-secondary">Phần tự động chấm tạm tính: <strong><%= attempt.autoScore||0 %>/<%= attempt.maxScore %></strong></div>
+  <% } else { %>
+    <div class="display-5 fw-bold text-primary my-3"><%= attempt.score %>/<%= attempt.maxScore %></div>
+  <% } %>
+  <div class="text-secondary mt-1">Nộp lúc <%= attempt.submittedAt?new Date(attempt.submittedAt).toLocaleString('vi-VN'):'—' %></div>
+</div>
+
+<% if(attempt.exam.showResult){ %>
+<div class="row justify-content-center"><div class="col-xl-9">
+<% attempt.exam.questions.forEach((q,i)=>{ const ans=q.answer||{}; const manual=q.questionType==='ESSAY'; %>
+<div class="card app-card mb-3"><div class="card-body p-4">
+  <div class="d-flex justify-content-between gap-3"><h2 class="h6">Câu <%= i+1 %>. <%= q.stem %></h2>
+  <% if(manual){ %>
+    <% if(ans.gradingStatus==='MANUALLY_GRADED'){ %><span class="badge text-bg-primary"><%= ans.awardedScore||0 %>/<%= q.points %> điểm</span><% } else { %><span class="badge text-bg-warning">Chờ chấm</span><% } %>
+  <% } else { %>
+    <span class="badge <%= ans.isCorrect?'text-bg-success':'text-bg-danger' %>"><%= ans.isCorrect?'Đúng':'Sai' %> • <%= ans.awardedScore||0 %>/<%= q.points %></span>
+  <% } %></div>
+
+  <% if(q.questionType==='FILL_BLANK'){ %>
+    <div class="mt-2">Bạn trả lời: <strong><%= ans.answerText||'—' %></strong></div><div class="text-success">Đáp án: <strong><%= q.correctAnswer %></strong></div>
+  <% } else if(q.questionType==='ESSAY'){ %>
+    <div class="mt-3 p-3 bg-light rounded"><div class="small text-secondary mb-1">Bài làm của bạn</div><div style="white-space:pre-wrap"><%= ans.answerText||'—' %></div></div>
+    <% if(ans.gradingStatus==='MANUALLY_GRADED'){ %>
+      <% if(ans.teacherFeedback){ %><div class="alert alert-primary mt-3 mb-0"><strong>Nhận xét giáo viên:</strong><br><%= ans.teacherFeedback %></div><% } %>
+      <% if(q.correctAnswer){ %><div class="alert alert-light border mt-3 mb-0"><strong>Gợi ý/đáp án tham khảo:</strong><br><%= q.correctAnswer %></div><% } %>
+    <% } else { %><div class="alert alert-warning mt-3 mb-0">Giáo viên chưa chấm câu tự luận này.</div><% } %>
+  <% } else { %>
+    <div class="mt-2"><% q.options.forEach(o=>{ const selected=String(ans.selectedOptionId||'')===String(o.id); %><div class="py-1 <%= o.isCorrect?'text-success fw-semibold':selected?'text-danger':'' %>"><%= o.optionKey %>. <%= o.optionText %> <%= o.isCorrect?'✓':'' %> <%= selected&&!o.isCorrect?'← Bạn chọn':'' %></div><% }) %></div>
+  <% } %>
+  <% if(q.explanation && (!manual || ans.gradingStatus==='MANUALLY_GRADED')){ %><div class="alert alert-light border mt-3 mb-0"><strong>Giải thích / hướng dẫn:</strong> <%= q.explanation %></div><% } %>
+</div></div>
+<% }) %>
+</div></div>
+<% } else { %><div class="alert alert-info">Giáo viên đã cấu hình không hiển thị đáp án chi tiết cho bài kiểm tra này.</div><% } %>
 <div class="text-center mt-4"><a href="/student/exams" class="btn btn-outline-primary">Quay lại danh sách kiểm tra</a></div>
 <%- include('../../partials/app-end') %>

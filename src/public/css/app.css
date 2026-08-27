@@ -153,3 +153,6 @@ body { color: #252a34; }
   .exam-taking-bar { top: 72px !important; }
   .exam-question-card .card-body { padding: 18px !important; }
 }
+
+/* v0.6.0 - bulk question import and manual essay grading */
+textarea.exam-answer-input { min-height: 150px; resize: vertical; }

@@ -118,15 +118,25 @@ async function saveOptions(client, questionId, data) {
   }
 }
 
+function saveDemoOptions(questionId, data) {
+  demoStore.questionOptions = (demoStore.questionOptions || []).filter((o) => o.questionId !== questionId);
+  const opts = data.questionType === 'TRUE_FALSE' ? { A:'True', B:'False' } : (data.questionType === 'MULTIPLE_CHOICE' ? data.options : {});
+  Object.entries(opts || {}).forEach(([key,text], index) => {
+    if (String(text||'').trim()) demoStore.questionOptions.push({
+      id: Math.max(0, ...(demoStore.questionOptions || []).map((o) => o.id || 0)) + 1,
+      questionId, optionKey:key, optionText:String(text).trim(), isCorrect:data.correctOption===key, sortOrder:index+1,
+    });
+  });
+}
+
 async function create(data, userId) {
   if (env.demo.enabled) {
     const id = Math.max(0, ...(demoStore.questions || []).map((q) => q.id)) + 1;
     const grade = data.gradeId ? Number(data.gradeId) : null;
-    const question = { id, gradeId: data.gradeId || null, grade, lessonId: data.lessonId || null, questionType: data.questionType, stem: data.stem, correctAnswer: data.correctAnswer || '', explanation: data.explanation || '', difficulty: data.difficulty, defaultPoints: data.defaultPoints, status: 'DRAFT' };
-    demoStore.questions = demoStore.questions || []; demoStore.questionOptions = demoStore.questionOptions || [];
+    const question = { id, gradeId: data.gradeId || null, grade, lessonId: data.lessonId || null, questionType: data.questionType, stem: data.stem, correctAnswer: data.correctAnswer || '', explanation: data.explanation || '', difficulty: data.difficulty, defaultPoints: data.defaultPoints, status: data.status || 'DRAFT' };
+    demoStore.questions = demoStore.questions || [];
     demoStore.questions.push(question);
-    const opts = data.questionType === 'TRUE_FALSE' ? { A:'True', B:'False' } : data.options;
-    Object.entries(opts || {}).forEach(([key,text], index) => { if (String(text||'').trim()) demoStore.questionOptions.push({ id: demoStore.questionOptions.length + 1, questionId:id, optionKey:key, optionText:String(text).trim(), isCorrect:data.correctOption===key, sortOrder:index+1 }); });
+    saveDemoOptions(id, data);
     return question;
   }
   const client = await pool.connect();
@@ -134,8 +144,8 @@ async function create(data, userId) {
     await client.query('BEGIN');
     const { rows } = await client.query(`
       INSERT INTO questions(grade_id,lesson_id,created_by,question_type,stem,correct_answer,explanation,difficulty,default_points,status)
-      VALUES($1,$2,$3,$4,$5,NULLIF($6,''),NULLIF($7,''),$8,$9,'DRAFT') RETURNING id
-    `, [data.gradeId || null, data.lessonId || null, userId, data.questionType, data.stem, data.correctAnswer || '', data.explanation || '', data.difficulty, data.defaultPoints]);
+      VALUES($1,$2,$3,$4,$5,NULLIF($6,''),NULLIF($7,''),$8,$9,$10) RETURNING id
+    `, [data.gradeId || null, data.lessonId || null, userId, data.questionType, data.stem, data.correctAnswer || '', data.explanation || '', data.difficulty, data.defaultPoints, data.status || 'DRAFT']);
     await saveOptions(client, rows[0].id, data);
     await client.query('COMMIT');
     return findById(rows[0].id);
@@ -146,16 +156,14 @@ async function update(value, data) {
   const id = idOf(value); if (!id) throw new Error('QUESTION_NOT_FOUND');
   if (env.demo.enabled) {
     const q=(demoStore.questions||[]).find((x)=>x.id===id); if(!q) throw new Error('QUESTION_NOT_FOUND');
-    Object.assign(q,{gradeId:data.gradeId||null,grade:data.gradeId?Number(data.gradeId):null,lessonId:data.lessonId||null,questionType:data.questionType,stem:data.stem,correctAnswer:data.correctAnswer||'',explanation:data.explanation||'',difficulty:data.difficulty,defaultPoints:data.defaultPoints});
-    demoStore.questionOptions=(demoStore.questionOptions||[]).filter((o)=>o.questionId!==id);
-    const opts=data.questionType==='TRUE_FALSE'?{A:'True',B:'False'}:data.options;
-    Object.entries(opts||{}).forEach(([key,text],index)=>{if(String(text||'').trim())demoStore.questionOptions.push({id:demoStore.questionOptions.length+1,questionId:id,optionKey:key,optionText:String(text).trim(),isCorrect:data.correctOption===key,sortOrder:index+1});});
+    Object.assign(q,{gradeId:data.gradeId||null,grade:data.gradeId?Number(data.gradeId):null,lessonId:data.lessonId||null,questionType:data.questionType,stem:data.stem,correctAnswer:data.correctAnswer||'',explanation:data.explanation||'',difficulty:data.difficulty,defaultPoints:data.defaultPoints,status:data.status||q.status});
+    saveDemoOptions(id, data);
     return demoDecorate(q);
   }
   const client=await pool.connect();
   try{
     await client.query('BEGIN');
-    const result=await client.query(`UPDATE questions SET grade_id=$2,lesson_id=$3,question_type=$4,stem=$5,correct_answer=NULLIF($6,''),explanation=NULLIF($7,''),difficulty=$8,default_points=$9,updated_at=NOW() WHERE id=$1 RETURNING id`,[id,data.gradeId||null,data.lessonId||null,data.questionType,data.stem,data.correctAnswer||'',data.explanation||'',data.difficulty,data.defaultPoints]);
+    const result=await client.query(`UPDATE questions SET grade_id=$2,lesson_id=$3,question_type=$4,stem=$5,correct_answer=NULLIF($6,''),explanation=NULLIF($7,''),difficulty=$8,default_points=$9,status=COALESCE($10,status),updated_at=NOW() WHERE id=$1 RETURNING id`,[id,data.gradeId||null,data.lessonId||null,data.questionType,data.stem,data.correctAnswer||'',data.explanation||'',data.difficulty,data.defaultPoints,data.status||null]);
     if(!result.rows[0]) throw new Error('QUESTION_NOT_FOUND');
     await saveOptions(client,id,data); await client.query('COMMIT'); return findById(id);
   }catch(error){await client.query('ROLLBACK');throw error;}finally{client.release();}
@@ -167,4 +175,52 @@ async function publish(value) {
   const {rows}=await pool.query(`UPDATE questions SET status='PUBLISHED',updated_at=NOW() WHERE id=$1 RETURNING id,status`,[id]); if(!rows[0]) throw new Error('QUESTION_NOT_FOUND'); return rows[0];
 }
 
-module.exports={findGrades,findLessons,findAll,findPublishedForExam,findById,create,update,publish};
+async function findExistingIds(ids) {
+  const clean = [...new Set((ids || []).map(Number).filter((x) => Number.isInteger(x) && x > 0))];
+  if (!clean.length) return new Set();
+  if (env.demo.enabled) return new Set((demoStore.questions || []).filter((q) => clean.includes(q.id)).map((q) => q.id));
+  const { rows } = await pool.query(`SELECT id FROM questions WHERE id=ANY($1::bigint[])`, [clean]);
+  return new Set(rows.map((r) => Number(r.id)));
+}
+
+async function bulkUpsert(items, userId) {
+  if (env.demo.enabled) {
+    let created = 0, updated = 0;
+    for (const item of items) {
+      if (item.action === 'UPDATE') { await update(item.id, item); updated += 1; }
+      else { await create(item, userId); created += 1; }
+    }
+    return { created, updated, total: items.length };
+  }
+  const client = await pool.connect();
+  let created = 0, updated = 0;
+  try {
+    await client.query('BEGIN');
+    for (const item of items) {
+      let questionId;
+      if (item.action === 'UPDATE') {
+        const result = await client.query(`
+          UPDATE questions SET grade_id=$2,lesson_id=$3,question_type=$4,stem=$5,correct_answer=NULLIF($6,''),
+                 explanation=NULLIF($7,''),difficulty=$8,default_points=$9,status=COALESCE($10,status),updated_at=NOW()
+           WHERE id=$1 RETURNING id
+        `, [item.id,item.gradeId||null,item.lessonId||null,item.questionType,item.stem,item.correctAnswer||'',item.explanation||'',item.difficulty,item.defaultPoints,item.status||null]);
+        if (!result.rows[0]) throw new Error(`QUESTION_NOT_FOUND:${item.id}`);
+        questionId = result.rows[0].id; updated += 1;
+      } else {
+        const result = await client.query(`
+          INSERT INTO questions(grade_id,lesson_id,created_by,question_type,stem,correct_answer,explanation,difficulty,default_points,status)
+          VALUES($1,$2,$3,$4,$5,NULLIF($6,''),NULLIF($7,''),$8,$9,$10) RETURNING id
+        `, [item.gradeId||null,item.lessonId||null,userId,item.questionType,item.stem,item.correctAnswer||'',item.explanation||'',item.difficulty,item.defaultPoints,item.status||'DRAFT']);
+        questionId = result.rows[0].id; created += 1;
+      }
+      await saveOptions(client, questionId, item);
+    }
+    await client.query('COMMIT');
+    return { created, updated, total: items.length };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally { client.release(); }
+}
+
+module.exports={findGrades,findLessons,findAll,findPublishedForExam,findById,create,update,publish,findExistingIds,bulkUpsert};

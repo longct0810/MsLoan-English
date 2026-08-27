@@ -105,6 +105,8 @@ const env = {
   question: {
     defaultPoints: Number(optional('QUESTION_DEFAULT_POINTS', '1')),
     maxPoints: Number(optional('QUESTION_MAX_POINTS', '100')),
+    importMaxRows: Number(optional('QUESTION_IMPORT_MAX_ROWS', '2000')),
+    importMaxFileMb: Number(optional('QUESTION_IMPORT_MAX_FILE_MB', '5')),
   },
   db: {
     connectionString: optional('DATABASE_URL', null),

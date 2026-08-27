@@ -7,6 +7,8 @@ web.get('/exams/new',requireRole('TEACHER','ADMIN'),controller.newForm);
 web.post('/exams',requireRole('TEACHER','ADMIN'),controller.create);
 web.get('/exams/:id/edit',requireRole('TEACHER','ADMIN'),controller.editForm);
 web.post('/exams/:id/update',requireRole('TEACHER','ADMIN'),controller.update);
+web.get('/exams/:id/attempts/:attemptId/grade',requireRole('TEACHER','ADMIN'),controller.gradeForm);
+web.post('/exams/:id/attempts/:attemptId/grade',requireRole('TEACHER','ADMIN'),controller.manualGrade);
 web.get('/exams/:id',requireRole('TEACHER','ADMIN'),controller.detail);
 web.post('/exams/:id/publish',requireRole('TEACHER','ADMIN'),controller.publish);
 web.post('/exams/:id/close',requireRole('TEACHER','ADMIN'),controller.close);

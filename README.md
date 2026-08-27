@@ -1,263 +1,147 @@
-# English Classroom MVP v0.5.0
+# English Classroom MVP v0.6.0
 
-Responsive web app cho lớp học tiếng Anh, xây dựng bằng Node.js + Express + EJS + Bootstrap + PostgreSQL/Neon.
+Website responsive quản lý lớp học tiếng Anh dành cho giáo viên, học sinh và phụ huynh.
 
-## Thay đổi chính v0.5.0
-
-### Question Bank
-
-- Ngân hàng câu hỏi dùng lại cho nhiều bài kiểm tra.
-- Hỗ trợ 3 loại câu hỏi:
-  - `MULTIPLE_CHOICE` - trắc nghiệm 2–4 lựa chọn.
-  - `TRUE_FALSE` - đúng/sai.
-  - `FILL_BLANK` - điền từ/câu trả lời ngắn.
-- Phân loại theo khối 6/7/8/9, bài học, độ khó và trạng thái.
-- Điểm mặc định cho từng câu.
-- Giải thích đáp án.
-- Lưu nháp, chỉnh sửa và xuất bản.
-
-### Exam Builder
-
-- Giáo viên tạo bài kiểm tra theo lớp.
-- Chọn câu hỏi đã xuất bản từ Question Bank.
-- Hệ thống lọc câu hỏi theo khối của lớp ở UI và kiểm tra lại ở server.
-- Cấu hình:
-  - thời lượng làm bài;
-  - thời gian mở/đóng đề;
-  - số lần làm tối đa;
-  - có/không hiển thị đáp án sau khi nộp.
-- Bài kiểm tra được tạo ở trạng thái `DRAFT`.
-- Có thể sửa đề khi còn là bản nháp.
-- Xuất bản và đóng đề.
-- Teacher view hiển thị số lượt nộp, điểm trung bình và kết quả từng học sinh.
-
-### Student Online Exam
-
-- Danh sách bài kiểm tra dành riêng cho lớp của học sinh.
-- Bắt đầu / tiếp tục lượt làm bài.
-- Countdown theo thời gian làm bài.
-- Tự động lưu từng đáp án qua API.
-- Khôi phục đáp án khi reload trang.
-- Tự nộp khi hết giờ.
-- Server từ chối lưu đáp án sau khi hết thời gian.
-- Hỗ trợ nhiều lần làm theo cấu hình đề.
-
-### Auto grading
-
-- Tự chấm:
-  - Multiple Choice;
-  - True / False;
-  - Fill Blank (so sánh không phân biệt hoa/thường và bỏ khoảng trắng đầu/cuối).
-- Lưu `is_correct` và điểm từng câu.
-- Tính tổng điểm bài kiểm tra.
-- Ghi kết quả vào `student_scores` với category `EXAM`.
-- Tính lại `student_progress_summary.average_score`.
-- Nếu giáo viên cho phép, học sinh xem:
-  - câu đúng/sai;
-  - đáp án đúng;
-  - điểm từng câu;
-  - giải thích đáp án.
-
-### Version
-
-Version lấy tự động từ `package.json`:
-
-```json
-"version": "0.5.0"
-```
-
-Hiển thị tại Login / Navbar / Sidebar / Footer và `/health`, `/health/db`.
-
-## Luồng hiện tại
-
-```text
-Teacher
-  │
-  ├── Class Session → Attendance → Student Note
-  ├── Lesson → Material
-  ├── Assignment → Submission → Manual Grade
-  └── Question Bank
-          ↓
-      Exam Builder
-          ↓
-      Publish Exam
-          ↓
-Student Portal
-  │
-  ├── Start Exam
-  ├── Countdown
-  ├── Autosave Answer
-  ├── Submit / Auto Submit
-  └── Result / Explanation
-          ↓
-     Student Scores
-          ↓
- Student / Parent Progress
-```
-
-## Công nghệ
+## Stack
 
 - Node.js 20+
-- Express 5
-- EJS
+- Express 5 + EJS
 - Bootstrap 5
-- PostgreSQL / Neon PostgreSQL
+- PostgreSQL / Neon
 - `pg`
-- `express-session` + `connect-pg-simple`
+- `exceljs` + `multer` cho import Question Bank
 
-## Upgrade Neon từ v0.4.x lên v0.5.0
+## v0.6.0 có gì mới?
 
-Cách khuyến nghị trên Render:
+### 1. Import / Update Question Bank từ file
 
-```text
-Build Command: npm install && npm run db:migrate
-Start Command: npm start
-```
-
-Hoặc chạy thủ công trong Neon SQL Editor:
+Mở:
 
 ```text
-db/neon_upgrade_v0.5.0.sql
+/questions/import
 ```
 
-Script không `DROP TABLE` và không xóa dữ liệu cũ.
-
-Nếu DB hiện tại đã nâng schema và anh muốn thêm riêng demo Question Bank/Exam của v0.5.0, chạy một lần:
+Hỗ trợ:
 
 ```text
-db/neon_seed_v0.5.0_demo.sql
+.xlsx
+.csv
 ```
 
-Nếu tạo database mới hoàn toàn và muốn có demo data:
+Tải template tại:
 
 ```text
-db/neon_init_v0.5.0_demo.sql
+/questions/import/template.xlsx
 ```
 
-## Database mới v0.5.0
+Các cột chính:
 
 ```text
-questions
-question_options
-exams
-exam_questions
-exam_attempts
-exam_answers
+action
+id
+grade
+lesson_id
+question_type
+stem
+option_a
+option_b
+option_c
+option_d
+correct_option
+correct_answer
+explanation
+difficulty
+points
+status
 ```
 
-Mở rộng:
+`action` nhận `CREATE` hoặc `UPDATE`. Nếu bỏ trống, có `id` thì UPDATE, không có `id` thì CREATE.
+
+Các `question_type`:
 
 ```text
-student_scores
-  + exam_id
+MULTIPLE_CHOICE
+TRUE_FALSE
+FILL_BLANK
+ESSAY
 ```
 
-## Routes v0.5.0
+Import dùng nguyên tắc **all-or-nothing**: nếu có một dòng không hợp lệ thì không cập nhật bất kỳ dòng nào.
 
-### Teacher - Question Bank
+### 2. Chấm bài hỗn hợp tự động + thủ công
 
 ```text
-GET  /questions
-GET  /questions/new
-POST /questions
-GET  /questions/:id/edit
-POST /questions/:id/update
-POST /questions/:id/publish
-GET  /api/v1/questions
+Student submits exam
+        |
+        +--> MCQ / TRUE_FALSE / FILL_BLANK
+        |        -> Auto grading
+        |
+        +--> ESSAY
+                 -> PENDING_GRADING
+                 -> Teacher grades
+                 -> Final score
 ```
 
-### Teacher - Exams
+Giáo viên mở chi tiết bài kiểm tra và bấm **Chấm tự luận** ở lượt làm đang chờ chấm.
 
-```text
-GET  /exams
-GET  /exams/new
-POST /exams
-GET  /exams/:id
-GET  /exams/:id/edit
-POST /exams/:id/update
-POST /exams/:id/publish
-POST /exams/:id/close
-```
+Điểm cuối chỉ được ghi vào tiến độ học sinh sau khi phần tự luận đã được chấm đầy đủ.
 
-### Student - Exams
-
-```text
-GET  /student/exams
-POST /student/exams/:id/start
-GET  /student/exam-attempts/:id
-POST /student/exam-attempts/:id/submit
-GET  /student/exam-attempts/:id/result
-POST /api/v1/exam-attempts/:id/answers
-```
-
-## Render + Neon
-
-Environment tối thiểu:
+## Cấu hình import trong `.env`
 
 ```env
-NODE_ENV=production
-DEMO_MODE=false
-DATABASE_URL=<Neon pooled connection string>
-DB_CHANNEL_BINDING=true
-DB_STARTUP_CHECK=true
-TRUST_PROXY=1
-SESSION_SECURE=true
-
-# Có thể override nếu cần
-EXAM_DEFAULT_DURATION_MINUTES=30
-EXAM_MAX_DURATION_MINUTES=360
-EXAM_DEFAULT_MAX_ATTEMPTS=1
-EXAM_MAX_ATTEMPTS=10
-EXAM_AUTOSAVE_DEBOUNCE_MS=500
-QUESTION_DEFAULT_POINTS=1
-QUESTION_MAX_POINTS=100
+QUESTION_IMPORT_MAX_ROWS=2000
+QUESTION_IMPORT_MAX_FILE_MB=5
 ```
 
-Không commit `.env` lên GitHub. Các biến mới có giá trị fallback trong code nên Render cũ vẫn chạy nếu chưa khai báo chúng.
-
-Sau deploy kiểm tra:
-
-```text
-GET /health
-GET /health/db
-```
-
-## Cài local
+## Cài đặt
 
 ```bash
-npm install
 cp .env.example .env
-npm run db:init
+npm install
 npm run dev
 ```
 
-Mở `http://localhost:3000`.
+## Cập nhật Neon từ v0.5.0
 
-## Cấu trúc module
+Có thể để Render chạy:
 
-```text
-src/modules/
-├── auth/
-├── dashboard/
-├── classes/
-├── students/
-├── sessions/
-├── lessons/
-├── assignments/
-├── questions/       # v0.5.0
-├── exams/           # v0.5.0
-├── portal/
-└── health/
+```bash
+npm install && npm run db:migrate
 ```
 
-## Hướng tiếp theo
+Hoặc chạy thủ công:
 
-Ưu tiên cho v0.6.0:
+```text
+db/neon_upgrade_v0.6.0.sql
+```
 
-1. Báo cáo lớp/học sinh và phân tích kết quả theo kỹ năng/chủ đề.
-2. Import câu hỏi từ Excel/CSV.
-3. Reading passage + nhóm câu hỏi chung.
-4. Listening question có audio.
-5. Notification cho học sinh/phụ huynh.
-6. File Storage thực tế S3/R2/MinIO.
-7. CSRF protection, audit log và quản lý nhiều giáo viên.
+Dữ liệu demo tự luận:
+
+```text
+db/neon_seed_v0.6.0_demo.sql
+```
+
+## Render
+
+Build Command:
+
+```bash
+npm install && npm run db:migrate
+```
+
+Start Command:
+
+```bash
+npm start
+```
+
+`DATABASE_URL` tiếp tục đặt trong **Render → Environment**, không commit `.env` lên GitHub.
+
+## Health check
+
+```text
+/health
+/health/db
+```
+
+Version hiển thị trên giao diện được lấy từ `package.json` và hiện là `v0.6.0`.

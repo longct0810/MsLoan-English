@@ -115,6 +115,7 @@ const demoStore = {
     { id: 4, gradeId: 7, grade: 7, lessonId: 2, questionType: 'MULTIPLE_CHOICE', stem: 'Which word is closest in meaning to “healthy”?', correctAnswer: '', explanation: 'Healthy có nghĩa là khỏe mạnh / good for your health.', difficulty: 'MEDIUM', defaultPoints: 1, status: 'PUBLISHED' },
     { id: 5, gradeId: 8, grade: 8, lessonId: 3, questionType: 'MULTIPLE_CHOICE', stem: 'Teenagers often use social media to ___ with friends.', correctAnswer: '', explanation: 'Connect with friends là cụm từ phù hợp.', difficulty: 'EASY', defaultPoints: 1, status: 'PUBLISHED' },
     { id: 6, gradeId: 7, grade: 7, lessonId: 2, questionType: 'FILL_BLANK', stem: 'Complete: She ___ not go to school yesterday. (do)', correctAnswer: 'did', explanation: 'Phủ định Past Simple dùng did not + V.', difficulty: 'HARD', defaultPoints: 2, status: 'PUBLISHED' },
+    { id: 7, gradeId: 7, grade: 7, lessonId: 2, questionType: 'ESSAY', stem: 'Write 80–100 words about what you did last weekend.', correctAnswer: 'Use Past Simple, clear organization, and suitable vocabulary.', explanation: 'Chấm theo nội dung, ngữ pháp, từ vựng và bố cục.', difficulty: 'MEDIUM', defaultPoints: 4, status: 'PUBLISHED' },
   ],
   questionOptions: [
     { id: 1, questionId: 1, optionKey: 'A', optionText: 'go', isCorrect: false, sortOrder: 1 },
@@ -141,6 +142,7 @@ const demoStore = {
     { examId: 1, questionId: 3, sortOrder: 3, points: 1 },
     { examId: 1, questionId: 4, sortOrder: 4, points: 1 },
     { examId: 1, questionId: 6, sortOrder: 5, points: 2 },
+    { examId: 1, questionId: 7, sortOrder: 6, points: 4 },
   ],
   examAttempts: [],
   examAnswers: [],

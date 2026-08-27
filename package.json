@@ -1,7 +1,7 @@
 {
   "name": "english-classroom-mvp",
-  "version": "0.5.0",
-  "description": "Responsive English classroom management web app - question bank, online exams and auto grading",
+  "version": "0.6.0",
+  "description": "Responsive English classroom management web app - bulk question import and mixed auto/manual exam grading",
   "main": "src/server.js",
   "scripts": {
     "dev": "node --watch src/server.js",
@@ -19,6 +19,8 @@
     "ejs": "^6.0.1",
     "express": "^5.2.1",
     "express-session": "^1.19.0",
-    "pg": "^8.23.0"
+    "pg": "^8.23.0",
+    "exceljs": "^4.4.0",
+    "multer": "^2.0.2"
   }
 }
