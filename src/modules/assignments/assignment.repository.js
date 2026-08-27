@@ -157,7 +157,22 @@ async function findById(value) {
            sub.score::float AS score,
            sub.submitted_at AS "submittedAt",
            COALESCE(sub.submission_text, '') AS "submissionText",
-           COALESCE(sub.teacher_feedback, '') AS "teacherFeedback"
+           COALESCE(sub.teacher_feedback, '') AS "teacherFeedback",
+           COALESCE(sub.rubric_scores, '{}'::jsonb) AS "rubricScores",
+           COALESCE(sub.rubric_feedback, '') AS "rubricFeedback",
+           COALESCE((
+             SELECT json_agg(
+               json_build_object(
+                 'id', asa.id,
+                 'fileName', asa.file_name,
+                 'mimeType', asa.mime_type,
+                 'sizeBytes', asa.size_bytes
+               ) ORDER BY asa.id
+             )
+             FROM assignment_submission_assets asa
+            WHERE asa.assignment_id = a.id
+              AND asa.student_id = st.id
+           ), '[]'::json) AS assets
       FROM assignments a
       JOIN class_students cs ON cs.class_id = a.class_id AND cs.status = 'ACTIVE'
       JOIN students st ON st.id = cs.student_id

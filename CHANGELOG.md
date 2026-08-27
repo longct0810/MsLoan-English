@@ -1,3 +1,12 @@
+# v0.19.1
+
+## Assignment hotfix
+
+- Fixed `/assignments/new` EJS crash caused by referencing an undefined `assignment` variable on the create form.
+- Restored teacher-side display of submitted attachment metadata and rubric scores in assignment detail.
+- Added explicit CSRF hidden fields to teacher assignment create/edit/publish/grade forms.
+- No database schema changes are required from v0.19.0.
+
 # Changelog
 
 ## v0.19.0

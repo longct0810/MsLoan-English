@@ -2,6 +2,7 @@
 <div class="d-flex align-items-center gap-3 mb-4"><a href="/assignments" class="btn btn-outline-secondary">←</a><div><h1 class="h3 mb-1">Chỉnh sửa bài tập</h1><p class="text-secondary mb-0">Cập nhật nội dung, hạn nộp và điểm tối đa.</p></div></div>
 <% if (error) { %><div class="alert alert-danger"><%= error %></div><% } %>
 <form method="post" action="/assignments/<%= assignment.id %>/update" class="card app-card" id="assignmentForm">
+  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
   <div class="card-body p-4">
     <div class="row g-3">
       <div class="col-lg-6"><label class="form-label">Lớp học *</label><input type="hidden" name="classId" value="<%= assignment.classId %>"><select class="form-select" required id="assignmentClass" disabled><option value="">-- Chọn lớp --</option><% classes.forEach(item => { %><option value="<%= item.id %>" <%= String(values.classId || '') === String(item.id) ? 'selected' : '' %>><%= item.name %></option><% }) %></select><div class="form-text">Không đổi lớp sau khi đã tạo bài tập.</div></div>

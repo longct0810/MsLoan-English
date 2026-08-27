@@ -1,6 +1,6 @@
 {
   "name": "english-classroom-mvp",
-  "version": "0.19.0",
+  "version": "0.19.1",
   "description": "Responsive English classroom management web app - student and class CRUD with linked student-parent accounts",
   "main": "src/server.js",
   "scripts": {

@@ -2,6 +2,7 @@
 <div class="d-flex align-items-center gap-3 mb-4"><a href="/assignments" class="btn btn-outline-secondary">←</a><div><h1 class="h3 mb-1">Giao bài tập</h1><p class="text-secondary mb-0">Tạo bài ở trạng thái nháp, kiểm tra rồi mới xuất bản.</p></div></div>
 <% if (error) { %><div class="alert alert-danger"><%= error %></div><% } %>
 <form method="post" action="/assignments" class="card app-card" id="assignmentForm">
+  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
   <div class="card-body p-4">
     <div class="row g-3">
       <div class="col-lg-6"><label class="form-label">Lớp học *</label><select name="classId" class="form-select" required id="assignmentClass"><option value="">-- Chọn lớp --</option><% classes.forEach(item => { %><option value="<%= item.id %>" <%= String(values.classId || '') === String(item.id) ? 'selected' : '' %>><%= item.name %></option><% }) %></select></div>
@@ -11,13 +12,13 @@
       <div class="col-md-4"><label class="form-label">Hạn nộp</label><input class="form-control" name="dueAt" type="datetime-local" value="<%= values.dueAt || '' %>"></div>
       <div class="col-md-4"><label class="form-label">Điểm tối đa</label><input class="form-control" name="maxScore" type="number" step="0.5" min="1" value="<%= values.maxScore || 10 %>"></div>
       <div class="col-md-6"><label class="form-label">Cách nộp bài</label><select class="form-select" name="submissionMode"><% [['TEXT','Nhập văn bản'],['FILE','Đính kèm tệp'],['AUDIO','Speaking / Audio'],['MIXED','Văn bản + tệp']].forEach(([v,l])=>{ %><option value="<%= v %>" <%= String(values.submissionMode||'TEXT')===v?'selected':'' %>><%= l %></option><% }) %></select></div>
-      <div class="col-md-6 d-flex align-items-end"><div class="form-check mb-2"><input class="form-check-input" type="checkbox" name="rubricEnabled" id="rubricEnabled" <%= (values.rubricEnabled===true||values.rubricEnabled==='on'||assignment?.rubricEnabled)?'checked':'' %>><label class="form-check-label" for="rubricEnabled">Chấm theo rubric kỹ năng</label></div></div>
+      <div class="col-md-6 d-flex align-items-end"><div class="form-check mb-2"><input class="form-check-input" type="checkbox" name="rubricEnabled" id="rubricEnabled" <%= (values.rubricEnabled===true||values.rubricEnabled==='on'||values.rubricEnabled==='true'||values.rubricEnabled==='1')?'checked':'' %>><label class="form-check-label" for="rubricEnabled">Chấm theo rubric kỹ năng</label></div></div>
       <div class="col-12"><label class="form-label">Mô tả</label><textarea class="form-control" name="description" rows="3"><%= values.description || '' %></textarea></div>
       <div class="col-12"><label class="form-label">Yêu cầu làm bài</label><textarea class="form-control" name="instructions" rows="5" placeholder="Mô tả rõ yêu cầu học sinh cần thực hiện..."><%= values.instructions || '' %></textarea></div>
     </div>
   </div>
   <div class="card-footer bg-white p-3 d-flex justify-content-end gap-2"><a href="/assignments" class="btn btn-outline-secondary">Hủy</a><button class="btn btn-primary">Lưu bản nháp</button></div>
-<div class="mb-3"><label class="form-label">Kỹ năng đánh giá</label><div class="d-flex flex-wrap gap-3"><% (skills||[]).forEach(sk=>{ const selected=(values.skillCodes||assignment?.skillCodes||[]); %><label class="form-check"><input class="form-check-input" type="checkbox" name="skillCodes" value="<%= sk.code %>" <%= (Array.isArray(selected)?selected:[selected]).includes(sk.code)?'checked':'' %>> <%= sk.label %></label><% }) %></div><div class="form-text">Điểm bài tập sẽ cập nhật Skill Tracking cho các kỹ năng được chọn.</div></div>
+<div class="mb-3"><label class="form-label">Kỹ năng đánh giá</label><div class="d-flex flex-wrap gap-3"><% (skills||[]).forEach(sk=>{ const selected=(values.skillCodes||[]); %><label class="form-check"><input class="form-check-input" type="checkbox" name="skillCodes" value="<%= sk.code %>" <%= (Array.isArray(selected)?selected:[selected]).includes(sk.code)?'checked':'' %>> <%= sk.label %></label><% }) %></div><div class="form-text">Điểm bài tập sẽ cập nhật Skill Tracking cho các kỹ năng được chọn.</div></div>
 </form>
 <script>
 (() => {
