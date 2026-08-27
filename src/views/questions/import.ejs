@@ -23,6 +23,7 @@
   <div class="col-xl-7"><div class="card app-card"><div class="card-body p-4">
     <h2 class="h5">1. Chọn file đã nhập</h2>
     <form method="post" action="/questions/import" enctype="multipart/form-data" class="mt-3">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
       <label class="form-label">File Excel / CSV</label>
       <input class="form-control" type="file" name="questionFile" accept=".xlsx,.csv" required>
       <div class="form-text">Nên dùng file mẫu Excel tải từ hệ thống. Giới hạn dung lượng và số dòng được cấu hình trong .env.</div>

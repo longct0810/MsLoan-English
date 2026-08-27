@@ -3,6 +3,7 @@ const multer=require('multer');
 const env=require('../../config/env');
 const controller=require('./question.controller');
 const {requireRole,requireApiRole}=require('../../middleware/auth.middleware');
+const {requireParsedCsrfToken}=require('../../middleware/security.middleware');
 const upload=multer({
   storage:multer.memoryStorage(),
   limits:{fileSize:env.question.importMaxFileMb*1024*1024},
@@ -23,7 +24,7 @@ const web=express.Router();
 web.get('/questions',requireRole('TEACHER','ADMIN'),controller.index);
 web.get('/questions/import',requireRole('TEACHER','ADMIN'),controller.importForm);
 web.get('/questions/import/template.xlsx',requireRole('TEACHER','ADMIN'),controller.downloadTemplate);
-web.post('/questions/import',requireRole('TEACHER','ADMIN'),questionUpload,controller.importFile);
+web.post('/questions/import',requireRole('TEACHER','ADMIN'),questionUpload,requireParsedCsrfToken,controller.importFile);
 web.get('/questions/new',requireRole('TEACHER','ADMIN'),controller.newForm);
 web.post('/questions',requireRole('TEACHER','ADMIN'),controller.create);
 web.get('/questions/:id/edit',requireRole('TEACHER','ADMIN'),controller.editForm);

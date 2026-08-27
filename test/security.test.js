@@ -38,3 +38,31 @@ test('rejects an invalid API CSRF token', () => {
   assert.equal(res.statusCode, 403);
   assert.equal(res.body.message, 'CSRF token invalid');
 });
+test('accepts parsed multipart form only with a matching CSRF token', () => {
+  const { requireParsedCsrfToken } = require('../src/middleware/security.middleware');
+  const req = {
+    method: 'POST',
+    path: '/questions/import',
+    session: { csrfToken: 'upload-token' },
+    body: { _csrf: 'upload-token' },
+    get() { return undefined; },
+  };
+  const res = response();
+  let called = false;
+  requireParsedCsrfToken(req, res, () => { called = true; });
+  assert.equal(called, true);
+});
+
+test('rejects parsed multipart form with a missing CSRF token', () => {
+  const { requireParsedCsrfToken } = require('../src/middleware/security.middleware');
+  const req = {
+    method: 'POST',
+    path: '/questions/import',
+    session: { csrfToken: 'upload-token' },
+    body: {},
+    get() { return undefined; },
+  };
+  const res = response();
+  requireParsedCsrfToken(req, res, () => assert.fail('request should be blocked'));
+  assert.equal(res.statusCode, 403);
+});

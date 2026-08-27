@@ -33,29 +33,51 @@ function validate(data, { creating = false } = {}) {
   return errors;
 }
 
-async function getStudents(filters) { return repo.findAll(filters); }
-async function getStudentPageData(filters) {
-  const [students, classes] = await Promise.all([repo.findAll(filters), classService.getClasses()]);
+async function getStudents(filters, actorUserId, isAdmin = false) {
+  return repo.findAll(filters, actorUserId, isAdmin);
+}
+
+async function getStudentPageData(filters, actorUserId, isAdmin = false) {
+  const [students, classes] = await Promise.all([
+    repo.findAll(filters, actorUserId, isAdmin),
+    classService.getClasses(actorUserId, isAdmin),
+  ]);
   return { students, classes };
 }
-async function getFormData(id = null) {
-  const [student, classes] = await Promise.all([id ? repo.findById(id) : null, classService.getClasses()]);
+
+async function getFormData(id = null, actorUserId = null, isAdmin = false) {
+  const [student, classes] = await Promise.all([
+    id ? repo.findById(id, actorUserId, isAdmin) : null,
+    classService.getClasses(actorUserId, isAdmin),
+  ]);
   return { student, classes };
 }
-async function createStudent(body, actorUserId) {
+
+async function createStudent(body, actorUserId, isAdmin = false) {
   const data = normalize(body);
   const errors = validate(data, { creating: true });
   if (errors.length) return { errors, data };
-  try { return { student: await repo.create(data, actorUserId), data }; }
-  catch (error) { return { errors: [error.message], data }; }
+  try { return { student: await repo.create(data, actorUserId, isAdmin), data }; }
+  catch (error) { return { errors: [error.message === 'CLASS_NOT_FOUND' ? 'Một hoặc nhiều lớp không thuộc phạm vi quản lý của bạn.' : error.message], data }; }
 }
-async function updateStudent(id, body) {
+
+async function updateStudent(id, body, actorUserId, isAdmin = false) {
   const data = normalize(body);
   const errors = validate(data);
   if (errors.length) return { errors, data };
-  try { return { student: await repo.update(id, data), data }; }
-  catch (error) { return { errors: [error.message], data }; }
+  try { return { student: await repo.update(id, data, actorUserId, isAdmin), data }; }
+  catch (error) { return { errors: [error.message === 'CLASS_NOT_FOUND' ? 'Một hoặc nhiều lớp không thuộc phạm vi quản lý của bạn.' : error.message], data }; }
 }
-async function deleteStudent(id) { return repo.softDelete(id); }
 
-module.exports = { getStudents, getStudentPageData, getFormData, createStudent, updateStudent, deleteStudent };
+async function deleteStudent(id, actorUserId, isAdmin = false) {
+  return repo.softDelete(id, actorUserId, isAdmin);
+}
+
+module.exports = {
+  getStudents,
+  getStudentPageData,
+  getFormData,
+  createStudent,
+  updateStudent,
+  deleteStudent,
+};

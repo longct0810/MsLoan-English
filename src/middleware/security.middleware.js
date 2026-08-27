@@ -36,13 +36,34 @@ function requireSameOrigin(req, res, next) {
   return renderForbidden(req, res);
 }
 
-function requireCsrfToken(req, res, next) {
-  const contentType = req.get('content-type') || '';
-  if (['GET', 'HEAD', 'OPTIONS'].includes(req.method) || contentType.startsWith('multipart/form-data')) return next();
+function csrfTokenMatches(req) {
   const supplied = req.get('x-csrf-token') || req.body?._csrf;
-  if (supplied && supplied === req.session.csrfToken) return next();
+  return Boolean(supplied && req.session?.csrfToken && supplied === req.session.csrfToken);
+}
+
+function rejectCsrf(req, res) {
   if (req.path.startsWith('/api/')) return res.status(403).json({ message: 'CSRF token invalid' });
   return renderForbidden(req, res);
 }
 
-module.exports = { ensureCsrfToken, requireSameOrigin, requireCsrfToken };
+function requireCsrfToken(req, res, next) {
+  const contentType = req.get('content-type') || '';
+  if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) return next();
+  // multipart/form-data is parsed later by Multer. Such routes must call
+  // requireParsedCsrfToken immediately after the upload middleware.
+  if (contentType.startsWith('multipart/form-data')) return next();
+  if (csrfTokenMatches(req)) return next();
+  return rejectCsrf(req, res);
+}
+
+function requireParsedCsrfToken(req, res, next) {
+  if (['GET', 'HEAD', 'OPTIONS'].includes(req.method) || csrfTokenMatches(req)) return next();
+  return rejectCsrf(req, res);
+}
+
+module.exports = {
+  ensureCsrfToken,
+  requireSameOrigin,
+  requireCsrfToken,
+  requireParsedCsrfToken,
+};

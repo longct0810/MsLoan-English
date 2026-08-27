@@ -89,7 +89,7 @@ CREATE TABLE IF NOT EXISTS assignment_submissions (
   assignment_id BIGINT NOT NULL REFERENCES assignments(id) ON DELETE CASCADE,
   student_id BIGINT NOT NULL REFERENCES students(id) ON DELETE CASCADE,
   status VARCHAR(30) NOT NULL DEFAULT 'NOT_STARTED',
-  score NUMERIC(4,2),
+  score NUMERIC(8,2),
   submitted_at TIMESTAMPTZ,
   PRIMARY KEY (assignment_id, student_id)
 );
@@ -99,8 +99,8 @@ CREATE TABLE IF NOT EXISTS student_scores (
   student_id BIGINT NOT NULL REFERENCES students(id) ON DELETE CASCADE,
   title VARCHAR(250) NOT NULL,
   category VARCHAR(100),
-  score NUMERIC(4,2) NOT NULL,
-  max_score NUMERIC(4,2) NOT NULL DEFAULT 10,
+  score NUMERIC(8,2) NOT NULL,
+  max_score NUMERIC(8,2) NOT NULL DEFAULT 10,
   recorded_at DATE NOT NULL DEFAULT CURRENT_DATE
 );
 
@@ -372,4 +372,20 @@ ALTER TABLE classes ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
 CREATE INDEX IF NOT EXISTS idx_students_active ON students(id) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_classes_active ON classes(id) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_users_role_email ON users(role, LOWER(email));
+COMMIT;
+
+
+-- v0.14.0 - Ownership hardening support and score precision.
+BEGIN;
+ALTER TABLE assignment_submissions
+  ALTER COLUMN score TYPE NUMERIC(8,2) USING score::NUMERIC(8,2);
+ALTER TABLE student_scores
+  ALTER COLUMN score TYPE NUMERIC(8,2) USING score::NUMERIC(8,2),
+  ALTER COLUMN max_score TYPE NUMERIC(8,2) USING max_score::NUMERIC(8,2);
+CREATE INDEX IF NOT EXISTS idx_classes_teacher_active
+  ON classes(teacher_id, id) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_class_students_active_student_class
+  ON class_students(student_id, class_id) WHERE status='ACTIVE';
+CREATE INDEX IF NOT EXISTS idx_questions_created_by
+  ON questions(created_by, id);
 COMMIT;

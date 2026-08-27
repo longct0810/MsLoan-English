@@ -26,26 +26,19 @@ function demoSessionSummary(session) {
   };
 }
 
-async function findAll({ classId, teacherId } = {}) {
+async function findAll({ classId } = {}, actorUserId = null, isAdmin = false) {
   if (env.demo.enabled) {
     return demoStore.classSessions
       .filter((session) => !classId || session.classId === Number(classId))
-      .filter((session) => !teacherId || !session.teacherId || session.teacherId === Number(teacherId))
+      .filter((session) => {
+        const classItem = demoStore.classes.find((item) => item.id === session.classId && item.status !== 'DELETED');
+        return Boolean(classItem && (isAdmin || !actorUserId || Number(classItem.teacherId) === Number(actorUserId)));
+      })
       .map(demoSessionSummary)
       .sort((a, b) => `${b.sessionDate} ${b.startTime || ''}`.localeCompare(`${a.sessionDate} ${a.startTime || ''}`));
   }
 
-  const params = [];
-  const conditions = [];
-  if (classId) {
-    params.push(classId);
-    conditions.push(`s.class_id = $${params.length}`);
-  }
-  if (teacherId) {
-    params.push(teacherId);
-    conditions.push(`(s.teacher_id = $${params.length} OR s.teacher_id IS NULL)`);
-  }
-  const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+  const selectedClassId = Number(classId) || null;
 
   const { rows } = await pool.query(`
     SELECT s.id,
@@ -69,19 +62,23 @@ async function findAll({ classId, teacherId } = {}) {
       FROM class_sessions s
       JOIN classes c ON c.id = s.class_id
       JOIN grades g ON g.id = c.grade_id
-      ${where}
+     WHERE ($1::bigint IS NULL OR s.class_id = $1)
+       AND c.deleted_at IS NULL
+       AND ($3::boolean OR $2::bigint IS NULL OR c.teacher_id = $2)
      ORDER BY s.session_date DESC, s.start_time DESC NULLS LAST, s.id DESC
-  `, params);
+  `, [selectedClassId, actorUserId, isAdmin]);
   return rows;
 }
 
-async function findById(id) {
+async function findById(id, actorUserId = null, isAdmin = false) {
   const sessionId = normalizeId(id);
   if (!sessionId) return null;
 
   if (env.demo.enabled) {
     const session = demoStore.classSessions.find((item) => item.id === sessionId);
     if (!session) return null;
+    const classItem = demoStore.classes.find((item) => item.id === session.classId && item.status !== 'DELETED');
+    if (!classItem || (!isAdmin && actorUserId && Number(classItem.teacherId) !== Number(actorUserId))) return null;
     const base = demoSessionSummary(session);
     const students = demoStore.students
       .filter((student) => student.classIds.includes(session.classId))
@@ -125,8 +122,10 @@ async function findById(id) {
       JOIN classes c ON c.id = s.class_id
       JOIN grades g ON g.id = c.grade_id
      WHERE s.id = $1
+       AND c.deleted_at IS NULL
+       AND ($3::boolean OR $2::bigint IS NULL OR c.teacher_id = $2)
      LIMIT 1
-  `, [sessionId]);
+  `, [sessionId, actorUserId, isAdmin]);
   if (!sessionRows[0]) return null;
 
   const [studentResult, noteResult] = await Promise.all([
@@ -186,15 +185,15 @@ async function findById(id) {
   };
 }
 
-async function create(data, teacherId) {
+async function create(data, actorUserId, isAdmin = false) {
   if (env.demo.enabled) {
-    const classItem = demoStore.classes.find((item) => item.id === Number(data.classId));
-    if (!classItem) throw new Error('CLASS_NOT_FOUND');
+    const classItem = demoStore.classes.find((item) => item.id === Number(data.classId) && item.status === 'ACTIVE');
+    if (!classItem || (!isAdmin && Number(classItem.teacherId) !== Number(actorUserId))) throw new Error('CLASS_NOT_FOUND');
     const nextId = Math.max(0, ...demoStore.classSessions.map((item) => item.id)) + 1;
     const session = {
       id: nextId,
       classId: Number(data.classId),
-      teacherId: Number(teacherId),
+      teacherId: isAdmin ? Number(classItem.teacherId || actorUserId) : Number(actorUserId),
       sessionDate: data.sessionDate,
       startTime: data.startTime || null,
       endTime: data.endTime || null,
@@ -210,10 +209,12 @@ async function create(data, teacherId) {
   const { rows } = await pool.query(`
     INSERT INTO class_sessions
       (class_id, teacher_id, session_date, start_time, end_time, topic, lesson_summary, homework, status)
-    SELECT c.id, $2, $3, NULLIF($4, '')::time, NULLIF($5, '')::time, $6, $7, $8, 'PLANNED'
+    SELECT c.id, CASE WHEN $9::boolean THEN COALESCE(c.teacher_id, $2) ELSE $2 END, $3, NULLIF($4, '')::time, NULLIF($5, '')::time, $6, $7, $8, 'PLANNED'
       FROM classes c
      WHERE c.id = $1
        AND c.status = 'ACTIVE'
+       AND c.deleted_at IS NULL
+       AND ($9::boolean OR c.teacher_id = $2)
     RETURNING id,
               class_id AS "classId",
               teacher_id AS "teacherId",
@@ -224,7 +225,7 @@ async function create(data, teacherId) {
               lesson_summary AS "lessonSummary",
               homework,
               status
-  `, [data.classId, teacherId, data.sessionDate, data.startTime || '', data.endTime || '', data.topic || '', data.lessonSummary || '', data.homework || '']);
+  `, [data.classId, actorUserId, data.sessionDate, data.startTime || '', data.endTime || '', data.topic || '', data.lessonSummary || '', data.homework || '', isAdmin]);
   if (!rows[0]) throw new Error('CLASS_NOT_FOUND');
   return rows[0];
 }
@@ -249,13 +250,14 @@ function recalculateDemoAttendance(studentId) {
   if (student) student.attendanceRate = Number(((attended / all.length) * 100).toFixed(1));
 }
 
-async function saveAttendance(sessionId, records) {
+async function saveAttendance(sessionId, records, actorUserId = null, isAdmin = false) {
   const id = normalizeId(sessionId);
   if (!id) throw new Error('SESSION_NOT_FOUND');
 
   if (env.demo.enabled) {
     const session = demoStore.classSessions.find((item) => item.id === id);
-    if (!session) throw new Error('SESSION_NOT_FOUND');
+    const classItem = session ? demoStore.classes.find((item) => item.id === session.classId && item.status !== 'DELETED') : null;
+    if (!session || !classItem || (!isAdmin && actorUserId && Number(classItem.teacherId) !== Number(actorUserId))) throw new Error('SESSION_NOT_FOUND');
     records.forEach((record) => {
       const studentId = Number(record.studentId);
       const student = demoStore.students.find(
@@ -277,7 +279,15 @@ async function saveAttendance(sessionId, records) {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    const sessionCheck = await client.query('SELECT class_id AS "classId" FROM class_sessions WHERE id = $1 FOR UPDATE', [id]);
+    const sessionCheck = await client.query(`
+      SELECT s.class_id AS "classId"
+        FROM class_sessions s
+        JOIN classes c ON c.id=s.class_id
+       WHERE s.id=$1
+         AND c.deleted_at IS NULL
+         AND ($3::boolean OR $2::bigint IS NULL OR c.teacher_id=$2)
+       FOR UPDATE OF s
+    `, [id, actorUserId, isAdmin]);
     if (!sessionCheck.rows[0]) throw new Error('SESSION_NOT_FOUND');
     const classId = sessionCheck.rows[0].classId;
 
@@ -342,16 +352,18 @@ async function saveAttendance(sessionId, records) {
   }
 }
 
-async function addNote(sessionId, data, authorName) {
+async function addNote(sessionId, data, authorName, actorUserId = null, isAdmin = false) {
   const id = normalizeId(sessionId);
   if (!id) throw new Error('SESSION_NOT_FOUND');
 
   if (env.demo.enabled) {
     const session = demoStore.classSessions.find((item) => item.id === id);
+    const classItem = session ? demoStore.classes.find((item) => item.id === session.classId && item.status !== 'DELETED') : null;
+    if (!session || !classItem || (!isAdmin && actorUserId && Number(classItem.teacherId) !== Number(actorUserId))) throw new Error('SESSION_NOT_FOUND');
     const student = demoStore.students.find(
-      (item) => item.id === Number(data.studentId) && item.classIds.includes(session?.classId),
+      (item) => item.id === Number(data.studentId) && item.classIds.includes(session.classId),
     );
-    if (!session || !student) throw new Error('STUDENT_NOT_IN_SESSION');
+    if (!student) throw new Error('STUDENT_NOT_IN_SESSION');
     const nextId = Math.max(0, ...demoStore.teacherNotes.map((item) => item.id)) + 1;
     const note = {
       id: nextId,
@@ -376,6 +388,12 @@ async function addNote(sessionId, data, authorName) {
      WHERE s.id = $1
        AND cs.student_id = $2
        AND cs.status = 'ACTIVE'
+       AND EXISTS (
+         SELECT 1 FROM classes c
+          WHERE c.id=s.class_id
+            AND c.deleted_at IS NULL
+            AND ($8::boolean OR $7::bigint IS NULL OR c.teacher_id=$7)
+       )
     RETURNING id,
               student_id AS "studentId",
               class_session_id AS "classSessionId",
@@ -384,26 +402,31 @@ async function addNote(sessionId, data, authorName) {
               is_parent_visible AS "isParentVisible",
               author_name AS author,
               created_at AS "createdAt"
-  `, [id, data.studentId, data.note, data.category || 'GENERAL', data.isParentVisible !== false, authorName]);
+  `, [id, data.studentId, data.note, data.category || 'GENERAL', data.isParentVisible !== false, authorName, actorUserId, isAdmin]);
   if (!rows[0]) throw new Error('STUDENT_NOT_IN_SESSION');
   return rows[0];
 }
 
-async function complete(sessionId) {
+async function complete(sessionId, actorUserId = null, isAdmin = false) {
   const id = normalizeId(sessionId);
   if (!id) throw new Error('SESSION_NOT_FOUND');
   if (env.demo.enabled) {
     const session = demoStore.classSessions.find((item) => item.id === id);
-    if (!session) throw new Error('SESSION_NOT_FOUND');
+    const classItem = session ? demoStore.classes.find((item) => item.id === session.classId && item.status !== 'DELETED') : null;
+    if (!session || !classItem || (!isAdmin && actorUserId && Number(classItem.teacherId) !== Number(actorUserId))) throw new Error('SESSION_NOT_FOUND');
     session.status = 'COMPLETED';
     return session;
   }
   const { rows } = await pool.query(`
-    UPDATE class_sessions
+    UPDATE class_sessions s
        SET status = 'COMPLETED', updated_at = NOW()
-     WHERE id = $1
-     RETURNING id, status
-  `, [id]);
+      FROM classes c
+     WHERE s.id = $1
+       AND c.id=s.class_id
+       AND c.deleted_at IS NULL
+       AND ($3::boolean OR $2::bigint IS NULL OR c.teacher_id=$2)
+     RETURNING s.id, s.status
+  `, [id, actorUserId, isAdmin]);
   if (!rows[0]) throw new Error('SESSION_NOT_FOUND');
   return rows[0];
 }

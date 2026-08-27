@@ -7,43 +7,78 @@ function nextId(items) {
   return items.reduce((max, item) => Math.max(max, Number(item.id || item.userId || 0)), 0) + 1;
 }
 
-function publicStudentDemo(s) {
-  const classItems = demoStore.classes.filter((c) => (s.classIds || []).includes(c.id) && c.status !== 'DELETED');
-  const studentAccount = demoStore.studentAccounts.find((a) => a.studentId === s.id);
-  const studentUser = studentAccount ? demoStore.users.find((u) => u.id === studentAccount.userId) : null;
-  const parentLink = demoStore.parentStudents.find((p) => p.studentId === s.id);
-  const parentUser = parentLink ? demoStore.users.find((u) => u.id === parentLink.parentUserId) : null;
+function normalizeIds(values) {
+  return [...new Set((values || []).map(Number).filter((id) => Number.isInteger(id) && id > 0))];
+}
+
+function visibleDemoClasses(actorUserId = null, isAdmin = false) {
+  return demoStore.classes.filter((item) => item.status !== 'DELETED'
+    && (isAdmin || !actorUserId || Number(item.teacherId) === Number(actorUserId)));
+}
+
+function publicStudentDemo(student, actorUserId = null, isAdmin = false) {
+  const visibleIds = new Set(visibleDemoClasses(actorUserId, isAdmin).map((item) => Number(item.id)));
+  const classItems = demoStore.classes.filter((item) => (student.classIds || []).includes(item.id)
+    && item.status !== 'DELETED' && visibleIds.has(Number(item.id)));
+  const studentAccount = demoStore.studentAccounts.find((item) => item.studentId === student.id);
+  const studentUser = studentAccount ? demoStore.users.find((item) => item.id === studentAccount.userId) : null;
+  const parentLink = demoStore.parentStudents.find((item) => item.studentId === student.id);
+  const parentUser = parentLink ? demoStore.users.find((item) => item.id === parentLink.parentUserId) : null;
   return {
-    ...s,
-    classes: classItems.map((c) => c.name),
-    classIds: classItems.map((c) => c.id),
-    studentEmail: studentUser?.email || s.email || '',
-    parentName: parentUser?.fullName || s.parentName || '',
+    ...student,
+    classes: classItems.map((item) => item.name),
+    classIds: classItems.map((item) => item.id),
+    studentEmail: studentUser?.email || student.email || '',
+    parentName: parentUser?.fullName || student.parentName || '',
     parentEmail: parentUser?.email || '',
-    parentPhone: parentUser?.phone || s.parentPhone || '',
+    parentPhone: parentUser?.phone || student.parentPhone || '',
     relationship: parentLink?.relationship || 'Bố/Mẹ',
   };
 }
 
-async function findAll({ classId } = {}) {
+function canAccessDemoStudent(student, actorUserId = null, isAdmin = false) {
+  if (!student || student.status === 'DELETED') return false;
+  if (isAdmin || !actorUserId) return true;
+  const allowed = new Set(visibleDemoClasses(actorUserId, false).map((item) => Number(item.id)));
+  return (student.classIds || []).some((classId) => allowed.has(Number(classId)));
+}
+
+function assertDemoClasses(classIds, actorUserId = null, isAdmin = false) {
+  const requested = normalizeIds(classIds);
+  const allowed = new Set(visibleDemoClasses(actorUserId, isAdmin)
+    .filter((item) => item.status === 'ACTIVE')
+    .map((item) => Number(item.id)));
+  if (requested.some((id) => !allowed.has(id))) throw new Error('CLASS_NOT_FOUND');
+  return requested;
+}
+
+async function assertClassAccess(classIds, actorUserId = null, isAdmin = false, client = pool) {
+  const requested = normalizeIds(classIds);
+  if (!requested.length) return requested;
+  const { rows } = await client.query(`
+    SELECT id
+      FROM classes
+     WHERE id = ANY($1::bigint[])
+       AND deleted_at IS NULL
+       AND status = 'ACTIVE'
+       AND ($2::boolean OR $3::bigint IS NULL OR teacher_id = $3)
+  `, [requested, isAdmin, actorUserId]);
+  if (rows.length !== requested.length) throw new Error('CLASS_NOT_FOUND');
+  return requested;
+}
+
+async function findAll({ classId } = {}, actorUserId = null, isAdmin = false) {
   if (env.demo.enabled) {
-    let students = demoStore.students.filter((s) => s.status !== 'DELETED');
-    if (classId) students = students.filter((s) => (s.classIds || []).includes(Number(classId)));
-    return students.map(publicStudentDemo);
+    const visibleClassIds = new Set(visibleDemoClasses(actorUserId, isAdmin).map((item) => Number(item.id)));
+    const selectedClassId = Number(classId || 0);
+    if (selectedClassId && !visibleClassIds.has(selectedClassId)) return [];
+    return demoStore.students
+      .filter((student) => canAccessDemoStudent(student, actorUserId, isAdmin))
+      .filter((student) => !selectedClassId || (student.classIds || []).includes(selectedClassId))
+      .map((student) => publicStudentDemo(student, actorUserId, isAdmin));
   }
 
-  const params = [];
-  let classFilter = '';
-  if (classId) {
-    params.push(classId);
-    classFilter = `AND EXISTS (
-      SELECT 1 FROM class_students csf
-       WHERE csf.student_id = s.id
-         AND csf.class_id = $${params.length}
-         AND csf.status = 'ACTIVE'
-    )`;
-  }
-
+  const selectedClassId = Number(classId) || null;
   const { rows } = await pool.query(`
     SELECT s.id,
            s.full_name AS "fullName",
@@ -64,25 +99,51 @@ async function findAll({ classId } = {}) {
            ps.relationship
       FROM students s
       LEFT JOIN class_students cs ON cs.student_id = s.id AND cs.status = 'ACTIVE'
-      LEFT JOIN classes c ON c.id = cs.class_id AND c.deleted_at IS NULL
+      LEFT JOIN classes c ON c.id = cs.class_id
+       AND c.deleted_at IS NULL
+       AND ($2::boolean OR $1::bigint IS NULL OR c.teacher_id = $1)
       LEFT JOIN student_progress_summary sp ON sp.student_id = s.id
       LEFT JOIN student_accounts sa ON sa.student_id = s.id
       LEFT JOIN users su ON su.id = sa.user_id
       LEFT JOIN parent_students ps ON ps.student_id = s.id
       LEFT JOIN users pu ON pu.id = ps.parent_user_id
      WHERE s.deleted_at IS NULL
-       ${classFilter}
+       AND (
+         $2::boolean OR $1::bigint IS NULL OR EXISTS (
+           SELECT 1
+             FROM class_students own_cs
+             JOIN classes own_c ON own_c.id = own_cs.class_id
+            WHERE own_cs.student_id = s.id
+              AND own_cs.status = 'ACTIVE'
+              AND own_c.deleted_at IS NULL
+              AND own_c.teacher_id = $1
+         )
+       )
+       AND (
+         $3::bigint IS NULL OR EXISTS (
+           SELECT 1
+             FROM class_students filter_cs
+             JOIN classes filter_c ON filter_c.id = filter_cs.class_id
+            WHERE filter_cs.student_id = s.id
+              AND filter_cs.class_id = $3
+              AND filter_cs.status = 'ACTIVE'
+              AND filter_c.deleted_at IS NULL
+              AND ($2::boolean OR $1::bigint IS NULL OR filter_c.teacher_id = $1)
+         )
+       )
      GROUP BY s.id, sp.average_score, sp.attendance_rate, su.email,
               pu.full_name, pu.email, pu.phone, ps.relationship
      ORDER BY s.full_name
-  `, params);
+  `, [actorUserId, isAdmin, selectedClassId]);
   return rows;
 }
 
-async function findById(id) {
+async function findById(id, actorUserId = null, isAdmin = false) {
   if (env.demo.enabled) {
-    const s = demoStore.students.find((item) => item.id === Number(id) && item.status !== 'DELETED');
-    return s ? publicStudentDemo(s) : null;
+    const student = demoStore.students.find((item) => item.id === Number(id));
+    return canAccessDemoStudent(student, actorUserId, isAdmin)
+      ? publicStudentDemo(student, actorUserId, isAdmin)
+      : null;
   }
 
   const { rows } = await pool.query(`
@@ -103,15 +164,28 @@ async function findById(id) {
            ps.relationship
       FROM students s
       LEFT JOIN class_students cs ON cs.student_id = s.id AND cs.status = 'ACTIVE'
-      LEFT JOIN classes c ON c.id = cs.class_id AND c.deleted_at IS NULL
+      LEFT JOIN classes c ON c.id = cs.class_id
+       AND c.deleted_at IS NULL
+       AND ($3::boolean OR $2::bigint IS NULL OR c.teacher_id = $2)
       LEFT JOIN student_accounts sa ON sa.student_id = s.id
       LEFT JOIN users su ON su.id = sa.user_id
       LEFT JOIN parent_students ps ON ps.student_id = s.id
       LEFT JOIN users pu ON pu.id = ps.parent_user_id
      WHERE s.id = $1
        AND s.deleted_at IS NULL
+       AND (
+         $3::boolean OR $2::bigint IS NULL OR EXISTS (
+           SELECT 1
+             FROM class_students own_cs
+             JOIN classes own_c ON own_c.id = own_cs.class_id
+            WHERE own_cs.student_id = s.id
+              AND own_cs.status = 'ACTIVE'
+              AND own_c.deleted_at IS NULL
+              AND own_c.teacher_id = $2
+         )
+       )
      GROUP BY s.id, su.email, pu.id, pu.full_name, pu.email, pu.phone, ps.relationship
-  `, [id]);
+  `, [id, actorUserId, isAdmin]);
   return rows[0] || null;
 }
 
@@ -129,14 +203,16 @@ async function emailInUse(email, exceptUserId = null, client = pool) {
   return rows[0] || null;
 }
 
-async function create(data, actorUserId) {
+async function create(data, actorUserId, isAdmin = false) {
   if (env.demo.enabled) {
-    const studentEmailExists = demoStore.users.find((u) => u.email.toLowerCase() === data.studentEmail.toLowerCase());
+    const classIds = assertDemoClasses(data.classIds, actorUserId, isAdmin);
+    const studentEmailExists = demoStore.users.find((user) => user.email.toLowerCase() === data.studentEmail.toLowerCase());
     if (studentEmailExists) throw new Error('Email đăng nhập học viên đã được sử dụng.');
 
-    let parentUser = demoStore.users.find((u) => u.email.toLowerCase() === data.parentEmail.toLowerCase());
+    let parentUser = demoStore.users.find((user) => user.email.toLowerCase() === data.parentEmail.toLowerCase());
     if (parentUser && parentUser.role !== 'PARENT') throw new Error('Email phụ huynh đang thuộc một tài khoản không phải phụ huynh.');
     if (!parentUser) {
+      if (!data.parentPassword) throw new Error('Cần nhập mật khẩu khi tạo tài khoản phụ huynh mới.');
       parentUser = {
         id: nextId(demoStore.users),
         fullName: data.parentName,
@@ -170,23 +246,24 @@ async function create(data, actorUserId) {
       parentName: data.parentName,
       parentPhone: data.parentPhone,
       status: 'ACTIVE',
-      classIds: data.classIds.map(Number),
+      classIds,
       averageScore: 0,
       attendanceRate: 0,
     };
     demoStore.students.push(student);
     demoStore.studentAccounts.push({ userId: studentUser.id, studentId: student.id });
     demoStore.parentStudents.push({ parentUserId: parentUser.id, studentId: student.id, relationship: data.relationship });
-    return publicStudentDemo(student);
+    return publicStudentDemo(student, actorUserId, isAdmin);
   }
 
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
+    const classIds = await assertClassAccess(data.classIds, actorUserId, isAdmin, client);
     if (await emailInUse(data.studentEmail, null, client)) throw new Error('Email đăng nhập học viên đã được sử dụng.');
 
     let parentUserResult = await client.query(
-      `SELECT id, role FROM users WHERE LOWER(email)=LOWER($1) LIMIT 1`,
+      'SELECT id, role FROM users WHERE LOWER(email)=LOWER($1) LIMIT 1',
       [data.parentEmail],
     );
     let parentUserId;
@@ -198,6 +275,7 @@ async function create(data, actorUserId) {
         [data.parentName, data.parentPhone || null, parentUserId],
       );
     } else {
+      if (!data.parentPassword) throw new Error('Cần nhập mật khẩu khi tạo tài khoản phụ huynh mới.');
       const parentHash = await bcrypt.hash(data.parentPassword, env.security.bcryptRounds);
       parentUserResult = await client.query(
         `INSERT INTO users(full_name,email,password_hash,role,status,phone)
@@ -219,13 +297,13 @@ async function create(data, actorUserId) {
       `INSERT INTO students(full_name,date_of_birth,school,school_class,phone,email,parent_name,parent_phone,status)
        VALUES($1,$2,$3,$4,$5,$6,$7,$8,'ACTIVE') RETURNING id`,
       [data.fullName, data.dateOfBirth || null, data.school || null, data.schoolClass || null,
-       data.phone || null, data.studentEmail, data.parentName, data.parentPhone || null],
+        data.phone || null, data.studentEmail, data.parentName, data.parentPhone || null],
     );
     const studentId = studentResult.rows[0].id;
 
-    await client.query(`INSERT INTO student_accounts(user_id,student_id) VALUES($1,$2)`, [studentUserId, studentId]);
+    await client.query('INSERT INTO student_accounts(user_id,student_id) VALUES($1,$2)', [studentUserId, studentId]);
     await client.query(
-      `INSERT INTO parent_students(parent_user_id,student_id,relationship) VALUES($1,$2,$3)`,
+      'INSERT INTO parent_students(parent_user_id,student_id,relationship) VALUES($1,$2,$3)',
       [parentUserId, studentId, data.relationship || 'Bố/Mẹ'],
     );
     await client.query(
@@ -233,7 +311,7 @@ async function create(data, actorUserId) {
        ON CONFLICT(student_id) DO NOTHING`,
       [studentId],
     );
-    for (const classId of data.classIds) {
+    for (const classId of classIds) {
       await client.query(
         `INSERT INTO class_students(class_id,student_id,status) VALUES($1,$2,'ACTIVE')
          ON CONFLICT(class_id,student_id) DO UPDATE SET status='ACTIVE', left_at=NULL`,
@@ -241,7 +319,7 @@ async function create(data, actorUserId) {
       );
     }
     await client.query('COMMIT');
-    return findById(studentId);
+    return findById(studentId, actorUserId, isAdmin);
   } catch (error) {
     await client.query('ROLLBACK');
     throw error;
@@ -250,18 +328,19 @@ async function create(data, actorUserId) {
   }
 }
 
-async function update(id, data) {
+async function update(id, data, actorUserId = null, isAdmin = false) {
   if (env.demo.enabled) {
-    const student = demoStore.students.find((s) => s.id === Number(id) && s.status !== 'DELETED');
-    if (!student) return null;
-    const sa = demoStore.studentAccounts.find((a) => a.studentId === student.id);
-    const su = sa ? demoStore.users.find((u) => u.id === sa.userId) : null;
-    const emailOwner = demoStore.users.find((u) => u.email.toLowerCase() === data.studentEmail.toLowerCase() && u.id !== su?.id);
+    const student = demoStore.students.find((item) => item.id === Number(id));
+    if (!canAccessDemoStudent(student, actorUserId, isAdmin)) return null;
+    const classIds = assertDemoClasses(data.classIds, actorUserId, isAdmin);
+    const studentAccount = demoStore.studentAccounts.find((item) => item.studentId === student.id);
+    const studentUser = studentAccount ? demoStore.users.find((item) => item.id === studentAccount.userId) : null;
+    const emailOwner = demoStore.users.find((user) => user.email.toLowerCase() === data.studentEmail.toLowerCase() && user.id !== studentUser?.id);
     if (emailOwner) throw new Error('Email đăng nhập học viên đã được sử dụng.');
 
-    let parentLink = demoStore.parentStudents.find((p) => p.studentId === student.id);
-    let parentUser = parentLink ? demoStore.users.find((u) => u.id === parentLink.parentUserId) : null;
-    const targetParent = demoStore.users.find((u) => u.email.toLowerCase() === data.parentEmail.toLowerCase());
+    let parentLink = demoStore.parentStudents.find((item) => item.studentId === student.id);
+    let parentUser = parentLink ? demoStore.users.find((item) => item.id === parentLink.parentUserId) : null;
+    const targetParent = demoStore.users.find((user) => user.email.toLowerCase() === data.parentEmail.toLowerCase());
     if (targetParent && targetParent.role !== 'PARENT') throw new Error('Email phụ huynh đang thuộc một tài khoản không phải phụ huynh.');
     if (targetParent && targetParent.id !== parentUser?.id) {
       parentUser = targetParent;
@@ -286,9 +365,9 @@ async function update(id, data) {
     if (data.parentPassword) parentUser.passwordHash = bcrypt.hashSync(data.parentPassword, env.security.bcryptRounds);
     parentLink.relationship = data.relationship;
 
-    if (su) {
-      Object.assign(su, { fullName: data.fullName, email: data.studentEmail, phone: data.phone, status: 'ACTIVE' });
-      if (data.studentPassword) su.passwordHash = bcrypt.hashSync(data.studentPassword, env.security.bcryptRounds);
+    if (studentUser) {
+      Object.assign(studentUser, { fullName: data.fullName, email: data.studentEmail, phone: data.phone, status: 'ACTIVE' });
+      if (data.studentPassword) studentUser.passwordHash = bcrypt.hashSync(data.studentPassword, env.security.bcryptRounds);
     } else {
       if (!data.studentPassword) throw new Error('Học viên này chưa có tài khoản. Hãy nhập mật khẩu để tạo tài khoản học viên.');
       const newStudentUser = {
@@ -298,32 +377,59 @@ async function update(id, data) {
       demoStore.users.push(newStudentUser);
       demoStore.studentAccounts.push({ userId: newStudentUser.id, studentId: student.id });
     }
+
+    const ownedIds = new Set(visibleDemoClasses(actorUserId, isAdmin).map((item) => Number(item.id)));
+    const preserved = isAdmin || !actorUserId
+      ? []
+      : (student.classIds || []).filter((classId) => !ownedIds.has(Number(classId)));
     Object.assign(student, {
-      fullName: data.fullName, dateOfBirth: data.dateOfBirth || null, school: data.school || '', schoolClass: data.schoolClass || '',
-      phone: data.phone || '', email: data.studentEmail, parentName: data.parentName, parentPhone: data.parentPhone || '',
-      classIds: data.classIds.map(Number), status: 'ACTIVE',
+      fullName: data.fullName,
+      dateOfBirth: data.dateOfBirth || null,
+      school: data.school || '',
+      schoolClass: data.schoolClass || '',
+      phone: data.phone || '',
+      email: data.studentEmail,
+      parentName: data.parentName,
+      parentPhone: data.parentPhone || '',
+      classIds: [...new Set([...preserved, ...classIds])],
+      status: 'ACTIVE',
     });
-    return publicStudentDemo(student);
+    return publicStudentDemo(student, actorUserId, isAdmin);
   }
 
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    const current = await client.query(
-      `SELECT s.id, sa.user_id AS student_user_id, ps.parent_user_id
-         FROM students s
-         LEFT JOIN student_accounts sa ON sa.student_id=s.id
-         LEFT JOIN parent_students ps ON ps.student_id=s.id
-        WHERE s.id=$1 AND s.deleted_at IS NULL`, [id],
-    );
+    const current = await client.query(`
+      SELECT s.id,
+             sa.user_id AS student_user_id,
+             (SELECT ps.parent_user_id FROM parent_students ps WHERE ps.student_id=s.id ORDER BY ps.parent_user_id LIMIT 1) AS parent_user_id
+        FROM students s
+        LEFT JOIN student_accounts sa ON sa.student_id=s.id
+       WHERE s.id=$1
+         AND s.deleted_at IS NULL
+         AND (
+           $3::boolean OR $2::bigint IS NULL OR EXISTS (
+             SELECT 1
+               FROM class_students own_cs
+               JOIN classes own_c ON own_c.id=own_cs.class_id
+              WHERE own_cs.student_id=s.id
+                AND own_cs.status='ACTIVE'
+                AND own_c.deleted_at IS NULL
+                AND own_c.teacher_id=$2
+           )
+         )
+       FOR UPDATE OF s
+    `, [id, actorUserId, isAdmin]);
     if (!current.rows[0]) {
       await client.query('ROLLBACK');
       return null;
     }
+    const classIds = await assertClassAccess(data.classIds, actorUserId, isAdmin, client);
     const row = current.rows[0];
     if (await emailInUse(data.studentEmail, row.student_user_id, client)) throw new Error('Email đăng nhập học viên đã được sử dụng.');
 
-    let targetParent = await client.query(`SELECT id,role FROM users WHERE LOWER(email)=LOWER($1) LIMIT 1`, [data.parentEmail]);
+    let targetParent = await client.query('SELECT id,role FROM users WHERE LOWER(email)=LOWER($1) LIMIT 1', [data.parentEmail]);
     let parentUserId;
     if (targetParent.rows[0]) {
       if (targetParent.rows[0].role !== 'PARENT') throw new Error('Email phụ huynh đang thuộc một tài khoản không phải phụ huynh.');
@@ -343,14 +449,14 @@ async function update(id, data) {
       `UPDATE users SET full_name=$1,email=$2,phone=$3,status='ACTIVE',updated_at=NOW() WHERE id=$4`,
       [data.parentName, data.parentEmail, data.parentPhone || null, parentUserId],
     );
-    if (data.parentPassword && parentUserId === row.parent_user_id) {
+    if (data.parentPassword && Number(parentUserId) === Number(row.parent_user_id)) {
       const hash = await bcrypt.hash(data.parentPassword, env.security.bcryptRounds);
-      await client.query(`UPDATE users SET password_hash=$1,updated_at=NOW() WHERE id=$2`, [hash, parentUserId]);
+      await client.query('UPDATE users SET password_hash=$1,updated_at=NOW() WHERE id=$2', [hash, parentUserId]);
     }
 
-    await client.query(`DELETE FROM parent_students WHERE student_id=$1`, [id]);
+    await client.query('DELETE FROM parent_students WHERE student_id=$1', [id]);
     await client.query(
-      `INSERT INTO parent_students(parent_user_id,student_id,relationship) VALUES($1,$2,$3)`,
+      'INSERT INTO parent_students(parent_user_id,student_id,relationship) VALUES($1,$2,$3)',
       [parentUserId, id, data.relationship || 'Bố/Mẹ'],
     );
 
@@ -362,7 +468,7 @@ async function update(id, data) {
       );
       if (data.studentPassword) {
         const hash = await bcrypt.hash(data.studentPassword, env.security.bcryptRounds);
-        await client.query(`UPDATE users SET password_hash=$1,updated_at=NOW() WHERE id=$2`, [hash, studentUserId]);
+        await client.query('UPDATE users SET password_hash=$1,updated_at=NOW() WHERE id=$2', [hash, studentUserId]);
       }
     } else {
       if (!data.studentPassword) throw new Error('Học viên này chưa có tài khoản. Hãy nhập mật khẩu để tạo tài khoản học viên.');
@@ -373,7 +479,7 @@ async function update(id, data) {
         [data.fullName, data.studentEmail, hash, data.phone || null],
       );
       studentUserId = createdUser.rows[0].id;
-      await client.query(`INSERT INTO student_accounts(user_id,student_id) VALUES($1,$2)`, [studentUserId, id]);
+      await client.query('INSERT INTO student_accounts(user_id,student_id) VALUES($1,$2)', [studentUserId, id]);
     }
 
     await client.query(
@@ -381,11 +487,22 @@ async function update(id, data) {
                parent_name=$7,parent_phone=$8,status='ACTIVE',updated_at=NOW()
        WHERE id=$9`,
       [data.fullName, data.dateOfBirth || null, data.school || null, data.schoolClass || null,
-       data.phone || null, data.studentEmail, data.parentName, data.parentPhone || null, id],
+        data.phone || null, data.studentEmail, data.parentName, data.parentPhone || null, id],
     );
 
-    await client.query(`UPDATE class_students SET status='INACTIVE',left_at=CURRENT_DATE WHERE student_id=$1`, [id]);
-    for (const classId of data.classIds) {
+    if (isAdmin || !actorUserId) {
+      await client.query("UPDATE class_students SET status='INACTIVE',left_at=CURRENT_DATE WHERE student_id=$1", [id]);
+    } else {
+      await client.query(`
+        UPDATE class_students cs
+           SET status='INACTIVE',left_at=CURRENT_DATE
+          FROM classes c
+         WHERE cs.class_id=c.id
+           AND cs.student_id=$1
+           AND c.teacher_id=$2
+      `, [id, actorUserId]);
+    }
+    for (const classId of classIds) {
       await client.query(
         `INSERT INTO class_students(class_id,student_id,status,joined_at,left_at)
          VALUES($1,$2,'ACTIVE',CURRENT_DATE,NULL)
@@ -407,7 +524,7 @@ async function update(id, data) {
     }
 
     await client.query('COMMIT');
-    return findById(id);
+    return findById(id, actorUserId, isAdmin);
   } catch (error) {
     await client.query('ROLLBACK');
     throw error;
@@ -416,20 +533,30 @@ async function update(id, data) {
   }
 }
 
-async function softDelete(id) {
+async function softDelete(id, actorUserId = null, isAdmin = false) {
   if (env.demo.enabled) {
-    const student = demoStore.students.find((s) => s.id === Number(id) && s.status !== 'DELETED');
-    if (!student) return false;
+    const student = demoStore.students.find((item) => item.id === Number(id));
+    if (!canAccessDemoStudent(student, actorUserId, isAdmin)) return false;
+
+    if (!isAdmin && actorUserId) {
+      const owned = new Set(visibleDemoClasses(actorUserId, false).map((item) => Number(item.id)));
+      student.classIds = (student.classIds || []).filter((classId) => !owned.has(Number(classId)));
+      if (student.classIds.length) return true;
+    }
+
     student.status = 'DELETED';
-    const sa = demoStore.studentAccounts.find((a) => a.studentId === student.id);
-    const su = sa ? demoStore.users.find((u) => u.id === sa.userId) : null;
-    if (su) su.status = 'INACTIVE';
-    const pl = demoStore.parentStudents.find((p) => p.studentId === student.id);
-    if (pl) {
-      const hasOther = demoStore.parentStudents.some((p) => p.parentUserId === pl.parentUserId && p.studentId !== student.id && demoStore.students.some((s) => s.id === p.studentId && s.status !== 'DELETED'));
+    student.classIds = [];
+    const studentAccount = demoStore.studentAccounts.find((item) => item.studentId === student.id);
+    const studentUser = studentAccount ? demoStore.users.find((item) => item.id === studentAccount.userId) : null;
+    if (studentUser) studentUser.status = 'INACTIVE';
+    const parentLink = demoStore.parentStudents.find((item) => item.studentId === student.id);
+    if (parentLink) {
+      const hasOther = demoStore.parentStudents.some((item) => item.parentUserId === parentLink.parentUserId
+        && item.studentId !== student.id
+        && demoStore.students.some((candidate) => candidate.id === item.studentId && candidate.status !== 'DELETED'));
       if (!hasOther) {
-        const pu = demoStore.users.find((u) => u.id === pl.parentUserId);
-        if (pu) pu.status = 'INACTIVE';
+        const parentUser = demoStore.users.find((item) => item.id === parentLink.parentUserId);
+        if (parentUser) parentUser.status = 'INACTIVE';
       }
     }
     return true;
@@ -439,18 +566,54 @@ async function softDelete(id) {
   try {
     await client.query('BEGIN');
     const { rows } = await client.query(`
-      SELECT sa.user_id AS student_user_id, ps.parent_user_id
+      SELECT sa.user_id AS student_user_id,
+             (SELECT ps.parent_user_id FROM parent_students ps WHERE ps.student_id=s.id ORDER BY ps.parent_user_id LIMIT 1) AS parent_user_id
         FROM students s
         LEFT JOIN student_accounts sa ON sa.student_id=s.id
-        LEFT JOIN parent_students ps ON ps.student_id=s.id
-       WHERE s.id=$1 AND s.deleted_at IS NULL`, [id]);
+       WHERE s.id=$1
+         AND s.deleted_at IS NULL
+         AND (
+           $3::boolean OR $2::bigint IS NULL OR EXISTS (
+             SELECT 1 FROM class_students own_cs
+             JOIN classes own_c ON own_c.id=own_cs.class_id
+              WHERE own_cs.student_id=s.id
+                AND own_cs.status='ACTIVE'
+                AND own_c.deleted_at IS NULL
+                AND own_c.teacher_id=$2
+           )
+         )
+       FOR UPDATE OF s
+    `, [id, actorUserId, isAdmin]);
     if (!rows[0]) {
       await client.query('ROLLBACK');
       return false;
     }
-    await client.query(`UPDATE students SET status='INACTIVE',deleted_at=NOW(),updated_at=NOW() WHERE id=$1`, [id]);
-    await client.query(`UPDATE class_students SET status='INACTIVE',left_at=CURRENT_DATE WHERE student_id=$1`, [id]);
-    if (rows[0].student_user_id) await client.query(`UPDATE users SET status='INACTIVE',updated_at=NOW() WHERE id=$1`, [rows[0].student_user_id]);
+
+    if (!isAdmin && actorUserId) {
+      await client.query(`
+        UPDATE class_students cs
+           SET status='INACTIVE',left_at=CURRENT_DATE
+          FROM classes c
+         WHERE cs.class_id=c.id
+           AND cs.student_id=$1
+           AND cs.status='ACTIVE'
+           AND c.teacher_id=$2
+      `, [id, actorUserId]);
+      const remaining = await client.query(
+        "SELECT 1 FROM class_students WHERE student_id=$1 AND status='ACTIVE' LIMIT 1",
+        [id],
+      );
+      if (remaining.rows[0]) {
+        await client.query('COMMIT');
+        return true;
+      }
+    }
+
+    await client.query("UPDATE students SET status='INACTIVE',deleted_at=NOW(),updated_at=NOW() WHERE id=$1", [id]);
+    await client.query("UPDATE class_students SET status='INACTIVE',left_at=CURRENT_DATE WHERE student_id=$1", [id]);
+    if (rows[0].student_user_id) {
+      await client.query("UPDATE users SET status='INACTIVE',updated_at=NOW() WHERE id=$1", [rows[0].student_user_id]);
+    }
     if (rows[0].parent_user_id) {
       await client.query(`
         UPDATE users u SET status='INACTIVE',updated_at=NOW()

@@ -10,7 +10,7 @@ function renderError(res, view, data, error) {
 async function index(req, res, next) {
   try {
     const classId = req.query.classId || '';
-    const data = await service.getPageData({ classId, teacherId: req.session.user.id });
+    const data = await service.getPageData({ classId }, req.session.user.id, req.session.user.role === 'ADMIN');
     res.render('sessions/index', {
       title: 'Buổi học',
       ...data,
@@ -23,7 +23,7 @@ async function index(req, res, next) {
 
 async function newForm(req, res, next) {
   try {
-    const data = await service.getCreateData();
+    const data = await service.getCreateData(req.session.user.id, req.session.user.role === 'ADMIN');
     res.render('sessions/new', {
       title: 'Tạo buổi học',
       ...data,
@@ -46,11 +46,11 @@ async function newForm(req, res, next) {
 
 async function create(req, res, next) {
   try {
-    const created = await service.createSession(req.body, req.session.user.id);
+    const created = await service.createSession(req.body, req.session.user.id, req.session.user.role === 'ADMIN');
     res.redirect(`/sessions/${created.id}?created=1`);
   } catch (error) {
     try {
-      const data = await service.getCreateData();
+      const data = await service.getCreateData(req.session.user.id, req.session.user.role === 'ADMIN');
       return renderError(res, 'sessions/new', {
         title: 'Tạo buổi học',
         ...data,
@@ -65,7 +65,7 @@ async function create(req, res, next) {
 
 async function detail(req, res, next) {
   try {
-    const session = await service.getSession(req.params.id);
+    const session = await service.getSession(req.params.id, req.session.user.id, req.session.user.role === 'ADMIN');
     if (!session) return res.status(404).render('errors/404', { title: 'Không tìm thấy buổi học' });
     res.render('sessions/detail', {
       title: session.topic || 'Chi tiết buổi học',
@@ -80,7 +80,7 @@ async function detail(req, res, next) {
 
 async function saveAttendance(req, res, next) {
   try {
-    await service.saveAttendance(req.params.id, req.body);
+    await service.saveAttendance(req.params.id, req.body, req.session.user.id, req.session.user.role === 'ADMIN');
     res.redirect(`/sessions/${req.params.id}?saved=attendance`);
   } catch (error) {
     next(error);
@@ -89,11 +89,11 @@ async function saveAttendance(req, res, next) {
 
 async function addNote(req, res, next) {
   try {
-    await service.addStudentNote(req.params.id, req.body, req.session.user.fullName);
+    await service.addStudentNote(req.params.id, req.body, req.session.user.fullName, req.session.user.id, req.session.user.role === 'ADMIN');
     res.redirect(`/sessions/${req.params.id}?note=1#student-notes`);
   } catch (error) {
     try {
-      const session = await service.getSession(req.params.id);
+      const session = await service.getSession(req.params.id, req.session.user.id, req.session.user.role === 'ADMIN');
       if (!session) return res.status(404).render('errors/404', { title: 'Không tìm thấy buổi học' });
       return renderError(res, 'sessions/detail', {
         title: session.topic || 'Chi tiết buổi học',
@@ -108,7 +108,7 @@ async function addNote(req, res, next) {
 
 async function complete(req, res, next) {
   try {
-    await service.completeSession(req.params.id);
+    await service.completeSession(req.params.id, req.session.user.id, req.session.user.role === 'ADMIN');
     res.redirect(`/sessions/${req.params.id}?completed=1`);
   } catch (error) {
     next(error);
@@ -117,7 +117,7 @@ async function complete(req, res, next) {
 
 async function apiList(req, res, next) {
   try {
-    const data = await service.getPageData({ classId: req.query.classId, teacherId: req.session.user.id });
+    const data = await service.getPageData({ classId: req.query.classId }, req.session.user.id, req.session.user.role === 'ADMIN');
     res.json({ data: data.sessions });
   } catch (error) {
     next(error);

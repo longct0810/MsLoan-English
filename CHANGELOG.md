@@ -1,5 +1,26 @@
 # Changelog
 
+## v0.14.0 - Security & Data Integrity Hardening
+
+### Authorization
+- Scope Student list/detail/create/update/delete theo class owner; teacher không thể gán học viên vào class ngoài phạm vi.
+- Khi học viên thuộc nhiều giáo viên, thao tác xóa của teacher chỉ gỡ khỏi các class mình quản lý; không xóa dữ liệu dùng chung.
+- Scope Session, attendance, session notes và complete session theo owner của class.
+- Scope Dashboard theo actor để tránh lộ KPI và dữ liệu teacher khác.
+- Exam update kiểm tra class đích.
+- Question create/update/import kiểm tra lesson/question ownership; bulk UPDATE được enforce cả ở repository SQL.
+
+### Data Integrity
+- Assignment bắt buộc lesson thuộc đúng class.
+- Mở rộng score precision từ `NUMERIC(4,2)` lên `NUMERIC(8,2)` cho submission và student score.
+- Thêm index hỗ trợ ownership lookup.
+
+### Security
+- Question import multipart bắt buộc CSRF token sau Multer.
+
+### Quality
+- Bổ sung test hardening cho Student, Session, Dashboard, Assignment, Exam, Question ownership, multipart CSRF và schema migration.
+
 ## v0.13.3 - Safe 403 Error Page
 
 ### Operations

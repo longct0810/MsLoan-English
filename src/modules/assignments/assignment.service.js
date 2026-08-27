@@ -25,6 +25,23 @@ function statusMeta(status) {
   return map[status] || { label: status, className: 'text-bg-secondary' };
 }
 
+
+async function getAccessibleLessons(userId, isAdmin = false, classId = null) {
+  const classes = isAdmin ? await repo.findClasses() : await classService.getClasses(userId, false);
+  const allowedClassIds = new Set(classes.map((item) => Number(item.id)));
+  return (await repo.findLessons(classId))
+    .filter((lesson) => allowedClassIds.has(Number(lesson.classId)));
+}
+
+async function validateLessonClass(lessonId, classId, userId, isAdmin = false) {
+  if (!lessonId) return;
+  const lessons = await getAccessibleLessons(userId, isAdmin, classId);
+  if (!lessons.some((lesson) => Number(lesson.id) === Number(lessonId)
+    && Number(lesson.classId) === Number(classId))) {
+    throw new Error('LESSON_CLASS_MISMATCH');
+  }
+}
+
 async function list(filters, userId, isAdmin = false) {
   const classes = isAdmin ? await repo.findClasses() : await classService.getClasses(userId, false);
   const allowed = new Set(classes.map((item) => Number(item.id)));
@@ -34,7 +51,8 @@ async function list(filters, userId, isAdmin = false) {
 
 async function newForm(query = {}, userId, isAdmin = false) {
   const classes = isAdmin ? await repo.findClasses() : await classService.getClasses(userId, false);
-  const lessons = await repo.findLessons();
+  const selectedClassId = Number(query.classId || 0) || null;
+  const lessons = await getAccessibleLessons(userId, isAdmin, selectedClassId);
   return { classes, lessons };
 }
 
@@ -46,6 +64,7 @@ async function create(body, userId, isAdmin = false) {
   if (!Number.isInteger(classId) || classId <= 0) throw new Error('CLASS_REQUIRED');
   if (!title) throw new Error('TITLE_REQUIRED');
   if (!await classService.getClassDetail(classId, userId, isAdmin)) throw new Error('CLASS_NOT_FOUND');
+  await validateLessonClass(lessonId, classId, userId, isAdmin);
   if (!Number.isFinite(maxScore) || maxScore <= 0 || maxScore > 1000) throw new Error('INVALID_MAX_SCORE');
   return repo.create({
     classId,
@@ -63,7 +82,7 @@ async function create(body, userId, isAdmin = false) {
 async function editForm(id, userId, isAdmin = false) {
   const assignment = await detail(id, userId, isAdmin);
   if (!assignment) return { assignment: null, classes: [], lessons: [] };
-  const [classes, lessons] = await Promise.all([newForm({}, userId, isAdmin).then((data) => data.classes), repo.findLessons()]);
+  const [classes, lessons] = await Promise.all([newForm({}, userId, isAdmin).then((data) => data.classes), getAccessibleLessons(userId, isAdmin, assignment.classId)]);
   return { assignment, classes, lessons };
 }
 
@@ -75,6 +94,7 @@ async function update(id, body, userId, isAdmin = false) {
   const title = clean(body.title);
   const maxScore = Number(body.maxScore || 10);
   if (!title) throw new Error('TITLE_REQUIRED');
+  await validateLessonClass(lessonId, classId, userId, isAdmin);
   if (!Number.isFinite(maxScore) || maxScore <= 0 || maxScore > 1000) throw new Error('INVALID_MAX_SCORE');
   return repo.update(id, {
     classId,

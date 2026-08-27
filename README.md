@@ -1,4 +1,4 @@
-# English Classroom MVP v0.13.0
+# English Classroom MVP v0.14.0
 
 Website responsive quản lý lớp học tiếng Anh dành cho giáo viên, học viên và phụ huynh.
 
@@ -10,7 +10,31 @@ Website responsive quản lý lớp học tiếng Anh dành cho giáo viên, h�
 - `pg`, `bcryptjs`, `express-session`, `connect-pg-simple`
 - ExcelJS + Multer cho import Question Bank
 
-## Chức năng chính đến v0.13.0
+## Chức năng chính đến v0.14.0
+
+
+### Hardening v0.14.0
+- Scope Student CRUD theo class ownership của TEACHER; ADMIN giữ quyền toàn cục.
+- Scope Session/Attendance/Teacher Note/Complete Session theo owner của class.
+- Dashboard chỉ tổng hợp lớp, học viên, bài tập và buổi học thuộc phạm vi actor.
+- Assignment kiểm tra lesson phải thuộc đúng class và thuộc phạm vi giáo viên.
+- Exam update kiểm tra lại class đích để chặn chuyển Exam sang class không sở hữu.
+- Question Bank lọc lesson theo ownership; import UPDATE chỉ sửa question actor có quyền quản lý.
+- Multipart question import bắt buộc CSRF token sau khi Multer parse form.
+- Mở rộng `assignment_submissions.score`, `student_scores.score/max_score` thành `NUMERIC(8,2)`.
+- Thêm migration `db/neon_upgrade_v0.14.0.sql` và test hardening.
+
+Nâng database từ v0.13.x:
+
+```bash
+npm run db:migrate
+```
+
+Hoặc chạy thủ công trên Neon SQL Editor:
+
+```text
+db/neon_upgrade_v0.14.0.sql
+```
 
 ### Teacher Portal
 - Dashboard.

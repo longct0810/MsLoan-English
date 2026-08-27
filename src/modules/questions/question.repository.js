@@ -129,11 +129,22 @@ function saveDemoOptions(questionId, data) {
   });
 }
 
+
+function canManageDemoQuestion(question, userId, isAdmin = false) {
+  if (!question) return false;
+  if (isAdmin || !userId || Number(question.createdBy) === Number(userId)) return true;
+  if (!question.lessonId) return false;
+  const lesson = demoStore.lessons.find((item) => Number(item.id) === Number(question.lessonId));
+  if (!lesson) return false;
+  const classItem = demoStore.classes.find((item) => Number(item.id) === Number(lesson.classId) && item.status !== 'DELETED');
+  return Boolean(classItem && Number(classItem.teacherId) === Number(userId));
+}
+
 async function create(data, userId) {
   if (env.demo.enabled) {
     const id = Math.max(0, ...(demoStore.questions || []).map((q) => q.id)) + 1;
     const grade = data.gradeId ? Number(data.gradeId) : null;
-    const question = { id, gradeId: data.gradeId || null, grade, lessonId: data.lessonId || null, questionType: data.questionType, stem: data.stem, correctAnswer: data.correctAnswer || '', explanation: data.explanation || '', difficulty: data.difficulty, defaultPoints: data.defaultPoints, status: data.status || 'DRAFT' };
+    const question = { id, gradeId: data.gradeId || null, grade, lessonId: data.lessonId || null, createdBy: Number(userId), questionType: data.questionType, stem: data.stem, correctAnswer: data.correctAnswer || '', explanation: data.explanation || '', difficulty: data.difficulty, defaultPoints: data.defaultPoints, status: data.status || 'DRAFT' };
     demoStore.questions = demoStore.questions || [];
     demoStore.questions.push(question);
     saveDemoOptions(id, data);
@@ -152,10 +163,10 @@ async function create(data, userId) {
   } catch (error) { await client.query('ROLLBACK'); throw error; } finally { client.release(); }
 }
 
-async function update(value, data) {
+async function update(value, data, userId = null, isAdmin = false) {
   const id = idOf(value); if (!id) throw new Error('QUESTION_NOT_FOUND');
   if (env.demo.enabled) {
-    const q=(demoStore.questions||[]).find((x)=>x.id===id); if(!q) throw new Error('QUESTION_NOT_FOUND');
+    const q=(demoStore.questions||[]).find((x)=>x.id===id); if(!canManageDemoQuestion(q,userId,isAdmin)) throw new Error('QUESTION_NOT_FOUND');
     Object.assign(q,{gradeId:data.gradeId||null,grade:data.gradeId?Number(data.gradeId):null,lessonId:data.lessonId||null,questionType:data.questionType,stem:data.stem,correctAnswer:data.correctAnswer||'',explanation:data.explanation||'',difficulty:data.difficulty,defaultPoints:data.defaultPoints,status:data.status||q.status});
     saveDemoOptions(id, data);
     return demoDecorate(q);
@@ -163,27 +174,37 @@ async function update(value, data) {
   const client=await pool.connect();
   try{
     await client.query('BEGIN');
-    const result=await client.query(`UPDATE questions SET grade_id=$2,lesson_id=$3,question_type=$4,stem=$5,correct_answer=NULLIF($6,''),explanation=NULLIF($7,''),difficulty=$8,default_points=$9,status=COALESCE($10,status),updated_at=NOW() WHERE id=$1 RETURNING id`,[id,data.gradeId||null,data.lessonId||null,data.questionType,data.stem,data.correctAnswer||'',data.explanation||'',data.difficulty,data.defaultPoints,data.status||null]);
+    const result=await client.query(`
+      UPDATE questions q
+         SET grade_id=$2,lesson_id=$3,question_type=$4,stem=$5,correct_answer=NULLIF($6,''),
+             explanation=NULLIF($7,''),difficulty=$8,default_points=$9,status=COALESCE($10,status),updated_at=NOW()
+       WHERE q.id=$1
+         AND ($11::boolean OR $12::bigint IS NULL OR q.created_by=$12 OR EXISTS (
+           SELECT 1 FROM lessons l JOIN classes c ON c.id=l.class_id
+            WHERE l.id=q.lesson_id AND c.deleted_at IS NULL AND c.teacher_id=$12
+         ))
+       RETURNING q.id
+    `,[id,data.gradeId||null,data.lessonId||null,data.questionType,data.stem,data.correctAnswer||'',data.explanation||'',data.difficulty,data.defaultPoints,data.status||null,isAdmin,userId]);
     if(!result.rows[0]) throw new Error('QUESTION_NOT_FOUND');
     await saveOptions(client,id,data); await client.query('COMMIT'); return findById(id);
   }catch(error){await client.query('ROLLBACK');throw error;}finally{client.release();}
 }
 
-async function publish(value) {
+async function publish(value, userId = null, isAdmin = false) {
   const id=idOf(value); if(!id) throw new Error('QUESTION_NOT_FOUND');
-  if(env.demo.enabled){const q=(demoStore.questions||[]).find((x)=>x.id===id);if(!q)throw new Error('QUESTION_NOT_FOUND');q.status='PUBLISHED';return q;}
-  const {rows}=await pool.query(`UPDATE questions SET status='PUBLISHED',updated_at=NOW() WHERE id=$1 RETURNING id,status`,[id]); if(!rows[0]) throw new Error('QUESTION_NOT_FOUND'); return rows[0];
+  if(env.demo.enabled){const q=(demoStore.questions||[]).find((x)=>x.id===id);if(!canManageDemoQuestion(q,userId,isAdmin))throw new Error('QUESTION_NOT_FOUND');q.status='PUBLISHED';return q;}
+  const {rows}=await pool.query(`UPDATE questions q SET status='PUBLISHED',updated_at=NOW() WHERE q.id=$1 AND ($2::boolean OR $3::bigint IS NULL OR q.created_by=$3 OR EXISTS (SELECT 1 FROM lessons l JOIN classes c ON c.id=l.class_id WHERE l.id=q.lesson_id AND c.deleted_at IS NULL AND c.teacher_id=$3)) RETURNING q.id,q.status`,[id,isAdmin,userId]); if(!rows[0]) throw new Error('QUESTION_NOT_FOUND'); return rows[0];
 }
 
-async function findExistingIds(ids) {
+async function findExistingIds(ids, userId = null, isAdmin = false) {
   const clean = [...new Set((ids || []).map(Number).filter((x) => Number.isInteger(x) && x > 0))];
   if (!clean.length) return new Set();
-  if (env.demo.enabled) return new Set((demoStore.questions || []).filter((q) => clean.includes(q.id)).map((q) => q.id));
-  const { rows } = await pool.query(`SELECT id FROM questions WHERE id=ANY($1::bigint[])`, [clean]);
+  if (env.demo.enabled) return new Set((demoStore.questions || []).filter((q) => clean.includes(q.id) && canManageDemoQuestion(q,userId,isAdmin)).map((q) => q.id));
+  const { rows } = await pool.query(`SELECT q.id FROM questions q WHERE q.id=ANY($1::bigint[]) AND ($2::boolean OR $3::bigint IS NULL OR q.created_by=$3 OR EXISTS (SELECT 1 FROM lessons l JOIN classes c ON c.id=l.class_id WHERE l.id=q.lesson_id AND c.deleted_at IS NULL AND c.teacher_id=$3))`, [clean,isAdmin,userId]);
   return new Set(rows.map((r) => Number(r.id)));
 }
 
-async function bulkUpsert(items, userId) {
+async function bulkUpsert(items, userId, isAdmin = false) {
   if (env.demo.enabled) {
     let created = 0, updated = 0;
     for (const item of items) {
@@ -194,7 +215,7 @@ async function bulkUpsert(items, userId) {
           lessonId: item._hasLessonColumn ? item.lessonId : (current?.lessonId || null),
           difficulty: item._hasDifficultyColumn ? item.difficulty : (current?.difficulty || 'MEDIUM'),
         };
-        await update(item.id, merged); updated += 1;
+        await update(item.id, merged, userId, isAdmin); updated += 1;
       }
       else { await create(item, userId); created += 1; }
     }
@@ -208,7 +229,7 @@ async function bulkUpsert(items, userId) {
       let questionId;
       if (item.action === 'UPDATE') {
         const result = await client.query(`
-          UPDATE questions
+          UPDATE questions q
              SET grade_id=$2,
                  lesson_id=CASE WHEN $11::boolean THEN $3 ELSE lesson_id END,
                  question_type=$4,
@@ -219,8 +240,13 @@ async function bulkUpsert(items, userId) {
                  default_points=$9,
                  status=COALESCE($10,status),
                  updated_at=NOW()
-           WHERE id=$1 RETURNING id
-        `, [item.id,item.gradeId||null,item.lessonId||null,item.questionType,item.stem,item.correctAnswer||'',item.explanation||'',item.difficulty||'MEDIUM',item.defaultPoints,item.status||null,Boolean(item._hasLessonColumn),Boolean(item._hasDifficultyColumn)]);
+           WHERE q.id=$1
+             AND ($13::boolean OR $14::bigint IS NULL OR q.created_by=$14 OR EXISTS (
+               SELECT 1 FROM lessons l JOIN classes c ON c.id=l.class_id
+                WHERE l.id=q.lesson_id AND c.deleted_at IS NULL AND c.teacher_id=$14
+             ))
+           RETURNING q.id
+        `, [item.id,item.gradeId||null,item.lessonId||null,item.questionType,item.stem,item.correctAnswer||'',item.explanation||'',item.difficulty||'MEDIUM',item.defaultPoints,item.status||null,Boolean(item._hasLessonColumn),Boolean(item._hasDifficultyColumn),isAdmin,userId]);
         if (!result.rows[0]) throw new Error(`QUESTION_NOT_FOUND:${item.id}`);
         questionId = result.rows[0].id; updated += 1;
       } else {
