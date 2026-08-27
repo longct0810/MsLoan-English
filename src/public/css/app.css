@@ -198,3 +198,18 @@ textarea.exam-answer-input { min-height: 150px; resize: vertical; }
   .app-card, .metric-card { box-shadow: none; break-inside: avoid; }
   .report-chart { break-inside: avoid; }
 }
+
+/* v0.14.1 - account security */
+.account-security-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  background: var(--app-primary-soft);
+  color: var(--app-primary);
+  font-weight: 900;
+  letter-spacing: .08em;
+}
+.password-form { max-width: 620px; }

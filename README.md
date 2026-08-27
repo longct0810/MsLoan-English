@@ -1,4 +1,4 @@
-# English Classroom MVP v0.14.0
+# English Classroom MVP v0.14.1
 
 Website responsive quản lý lớp học tiếng Anh dành cho giáo viên, học viên và phụ huynh.
 
@@ -10,8 +10,16 @@ Website responsive quản lý lớp học tiếng Anh dành cho giáo viên, h�
 - `pg`, `bcryptjs`, `express-session`, `connect-pg-simple`
 - ExcelJS + Multer cho import Question Bank
 
-## Chức năng chính đến v0.14.0
+## Chức năng chính đến v0.14.1
 
+
+
+### Account Security v0.14.1
+- Tất cả tài khoản `ADMIN`, `TEACHER`, `STUDENT`, `PARENT` có thể tự đổi mật khẩu tại `/account/password`.
+- Bắt buộc nhập đúng mật khẩu hiện tại.
+- Mật khẩu mới từ 8 đến 128 ký tự, phải khớp xác nhận và khác mật khẩu hiện tại.
+- Sau khi đổi mật khẩu, session hiện tại được regenerate để xoay session id.
+- Không cần cập nhật schema/database khi nâng từ v0.14.0 lên v0.14.1.
 
 ### Hardening v0.14.0
 - Scope Student CRUD theo class ownership của TEACHER; ADMIN giữ quyền toàn cục.
@@ -24,17 +32,13 @@ Website responsive quản lý lớp học tiếng Anh dành cho giáo viên, h�
 - Mở rộng `assignment_submissions.score`, `student_scores.score/max_score` thành `NUMERIC(8,2)`.
 - Thêm migration `db/neon_upgrade_v0.14.0.sql` và test hardening.
 
-Nâng database từ v0.13.x:
-
-```bash
-npm run db:migrate
-```
-
-Hoặc chạy thủ công trên Neon SQL Editor:
+Nâng database từ v0.13.x lên v0.14.x: chạy thủ công trên Neon SQL Editor:
 
 ```text
 db/neon_upgrade_v0.14.0.sql
 ```
+
+> Không dùng `npm run db:migrate` trên database production hiện có vì script này đang chạy toàn bộ `db/schema.sql`. v0.14.1 không có thay đổi schema nên không cần chạy thêm SQL.
 
 ### Teacher Portal
 - Dashboard.
@@ -137,29 +141,33 @@ DEMO_MODE=false
 DATABASE_URL=postgresql://...
 ```
 
-Nâng database hiện tại từ v0.6.x:
+Nếu nâng database production từ phiên bản cũ, chạy tuần tự các file `db/neon_upgrade_v*.sql` cần thiết trên Neon SQL Editor. Với database đã ở v0.14.0 thì **v0.14.1 không cần chạy SQL**.
 
-```bash
-npm run db:migrate
-```
-
-Hoặc chạy thủ công trên Neon SQL Editor:
-
-```text
-db/neon_upgrade_v0.7.0.sql
-```
+Không chạy `npm run db:migrate` trên database production hiện có cho đến khi migration runner mới được triển khai.
 
 Build Command trên Render:
 
 ```bash
-npm install && npm run db:migrate
+npm ci
 ```
+
+Migration production được chạy thủ công theo từng file upgrade trước khi deploy code.
 
 Start Command:
 
 ```bash
 npm start
 ```
+
+
+## Route mới v0.14.1
+
+```text
+GET  /account/password
+POST /account/password
+```
+
+Route dùng `requireAuth`, áp dụng cho ADMIN, TEACHER, STUDENT và PARENT.
 
 ## Route mới v0.7.0
 

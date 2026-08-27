@@ -1,5 +1,22 @@
 # Changelog
 
+## v0.14.1 - Account Password Management
+
+### Account Security
+- Thêm trang đổi mật khẩu dùng chung cho ADMIN, TEACHER, STUDENT và PARENT tại `/account/password`.
+- Yêu cầu xác minh mật khẩu hiện tại trước khi đổi.
+- Mật khẩu mới tối thiểu 8 ký tự, tối đa 128 ký tự, phải khớp xác nhận và khác mật khẩu hiện tại.
+- Hash mật khẩu mới bằng bcrypt theo `BCRYPT_ROUNDS`; không lưu hoặc ghi log mật khẩu thuần.
+- Regenerate session sau khi đổi mật khẩu để xoay session id hiện tại.
+- Hỗ trợ cả PostgreSQL/Neon và Demo Mode.
+- Thêm liên kết `Đổi mật khẩu` trên desktop sidebar và menu mobile cho tất cả vai trò.
+- Bổ sung CSRF token trực tiếp cho form đăng nhập, đổi mật khẩu và đăng xuất.
+
+### Quality
+- Thêm test cho mật khẩu hiện tại sai, mật khẩu mới không hợp lệ và đăng nhập bằng mật khẩu mới sau khi đổi.
+- Tổng bộ test tăng từ 22 lên 25 test.
+- Không cần migration database cho v0.14.1.
+
 ## v0.14.0 - Security & Data Integrity Hardening
 
 ### Authorization

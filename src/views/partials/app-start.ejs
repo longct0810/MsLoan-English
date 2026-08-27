@@ -55,7 +55,9 @@
       <div class="fw-semibold"><%= currentUser.fullName %></div>
       <div class="small text-secondary"><%= role %></div>
       <div class="small text-secondary mt-1">Version <strong>v<%= appVersion %></strong></div>
+      <a class="btn btn-sm <%= currentPath.startsWith('/account/password') ? 'btn-primary' : 'btn-outline-primary' %> w-100 mt-2" href="/account/password">Đổi mật khẩu</a>
       <form method="post" action="/logout" class="mt-2">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
         <button class="btn btn-sm btn-outline-secondary w-100">Đăng xuất</button>
       </form>
     </div>
@@ -109,7 +111,11 @@
           <% } %>
         </div>
         <hr>
-        <form method="post" action="/logout"><button class="btn btn-outline-secondary w-100">Đăng xuất</button></form>
+        <a class="btn <%= currentPath.startsWith('/account/password') ? 'btn-primary' : 'btn-outline-primary' %> w-100 mb-2" href="/account/password">Đổi mật khẩu</a>
+        <form method="post" action="/logout">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <button class="btn btn-outline-secondary w-100">Đăng xuất</button>
+        </form>
       </div>
     </div>
 

@@ -13,6 +13,7 @@
         <p class="text-secondary mb-4">Sử dụng tài khoản phù hợp với vai trò của bạn.</p>
         <% if (error) { %><div class="alert alert-danger"><%= error %></div><% } %>
         <form method="post" action="/login">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
           <div class="mb-3">
             <label class="form-label">Email</label>
             <input class="form-control form-control-lg" name="email" type="email" required value="<%= showDemoAccounts ? demoAccounts.teacher.email : '' %>">
