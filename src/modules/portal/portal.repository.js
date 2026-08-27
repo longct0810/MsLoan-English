@@ -189,4 +189,59 @@ async function getChildrenByParentUserId(parentUserId) {
   return rows;
 }
 
-module.exports = { getStudentIdByUserId, getStudentSnapshot, getChildrenByParentUserId };
+function monthRange(value) {
+  const match = /^\d{4}-\d{2}$/.test(String(value || '')) ? String(value) : new Date().toISOString().slice(0, 7);
+  const [year, month] = match.split('-').map(Number);
+  return { month: match, start: new Date(Date.UTC(year, month - 1, 1)), end: new Date(Date.UTC(year, month, 1)) };
+}
+
+async function getParentReport(studentId, monthValue) {
+  const range = monthRange(monthValue);
+  if (env.demo.enabled) {
+    const snapshot = buildStudentSnapshot(studentId);
+    if (!snapshot) return null;
+    const inMonth = (value) => String(value || '').slice(0, 7) === range.month;
+    const monthScores = snapshot.scores.filter((item) => inMonth(item.recordedAt));
+    const graded = monthScores.filter((item) => Number.isFinite(Number(item.score)));
+    const monthAssignments = snapshot.assignments.filter((item) => inMonth(item.dueAt) || inMonth(item.submission?.submittedAt));
+    const monthAttendance = snapshot.attendance.filter((item) => inMonth(item.date));
+    const attended = monthAttendance.filter((item) => ['PRESENT', 'LATE', 'ONLINE'].includes(item.status)).length;
+    const previousScores = snapshot.scores.filter((item) => String(item.recordedAt || '').slice(0, 7) < range.month).slice(0, 5);
+    const average = graded.length ? graded.reduce((sum, item) => sum + Number(item.score) / Number(item.maxScore || 10) * 10, 0) / graded.length : null;
+    const previousAverage = previousScores.length ? previousScores.reduce((sum, item) => sum + Number(item.score) / Number(item.maxScore || 10) * 10, 0) / previousScores.length : null;
+    return { month: range.month, student: snapshot.student, classInfo: snapshot.classInfo, scores: graded, assignments: monthAssignments, attendance: monthAttendance, skills: snapshot.skills, notes: snapshot.notes.filter((note) => inMonth(note.createdAt)), trend: snapshot.scores.slice(0, 6).reverse(), metrics: { average: average === null ? null : Number(average.toFixed(2)), change: average !== null && previousAverage !== null ? Number((average - previousAverage).toFixed(2)) : null, attendanceRate: monthAttendance.length ? Math.round(attended * 100 / monthAttendance.length) : null, attended, totalAttendance: monthAttendance.length, submitted: monthAssignments.filter((item) => ['SUBMITTED', 'LATE', 'GRADED'].includes(item.submission.status)).length, totalAssignments: monthAssignments.length, late: monthAssignments.filter((item) => item.submission.status === 'LATE').length } };
+  }
+
+  const [studentResult, classResult, scoreResult, attendanceResult, assignmentResult, skillResult, noteResult, trendResult] = await Promise.all([
+    pool.query(`SELECT s.id,s.full_name AS "fullName",s.school,s.school_class AS "schoolClass",COALESCE(sp.average_score,0)::float AS "averageScore",COALESCE(sp.attendance_rate,0)::float AS "attendanceRate" FROM students s LEFT JOIN student_progress_summary sp ON sp.student_id=s.id WHERE s.id=$1`, [studentId]),
+    pool.query(`SELECT c.id,c.name,g.grade_no AS grade,c.school_year AS "schoolYear",c.schedule_text AS schedule FROM class_students cs JOIN classes c ON c.id=cs.class_id JOIN grades g ON g.id=c.grade_id WHERE cs.student_id=$1 AND cs.status='ACTIVE' ORDER BY c.id LIMIT 1`, [studentId]),
+    pool.query(`SELECT id,title,category,score::float AS score,max_score::float AS "maxScore",recorded_at AS "recordedAt" FROM student_scores WHERE student_id=$1 AND recorded_at >= $2::date AND recorded_at < $3::date ORDER BY recorded_at DESC`, [studentId, range.start, range.end]),
+    pool.query(`SELECT date,status,topic,note FROM (SELECT cs.session_date AS date,a.status,cs.topic,COALESCE(a.note,'') AS note FROM session_attendance a JOIN class_sessions cs ON cs.id=a.session_id WHERE a.student_id=$1 UNION ALL SELECT attendance_date,status,NULL::varchar,' ' FROM attendance_records WHERE student_id=$1) x WHERE date >= $2::date AND date < $3::date ORDER BY date DESC`, [studentId, range.start, range.end]),
+    pool.query(`SELECT a.id,a.title,a.due_at AS "dueAt",COALESCE(a.max_score,10)::float AS "maxScore",COALESCE(s.status,'NOT_STARTED') AS status,s.score::float AS score,s.submitted_at AS "submittedAt" FROM assignments a JOIN class_students cs ON cs.class_id=a.class_id AND cs.student_id=$1 AND cs.status='ACTIVE' LEFT JOIN assignment_submissions s ON s.assignment_id=a.id AND s.student_id=$1 WHERE a.status='PUBLISHED' AND ((a.due_at >= $2::timestamptz AND a.due_at < $3::timestamptz) OR (s.submitted_at >= $2::timestamptz AND s.submitted_at < $3::timestamptz)) ORDER BY a.due_at`, [studentId, range.start, range.end]),
+    pool.query(`SELECT skill,score::float AS score FROM student_skills WHERE student_id=$1 ORDER BY score`, [studentId]),
+    pool.query(`SELECT n.id,n.note,n.category,n.created_at AS "createdAt",n.author_name AS author FROM teacher_notes n WHERE n.student_id=$1 AND n.is_parent_visible=TRUE AND n.created_at >= $2::date AND n.created_at < $3::date ORDER BY n.created_at DESC`, [studentId, range.start, range.end]),
+    pool.query(`SELECT id,title,category,score::float AS score,max_score::float AS "maxScore",recorded_at AS "recordedAt" FROM student_scores WHERE student_id=$1 ORDER BY recorded_at DESC LIMIT 6`, [studentId]),
+  ]);
+  const scores = scoreResult.rows; const attendance = attendanceResult.rows; const assignments = assignmentResult.rows.map((item) => ({ ...item, submission: { status: item.status, score: item.score, submittedAt: item.submittedAt } }));
+  const average = scores.length ? scores.reduce((sum, item) => sum + Number(item.score) / Number(item.maxScore || 10) * 10, 0) / scores.length : null;
+  const attended = attendance.filter((item) => ['PRESENT', 'LATE', 'ONLINE'].includes(item.status)).length;
+  return { month: range.month, student: studentResult.rows[0], classInfo: classResult.rows[0] || null, scores, attendance, assignments, skills: skillResult.rows, notes: noteResult.rows, trend: trendResult.rows.reverse(), metrics: { average: average === null ? null : Number(average.toFixed(2)), change: null, attendanceRate: attendance.length ? Math.round(attended * 100 / attendance.length) : null, attended, totalAttendance: attendance.length, submitted: assignments.filter((item) => ['SUBMITTED', 'LATE', 'GRADED'].includes(item.submission.status)).length, totalAssignments: assignments.length, late: assignments.filter((item) => item.submission.status === 'LATE').length } };
+}
+
+async function getParentNotificationReads(parentUserId) {
+  if (env.demo.enabled) return new Set((demoStore.parentNotificationReads || []).filter((item) => item.parentUserId === Number(parentUserId)).map((item) => item.notificationKey));
+  const { rows } = await pool.query('SELECT notification_key AS "notificationKey" FROM parent_notification_reads WHERE parent_user_id=$1', [parentUserId]);
+  return new Set(rows.map((row) => row.notificationKey));
+}
+
+async function markParentNotificationRead(parentUserId, notificationKey) {
+  if (env.demo.enabled) {
+    demoStore.parentNotificationReads = demoStore.parentNotificationReads || [];
+    if (!demoStore.parentNotificationReads.some((item) => item.parentUserId === Number(parentUserId) && item.notificationKey === notificationKey)) demoStore.parentNotificationReads.push({ parentUserId: Number(parentUserId), notificationKey });
+    return true;
+  }
+  await pool.query('INSERT INTO parent_notification_reads(parent_user_id,notification_key) VALUES($1,$2) ON CONFLICT DO NOTHING', [parentUserId, notificationKey]);
+  return true;
+}
+
+module.exports = { getStudentIdByUserId, getStudentSnapshot, getChildrenByParentUserId, getParentReport, getParentNotificationReads, markParentNotificationRead };

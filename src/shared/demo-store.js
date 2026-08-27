@@ -48,6 +48,7 @@ const demoStore = {
     { parentUserId: 3, studentId: 3, relationship: 'Bố/Mẹ' },
     { parentUserId: 3, studentId: 5, relationship: 'Bố/Mẹ' },
   ],
+  parentNotificationReads: [],
   lessons: [
     { id: 1, classId: 1, unitName: 'Unit 1', title: 'My New School', summary: 'Từ vựng trường học, giới thiệu bản thân và cấu trúc hiện tại đơn.', content: 'Ôn từ vựng về trường học, luyện giới thiệu lớp học và thực hành Present Simple.', status: 'PUBLISHED', sortOrder: 1, publishedAt: '2026-08-18T08:00:00+07:00' },
     { id: 2, classId: 2, unitName: 'Unit 2', title: 'Healthy Living', summary: 'Past Simple, thói quen tốt và luyện nghe.', content: 'Học sinh luyện Past Simple qua tình huống cuối tuần, sau đó nghe đoạn hội thoại về healthy habits.', status: 'PUBLISHED', sortOrder: 2, publishedAt: '2026-08-20T08:00:00+07:00' },

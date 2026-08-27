@@ -1,5 +1,46 @@
 # Changelog
 
+## v0.12.0 - Readable Parent Notifications
+
+### Parent Portal
+- Lưu trạng thái đã đọc của thông báo theo từng tài khoản phụ huynh.
+- Thêm số lượng thông báo chưa đọc và trạng thái hiển thị đã đọc.
+- Thêm thao tác đánh dấu thông báo đã đọc có bảo vệ CSRF.
+
+### Database
+- Thêm bảng `parent_notification_reads` và index theo phụ huynh.
+- Thêm migration `db/neon_upgrade_v0.12.0.sql`.
+
+### Quality
+- Thêm test cho vòng đời unread/read và validation notification key.
+
+## v0.11.0 - Parent Notifications
+
+### Parent Portal
+- Thêm trung tâm thông báo tại `/parent/notifications`.
+- Sinh thông báo cho điểm mới, nhận xét, bài sắp hạn, bài nộp trễ và chuyên cần bất thường.
+- Giới hạn dữ liệu theo quan hệ `parent_students`.
+- Thêm test quyền truy cập và dữ liệu thông báo phụ huynh.
+
+## v0.10.0 - Parent Report Export
+
+### Parent Portal
+- Thêm nút in báo cáo và lưu PDF bằng print stylesheet của trình duyệt.
+- Ẩn sidebar, navbar và bộ lọc khi in để báo cáo phù hợp khổ giấy.
+- Bổ sung thông tin lớp học trong báo cáo PostgreSQL.
+
+## v0.9.0 - Parent Reports
+
+### Parent Portal
+- Thêm báo cáo học tập theo tháng tại `/parent/reports`.
+- Thêm KPI điểm, chuyên cần, bài tập và kỹ năng cần ưu tiên.
+- Thêm xu hướng điểm, bảng bài tập, chuyên cần và nhận xét giáo viên.
+- Hỗ trợ lọc tháng và chọn nhiều người con.
+- Thêm xuất CSV báo cáo qua `/parent/reports.csv`.
+
+### Quality
+- Thêm test cho monthly report và parent-child authorization.
+
 ## v0.8.0 - Security & Navigation
 
 ### Security

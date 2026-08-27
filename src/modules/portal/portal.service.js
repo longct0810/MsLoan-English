@@ -60,4 +60,40 @@ async function getParentPortal(parentUserId, requestedStudentId) {
   return { children, selected: children.find((c) => Number(c.id) === selectedId), snapshot };
 }
 
-module.exports = { getStudentPortal, getParentPortal };
+async function getParentReport(parentUserId, requestedStudentId, month) {
+  const children = await repo.getChildrenByParentUserId(parentUserId);
+  if (!children.length) return { children: [], selected: null, report: null };
+  const allowedIds = new Set(children.map((child) => Number(child.id)));
+  const selectedId = allowedIds.has(Number(requestedStudentId)) ? Number(requestedStudentId) : Number(children[0].id);
+  return { children, selected: children.find((child) => Number(child.id) === selectedId), report: await repo.getParentReport(selectedId, month) };
+}
+
+async function getParentNotifications(parentUserId, requestedStudentId) {
+  const children = await repo.getChildrenByParentUserId(parentUserId);
+  if (!children.length) return { children: [], selected: null, notifications: [] };
+  const allowedIds = new Set(children.map((child) => Number(child.id)));
+  const selectedId = allowedIds.has(Number(requestedStudentId)) ? Number(requestedStudentId) : Number(children[0].id);
+  const snapshot = enrich(await repo.getStudentSnapshot(selectedId));
+  if (!snapshot) return { children, selected: children.find((child) => Number(child.id) === selectedId), notifications: [] };
+  snapshot.notes = snapshot.notes.filter((note) => note.isParentVisible !== false);
+  const now = Date.now();
+  const notifications = [];
+  snapshot.assignments.filter((item) => item.submission.status === 'LATE').forEach((item) => notifications.push({ type: 'warning', title: 'Bài tập được nộp trễ', body: `${item.title} của ${snapshot.student.fullName} đã được nộp trễ.`, date: item.submission.submittedAt || item.dueAt, href: '/parent/reports' }));
+  snapshot.assignments.filter((item) => item.submission.status === 'NOT_STARTED' && item.dueAt && new Date(item.dueAt).getTime() >= now && new Date(item.dueAt).getTime() - now <= 7 * 86400000).forEach((item) => notifications.push({ type: 'info', title: 'Bài tập sắp đến hạn', body: `${item.title} còn hạn đến ${new Date(item.dueAt).toLocaleDateString('vi-VN')}.`, date: item.dueAt, href: '/parent/reports' }));
+  snapshot.scores.slice(0, 5).forEach((item) => notifications.push({ type: 'success', title: 'Có điểm mới', body: `${item.title}: ${item.score}/${item.maxScore || 10}.`, date: item.recordedAt, href: '/parent/progress' }));
+  snapshot.notes.slice(0, 5).forEach((item) => notifications.push({ type: 'note', title: 'Nhận xét mới từ giáo viên', body: item.note, date: item.createdAt, href: '/parent/progress' }));
+  snapshot.attendance.filter((item) => ['ABSENT', 'ABSENT_EXCUSED', 'LATE'].includes(item.status)).slice(0, 5).forEach((item) => notifications.push({ type: 'warning', title: 'Cập nhật chuyên cần', body: `${snapshot.student.fullName}: ${attendanceMeta(item.status).label} ngày ${new Date(item.date).toLocaleDateString('vi-VN')}.`, date: item.date, href: '/parent/progress' }));
+  notifications.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+  const reads = await repo.getParentNotificationReads(parentUserId);
+  const visible = notifications.slice(0, 20).map((item) => ({ ...item, key: `${item.type}:${item.date}:${item.title}:${item.body}`.slice(0, 500) }));
+  visible.forEach((item) => { item.isRead = reads.has(item.key); });
+  return { children, selected: children.find((child) => Number(child.id) === selectedId), notifications: visible, unreadCount: visible.filter((item) => !item.isRead).length };
+}
+
+async function markParentNotificationRead(parentUserId, notificationKey) {
+  const key = String(notificationKey || '').trim();
+  if (!key || key.length > 500) throw new Error('INVALID_NOTIFICATION');
+  return repo.markParentNotificationRead(parentUserId, key);
+}
+
+module.exports = { getStudentPortal, getParentPortal, getParentReport, getParentNotifications, markParentNotificationRead };

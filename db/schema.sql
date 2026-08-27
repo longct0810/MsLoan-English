@@ -140,6 +140,16 @@ CREATE INDEX IF NOT EXISTS idx_parent_students_parent ON parent_students(parent_
 CREATE INDEX IF NOT EXISTS idx_student_scores_student ON student_scores(student_id, recorded_at DESC);
 CREATE INDEX IF NOT EXISTS idx_materials_class ON materials(class_id, published_at DESC);
 
+CREATE TABLE IF NOT EXISTS parent_notification_reads (
+  parent_user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  notification_key VARCHAR(500) NOT NULL,
+  read_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (parent_user_id, notification_key)
+);
+
+CREATE INDEX IF NOT EXISTS idx_parent_notification_reads_parent
+  ON parent_notification_reads(parent_user_id, read_at DESC);
+
 
 -- v0.3.0 - Class sessions, attendance and session-linked student notes.
 CREATE TABLE IF NOT EXISTS class_sessions (

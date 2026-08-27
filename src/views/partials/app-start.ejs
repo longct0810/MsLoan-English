@@ -44,6 +44,8 @@
       <% if (isParent) { %>
         <a class="nav-link <%= currentPath === '/parent' ? 'active' : '' %>" href="/parent">Tổng quan</a>
         <a class="nav-link <%= currentPath.startsWith('/parent/progress') ? 'active' : '' %>" href="/parent/progress">Kết quả học tập</a>
+        <a class="nav-link <%= currentPath.startsWith('/parent/reports') ? 'active' : '' %>" href="/parent/reports">Báo cáo học tập</a>
+        <a class="nav-link <%= currentPath.startsWith('/parent/notifications') ? 'active' : '' %>" href="/parent/notifications">Thông báo</a>
         <a class="nav-link disabled" href="#">Thông báo <span class="badge text-bg-light ms-auto">Soon</span></a>
       <% } %>
     </nav>
@@ -102,6 +104,8 @@
           <% if (isParent) { %>
             <a class="nav-link" href="/parent">Tổng quan</a>
             <a class="nav-link" href="/parent/progress">Kết quả học tập</a>
+            <a class="nav-link <%= currentPath.startsWith('/parent/reports') ? 'active' : '' %>" href="/parent/reports">Báo cáo học tập</a>
+            <a class="nav-link <%= currentPath.startsWith('/parent/notifications') ? 'active' : '' %>" href="/parent/notifications">Thông báo</a>
           <% } %>
         </div>
         <hr>

@@ -1,4 +1,4 @@
-# English Classroom MVP v0.8.0
+# English Classroom MVP v0.12.0
 
 Website responsive quản lý lớp học tiếng Anh dành cho giáo viên, học viên và phụ huynh.
 
@@ -10,7 +10,7 @@ Website responsive quản lý lớp học tiếng Anh dành cho giáo viên, h�
 - `pg`, `bcryptjs`, `express-session`, `connect-pg-simple`
 - ExcelJS + Multer cho import Question Bank
 
-## Chức năng chính đến v0.8.0
+## Chức năng chính đến v0.12.0
 
 ### Teacher Portal
 - Dashboard.
@@ -42,6 +42,29 @@ Website responsive quản lý lớp học tiếng Anh dành cho giáo viên, h�
 - Exam chỉ cho phép chọn question bank thuộc phạm vi của actor.
 - Navigation được nhóm theo lớp học và nội dung/đánh giá, có trạng thái active trên mobile.
 - `npm test` kiểm tra các lớp bảo mật nền tảng.
+
+### Báo cáo phụ huynh v0.9.0
+- Báo cáo học tập theo tháng tại `/parent/reports`.
+- KPI điểm trung bình, chuyên cần, bài đã nộp và kỹ năng cần ưu tiên.
+- Xu hướng điểm, phân tích bài tập, chuyên cần và nhận xét giáo viên.
+- Lọc theo tháng và chọn từng người con trong tài khoản phụ huynh.
+- Xuất báo cáo CSV tương thích Excel tại `/parent/reports.csv`.
+- In báo cáo hoặc lưu thành PDF trực tiếp từ trình duyệt.
+
+### Thông báo phụ huynh v0.11.0
+- Trung tâm thông báo tại `/parent/notifications`.
+- Cảnh báo bài sắp hạn, bài nộp trễ và cập nhật chuyên cần.
+- Thông báo điểm mới và nhận xét giáo viên.
+- Nội dung được giới hạn theo người con đã liên kết với tài khoản phụ huynh.
+- Có thể đánh dấu từng thông báo là đã đọc.
+
+Migration PostgreSQL cho v0.12.0:
+
+```text
+db/neon_upgrade_v0.12.0.sql
+```
+
+Để lưu PDF, mở `/parent/reports`, chọn tháng rồi nhấn `In / PDF` và chọn máy in `Save to PDF`.
 
 ## Luồng tạo học viên v0.7.0
 
