@@ -54,7 +54,7 @@ async function fetchText(url, { timeoutMs = 15000, retries = 2, maxBytes = 10 * 
         redirect: 'follow',
         signal: controller.signal,
         headers: {
-          'user-agent': 'English-Classroom/0.21.1 Google-Sheets-Sync',
+          'user-agent': 'English-Classroom/0.21.2 Google-Sheets-Sync',
           accept: 'text/csv,text/plain;q=0.9,*/*;q=0.1',
         },
       });
@@ -87,13 +87,34 @@ function vietnamToday() {
   return now.toISOString().slice(0, 10);
 }
 
+function normalizeDateOnly(value) {
+  if (value == null || value === '') return null;
+
+  if (value instanceof Date) {
+    if (Number.isNaN(value.getTime())) return null;
+    return value.toISOString().slice(0, 10);
+  }
+
+  const text = String(value).trim();
+  const isoMatch = text.match(/^(\d{4}-\d{2}-\d{2})(?:$|[T\s])/);
+  if (isoMatch) return isoMatch[1];
+
+  const parsed = new Date(text);
+  if (!Number.isNaN(parsed.getTime())) return parsed.toISOString().slice(0, 10);
+  return null;
+}
+
 function isDateAllowed(source, observedOn) {
   if (!observedOn) return { allowed: false, warning: 'Cột dữ liệu không xác định được ngày.' };
-  if (source.import_from_date && observedOn < String(source.import_from_date).slice(0, 10)) {
-    return { allowed: false, warning: `Ngày ${observedOn} trước giới hạn import_from_date.` };
+
+  const importFromDate = normalizeDateOnly(source.import_from_date);
+  const importToDate = normalizeDateOnly(source.import_to_date);
+
+  if (importFromDate && observedOn < importFromDate) {
+    return { allowed: false, warning: `Ngày ${observedOn} trước giới hạn import_from_date (${importFromDate}).` };
   }
-  if (source.import_to_date && observedOn > String(source.import_to_date).slice(0, 10)) {
-    return { allowed: false, warning: `Ngày ${observedOn} sau giới hạn import_to_date.` };
+  if (importToDate && observedOn > importToDate) {
+    return { allowed: false, warning: `Ngày ${observedOn} sau giới hạn import_to_date (${importToDate}).` };
   }
 
   const settings = source.settings || {};
@@ -555,5 +576,6 @@ module.exports = {
   fetchText,
   sha256,
   isDateAllowed,
+  normalizeDateOnly,
   buildStudentMatcher,
 };
