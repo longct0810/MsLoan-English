@@ -5,6 +5,7 @@ const { requireRole, requireApiRole } = require('../../middleware/auth.middlewar
 const web = express.Router();
 web.get('/students', requireRole('TEACHER', 'ADMIN'), controller.index);
 web.get('/students/new', requireRole('TEACHER', 'ADMIN'), controller.newForm);
+web.get('/students/:id', requireRole('TEACHER', 'ADMIN'), controller.detail);
 web.post('/students', requireRole('TEACHER', 'ADMIN'), controller.create);
 web.get('/students/:id/edit', requireRole('TEACHER', 'ADMIN'), controller.editForm);
 web.post('/students/:id', requireRole('TEACHER', 'ADMIN'), controller.update);

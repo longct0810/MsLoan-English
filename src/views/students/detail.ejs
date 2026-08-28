@@ -1,0 +1,49 @@
+<%- include('../partials/app-start', { title }) %>
+<%
+  const metric=(value,suffix='')=>(value===null||value===undefined?'—':`${value}${suffix}`);
+  const norm=(score,maxScore)=>Number(maxScore)>0?Math.round((Number(score)/Number(maxScore))*1000)/100:null;
+  const attended=detail.attendance.filter(item=>['PRESENT','LATE','ONLINE'].includes(item.status)).length;
+  const attendanceRate=detail.attendance.length?Math.round(attended/detail.attendance.length*1000)/10:null;
+  const scoreValues=detail.scores.map(item=>Number(item.maxScore)>0?Number(item.score)/Number(item.maxScore)*10:null).filter(Number.isFinite);
+  const avgScore=scoreValues.length?Math.round(scoreValues.reduce((a,b)=>a+b,0)/scoreValues.length*10)/10:null;
+%>
+<div class="d-flex flex-column flex-lg-row justify-content-between gap-3 mb-4">
+  <div><div class="eyebrow">Hồ sơ học tập · <%= detail.month %></div><h1 class="h3 mb-1"><%= detail.student.fullName %></h1><div class="text-secondary"><%= detail.classInfo.name %> · Khối <%= detail.classInfo.grade %><% if(detail.student.school){ %> · <%= detail.student.school %><% } %></div></div>
+  <div class="d-flex gap-2 flex-wrap"><a class="btn btn-light" href="/students">← Học viên</a><a class="btn btn-outline-primary" href="/students/<%= detail.student.id %>/edit">Sửa hồ sơ</a></div>
+</div>
+<div class="card app-card mb-4"><div class="card-body"><form method="get" class="row g-2 align-items-end">
+  <div class="col-md-5"><label class="form-label small text-secondary">Lớp</label><select class="form-select" name="classId"><% detail.availableClasses.forEach(c=>{ %><option value="<%= c.id %>" <%= Number(c.id)===Number(detail.classInfo.id)?'selected':'' %>><%= c.name %></option><% }) %></select></div>
+  <div class="col-md-3"><label class="form-label small text-secondary">Tháng</label><input type="month" class="form-control" name="month" value="<%= detail.month %>"></div>
+  <div class="col-auto"><button class="btn btn-primary">Xem</button></div>
+</form></div></div>
+<div class="row g-3 mb-4">
+  <div class="col-6 col-lg-3"><div class="metric-card"><div class="metric-label">Điểm TB</div><div class="metric-value"><%= metric(avgScore) %></div><div class="metric-meta">Thang 10 · <%= detail.scores.length %> đầu điểm</div></div></div>
+  <div class="col-6 col-lg-3"><div class="metric-card"><div class="metric-label">Chuyên cần</div><div class="metric-value"><%= metric(attendanceRate,'%') %></div><div class="metric-meta"><%= attended %>/<%= detail.attendance.length %> lượt</div></div></div>
+  <div class="col-6 col-lg-3"><div class="metric-card"><div class="metric-label">Kỹ năng có dữ liệu</div><div class="metric-value"><%= detail.skills.length %></div><div class="metric-meta">Từ lịch sử đánh giá</div></div></div>
+  <div class="col-6 col-lg-3"><div class="metric-card"><div class="metric-label">Bài tập / test</div><div class="metric-value"><%= detail.assignments.length + detail.exams.length %></div><div class="metric-meta">Trong tháng</div></div></div>
+</div>
+<div class="row g-4">
+  <div class="col-xl-8">
+    <div class="card app-card mb-4"><div class="card-header"><strong>Điểm số</strong></div><div class="table-responsive"><table class="table align-middle mb-0"><thead><tr><th>Ngày</th><th>Nội dung</th><th>Nhóm</th><th>Nguồn</th><th>Điểm</th><th>/10</th></tr></thead><tbody>
+      <% if(!detail.scores.length){ %><tr><td colspan="6" class="text-center text-secondary py-4">Chưa có điểm trong tháng.</td></tr><% } %>
+      <% detail.scores.forEach(item=>{ %><tr><td><%= new Date(item.recordedAt).toLocaleDateString('vi-VN') %></td><td class="fw-semibold"><%= item.title %></td><td><%= item.category||'—' %></td><td><span class="badge bg-light text-dark border"><%= item.sourceType==='GOOGLE_SHEETS'?'Google Sheets':(item.sourceType||'Ứng dụng') %></span></td><td><%= item.score %>/<%= item.maxScore %></td><td><%= metric(norm(item.score,item.maxScore)) %></td></tr><% }) %>
+    </tbody></table></div></div>
+    <div class="card app-card"><div class="card-header"><strong>Chuyên cần</strong></div><div class="table-responsive"><table class="table align-middle mb-0"><thead><tr><th>Ngày</th><th>Buổi học</th><th>Trạng thái</th><th>Ghi chú</th></tr></thead><tbody>
+      <% if(!detail.attendance.length){ %><tr><td colspan="4" class="text-center text-secondary py-4">Chưa có dữ liệu chuyên cần.</td></tr><% } %>
+      <% detail.attendance.forEach(item=>{ %><tr><td><%= new Date(item.date).toLocaleDateString('vi-VN') %></td><td><%= item.topic||'—' %></td><td><%= item.status %></td><td><%= item.note||'—' %></td></tr><% }) %>
+    </tbody></table></div></div>
+  </div>
+  <div class="col-xl-4">
+    <div class="card app-card mb-4"><div class="card-header"><strong>Kỹ năng</strong></div><div class="card-body">
+      <% if(!detail.skills.length){ %><div class="text-secondary">Chưa có dữ liệu kỹ năng trong tháng.</div><% } %>
+      <% detail.skills.forEach(item=>{ const trend=item.trend==null?null:Number(item.trend); %><div class="skill-row mb-3"><div class="d-flex justify-content-between"><span class="fw-semibold"><%= item.skill %></span><span><%= Number(item.score).toFixed(1) %>/10</span></div><div class="progress skill-progress my-1"><div class="progress-bar" style="width:<%= Math.max(0,Math.min(100,Number(item.score)*10)) %>%"></div></div><div class="small text-secondary"><%= item.eventCount %> lần<% if(trend!==null){ %> · <span class="<%= trend>0?'text-success':trend<0?'text-danger':'' %>"><%= trend>0?'↑':trend<0?'↓':'→' %> <%= Math.abs(trend).toFixed(1) %></span><% } %><% if(item.sources&&item.sources.length){ %> · <%= item.sources.map(x=>x==='EXTERNAL'?'Google Sheets':x).join(', ') %><% } %></div></div><% }) %>
+    </div></div>
+    <div class="card app-card mb-4"><div class="card-header"><strong>Bài tập & kiểm tra</strong></div><div class="card-body p-0">
+      <% if(!detail.assignments.length&&!detail.exams.length){ %><div class="p-4 text-secondary">Chưa có dữ liệu.</div><% } %>
+      <% detail.assignments.forEach(item=>{ %><div class="portal-list-item"><div class="fw-semibold"><%= item.title %></div><div class="small text-secondary">Bài tập · <%= item.submission.status %></div><div><%= item.submission.score==null?'Chưa có điểm':`${item.submission.score}/${item.maxScore}` %></div></div><% }) %>
+      <% detail.exams.forEach(item=>{ %><div class="portal-list-item"><div class="fw-semibold"><%= item.title %></div><div class="small text-secondary">Bài kiểm tra · <%= item.status %></div><div><%= item.score==null?'Chưa có điểm':`${item.score}/${item.maxScore}` %></div></div><% }) %>
+    </div></div>
+    <div class="card app-card"><div class="card-header"><strong>Nhận xét</strong></div><div class="card-body"><% if(!detail.notes.length){ %><div class="text-secondary">Chưa có nhận xét.</div><% } %><% detail.notes.forEach(item=>{ %><div class="quote-note mb-3"><%= item.note %><div class="small text-secondary mt-1"><%= new Date(item.createdAt).toLocaleDateString('vi-VN') %></div></div><% }) %></div></div>
+  </div>
+</div>
+<%- include('../partials/app-end') %>

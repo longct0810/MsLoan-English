@@ -454,7 +454,7 @@ function createGoogleSheetRepository(pool) {
           observed_on=EXCLUDED.observed_on,
           title=EXCLUDED.title,
           assessment_type=EXCLUDED.assessment_type,
-          skill_code=COALESCE(EXCLUDED.skill_code,external_assessments.skill_code),
+          skill_code=CASE WHEN external_assessments.metadata->>'skill_source'='MANUAL' THEN external_assessments.skill_code ELSE COALESCE(EXCLUDED.skill_code,external_assessments.skill_code) END,
           raw_max_score=COALESCE(EXCLUDED.raw_max_score,external_assessments.raw_max_score),
           normalized_max_score=EXCLUDED.normalized_max_score,
           source_column_start=EXCLUDED.source_column_start,
@@ -667,6 +667,88 @@ function createGoogleSheetRepository(pool) {
         `, [classId, teacherId]),
       ]);
       return { exams: exams.rows, assignments: assignments.rows };
+    },
+
+
+    async listSkills() {
+      const { rows } = await pool.query(`SELECT code,label,sort_order AS "sortOrder" FROM skills WHERE is_active=TRUE ORDER BY sort_order,code`);
+      return rows;
+    },
+
+    async manualSetAssessmentSkill({ sourceId, assessmentId, teacherId, skillCode = null }) {
+      const raw=String(skillCode ?? '').trim().toUpperCase();
+      const autoMode=raw==='__AUTO__';
+      const normalized=autoMode?null:(raw==='__NONE__'||raw===''?null:raw);
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
+        const { rows: ownedRows } = await client.query(`
+          SELECT a.id,a.class_id,a.skill_code,a.assessment_type,a.metadata
+            FROM external_assessments a
+            JOIN external_data_sources s ON s.id=a.source_id
+           WHERE a.id=$1 AND a.source_id=$2 AND s.teacher_id=$3
+           LIMIT 1
+        `,[assessmentId,sourceId,teacherId]);
+        const owned=ownedRows[0];
+        if(!owned) throw new Error('Không tìm thấy bài kiểm tra nguồn hoặc bạn không có quyền cập nhật.');
+        if(normalized){
+          const {rows:skillRows}=await client.query(`SELECT code FROM skills WHERE code=$1 AND is_active=TRUE LIMIT 1`,[normalized]);
+          if(!skillRows[0]) throw new Error('Kỹ năng không hợp lệ.');
+        }
+
+        // Remove the previously-derived external skill event before changing the mapping.
+        // The forced next sync will recreate it with the new/auto-detected skill when applicable.
+        if(owned.skill_code){
+          await client.query(`
+            DELETE FROM student_skill_events e
+             USING external_assessment_results ar
+             WHERE ar.assessment_id=$1
+               AND ar.student_id IS NOT NULL
+               AND e.student_id=ar.student_id
+               AND e.class_id=$2
+               AND e.source_type='EXTERNAL'
+               AND e.skill_code=$3
+               AND e.source_id=COALESCE(ar.primary_observation_id,ar.id)
+          `,[assessmentId,owned.class_id,owned.skill_code]);
+        }
+
+        let rows;
+        if(autoMode){
+          ({rows}=await client.query(`
+            UPDATE external_assessments
+               SET skill_code=NULL,
+                   metadata=(metadata - 'skill_source' - 'manual_skill_code'),
+                   updated_at=NOW()
+             WHERE id=$1 AND source_id=$2
+             RETURNING *
+          `,[assessmentId,sourceId]));
+        }else{
+          ({rows}=await client.query(`
+            UPDATE external_assessments
+               SET skill_code=$3,
+                   metadata=metadata || jsonb_build_object('skill_source','MANUAL','manual_skill_code',$3),
+                   updated_at=NOW()
+             WHERE id=$1 AND source_id=$2
+             RETURNING *
+          `,[assessmentId,sourceId,normalized]));
+        }
+
+        await client.query(`
+          UPDATE student_scores ss
+             SET category=COALESCE($2,$3)
+            FROM external_assessment_results ar
+           WHERE ar.assessment_id=$1
+             AND ar.student_id=ss.student_id
+             AND ss.source_type='GOOGLE_SHEETS'
+             AND ss.source_ref=CASE WHEN ar.primary_observation_id IS NOT NULL THEN 'external-observation:'||ar.primary_observation_id::text ELSE 'external-assessment-result:'||ar.id::text END
+        `,[assessmentId,autoMode?null:normalized,owned.assessment_type||'GOOGLE_SHEETS']);
+        await client.query(`UPDATE external_data_sources SET last_content_hash=NULL,updated_at=NOW() WHERE id=$1 AND teacher_id=$2`,[sourceId,teacherId]);
+        await client.query('COMMIT');
+        return rows[0];
+      } catch(error){
+        try{await client.query('ROLLBACK');}catch{}
+        throw error;
+      } finally { client.release(); }
     },
 
     async manualLinkAssessment({ sourceId, assessmentId, teacherId, mappingType, targetId = null }) {

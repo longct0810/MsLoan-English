@@ -471,6 +471,8 @@ CREATE INDEX IF NOT EXISTS idx_student_skill_events_student_date
   ON student_skill_events(student_id,skill_code,recorded_at DESC);
 CREATE INDEX IF NOT EXISTS idx_student_skill_events_class_date
   ON student_skill_events(class_id,skill_code,recorded_at DESC) WHERE class_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_student_skill_events_student_class_skill_date
+  ON student_skill_events(student_id,class_id,skill_code,recorded_at DESC,id DESC);
 
 -- Preserve the old student_skills data as an initial baseline.
 INSERT INTO student_skill_events(student_id,class_id,skill_code,source_type,source_id,score,max_score,weight,recorded_at)

@@ -18,6 +18,18 @@ async function index(req, res, next) {
   } catch (error) { next(error); }
 }
 
+
+async function detail(req, res, next) {
+  try {
+    const detailData = await service.getLearningProfile(req.params.id, req.query, req.session.user.id, req.session.user.role === 'ADMIN');
+    if (!detailData) return res.status(404).render('errors/404', { title: 'Không tìm thấy hồ sơ học viên' });
+    return res.render('students/detail', { title: `Hồ sơ - ${detailData.student.fullName}`, detail: detailData });
+  } catch (error) {
+    if (error.message === 'CLASS_NOT_FOUND') return res.status(403).render('errors/403', { title: 'Không có quyền truy cập' });
+    return next(error);
+  }
+}
+
 async function newForm(req, res, next) {
   try {
     const { classes } = await service.getFormData(null, req.session.user.id, req.session.user.role === 'ADMIN');
@@ -68,4 +80,4 @@ async function apiList(req, res, next) {
   catch (error) { next(error); }
 }
 
-module.exports = { index, newForm, create, editForm, update, remove, apiList };
+module.exports = { index, detail, newForm, create, editForm, update, remove, apiList };

@@ -17,6 +17,7 @@ function createGoogleSheetRoutes({ controller, requireAuth, requireTeacher }) {
   router.get('/:id/assessments/:assessmentId', controller.assessmentDetail);
   router.post('/:id/sync', controller.syncNow);
   router.post('/:id/assessments/:assessmentId/link', controller.linkAssessment);
+  router.post('/:id/assessments/:assessmentId/skill', controller.updateAssessmentSkill);
   router.post('/:id/student-links', controller.linkStudent);
 
   return router;

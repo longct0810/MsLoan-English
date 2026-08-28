@@ -1,6 +1,7 @@
 const env = require('../../config/env');
 const pool = require('../../config/db');
 const demoStore = require('../../shared/demo-store');
+const skillRepo = require('../skills/skill.repository');
 
 function idOf(value) {
   const id = Number(value);
@@ -339,8 +340,8 @@ async function getStudentDetail(actorUserId, isAdmin, studentIdValue, classIdVal
   if (!baseRows[0]) return null;
   const base = baseRows[0];
 
-  const [scores, assignments, exams, attendance, notes, teacherCount, skills] = await Promise.all([
-    pool.query(`SELECT id,title,category,score::float AS score,max_score::float AS "maxScore",recorded_at AS "recordedAt" FROM student_scores WHERE student_id=$1 AND class_id=$2 AND recorded_at >= $3::date AND recorded_at < $4::date ORDER BY recorded_at DESC,id DESC`, [studentId, classId, range.start, range.end]),
+  const [scores, assignments, exams, attendance, notes, skills] = await Promise.all([
+    pool.query(`SELECT id,title,category,score::float AS score,max_score::float AS "maxScore",recorded_at AS "recordedAt",source_type AS "sourceType",source_ref AS "sourceRef" FROM student_scores WHERE student_id=$1 AND class_id=$2 AND recorded_at >= $3::date AND recorded_at < $4::date ORDER BY recorded_at DESC,id DESC`, [studentId, classId, range.start, range.end]),
     pool.query(`
       SELECT a.id,a.title,a.type,a.due_at AS "dueAt",a.max_score::float AS "maxScore",
              COALESCE(sub.status,'NOT_STARTED') AS "submissionStatus",sub.score::float AS score,sub.submitted_at AS "submittedAt",COALESCE(sub.teacher_feedback,'') AS "teacherFeedback"
@@ -367,15 +368,8 @@ async function getStudentDetail(actorUserId, isAdmin, studentIdValue, classIdVal
        WHERE n.student_id=$1 AND sess.class_id=$2 AND n.created_at >= $3::date AND n.created_at < $4::date
        ORDER BY n.created_at DESC,n.id DESC
     `, [studentId, classId, range.start, range.end]),
-    pool.query(`
-      SELECT COUNT(DISTINCT c.teacher_id)::int AS count
-        FROM class_students cs JOIN classes c ON c.id=cs.class_id
-       WHERE cs.student_id=$1 AND cs.status='ACTIVE' AND c.deleted_at IS NULL AND c.status='ACTIVE' AND c.teacher_id IS NOT NULL
-    `, [studentId]),
-    pool.query(`SELECT skill,score::float AS score FROM student_skills WHERE student_id=$1 ORDER BY skill`, [studentId]),
+    skillRepo.getStudentSkillSummary(studentId,{classId,start:range.start,end:range.end}),
   ]);
-
-  const canShowSkills = Number(teacherCount.rows[0]?.count || 0) <= 1 || isAdmin;
   return {
     month: range.month,
     classInfo: { id: base.classId, name: base.className, grade: base.grade },
@@ -385,8 +379,8 @@ async function getStudentDetail(actorUserId, isAdmin, studentIdValue, classIdVal
     exams: exams.rows,
     attendance: attendance.rows,
     notes: notes.rows,
-    skills: canShowSkills ? skills.rows : [],
-    skillsScoped: canShowSkills,
+    skills,
+    skillsScoped: true,
   };
 }
 

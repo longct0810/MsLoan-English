@@ -1,5 +1,6 @@
 const repo = require('./student.repository');
 const classService = require('../classes/class.service');
+const reportService = require('../reports/report.service');
 
 function normalize(body) {
   return {
@@ -53,6 +54,23 @@ async function getFormData(id = null, actorUserId = null, isAdmin = false) {
   return { student, classes };
 }
 
+
+async function getLearningProfile(id, filters = {}, actorUserId = null, isAdmin = false) {
+  const { student, classes } = await getFormData(id, actorUserId, isAdmin);
+  if (!student) return null;
+  const studentClassIds = new Set((student.classIds || []).map(Number));
+  const availableClasses = classes.filter((item) => studentClassIds.has(Number(item.id)));
+  if (!availableClasses.length) return null;
+  const requestedClassId = Number(filters.classId || 0);
+  const selectedClass = availableClasses.find((item) => Number(item.id) === requestedClassId) || availableClasses[0];
+  const detail = await reportService.getStudentReport(actorUserId, isAdmin, id, {
+    classId: selectedClass.id,
+    month: filters.month,
+  });
+  if (!detail) return null;
+  return { ...detail, availableClasses };
+}
+
 async function createStudent(body, actorUserId, isAdmin = false) {
   const data = normalize(body);
   const errors = validate(data, { creating: true });
@@ -77,6 +95,7 @@ module.exports = {
   getStudents,
   getStudentPageData,
   getFormData,
+  getLearningProfile,
   createStudent,
   updateStudent,
   deleteStudent,

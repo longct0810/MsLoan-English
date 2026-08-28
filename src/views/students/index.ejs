@@ -38,6 +38,7 @@
             <td><span class="score-badge <%= s.averageScore >= 8 ? 'good' : s.averageScore < 7 ? 'warn' : '' %>"><%= s.averageScore %></span><div class="small text-secondary mt-1"><%= s.attendanceRate %>% chuyên cần</div></td>
             <td class="text-end">
               <div class="d-flex justify-content-end gap-1 flex-wrap">
+                <a class="btn btn-sm btn-primary" href="/students/<%= s.id %>?classId=<%= selectedClassId || ((s.classIds || [])[0] || '') %>">Xem</a>
                 <a class="btn btn-sm btn-outline-primary" href="/students/<%= s.id %>/edit">Sửa</a>
                 <form method="post" action="/students/<%= s.id %>/delete" onsubmit="return confirm('Xóa học viên này? Tài khoản học viên sẽ bị khóa, dữ liệu học tập vẫn được giữ lại.');">
                   <button class="btn btn-sm btn-outline-danger">Xóa</button>

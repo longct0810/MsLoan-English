@@ -1,4 +1,35 @@
 <%- include('../partials/app-start',{title}) %>
-<div class="d-flex flex-column flex-lg-row justify-content-between gap-3 mb-4"><div><h1 class="h3 mb-1">Theo dõi kỹ năng</h1><div class="text-secondary">Tổng hợp kỹ năng từ bài tập và bài kiểm tra đã chấm.</div></div><form class="d-flex gap-2" method="get"><select class="form-select" name="classId"><option value="">Tất cả lớp</option><% classes.forEach(c=>{ %><option value="<%= c.id %>" <%= Number(selectedClassId)===Number(c.id)?'selected':'' %>><%= c.name %></option><% }) %></select><button class="btn btn-primary">Lọc</button></form></div>
-<div class="card app-card"><div class="table-responsive"><table class="table align-middle mb-0"><thead><tr><th>Học viên</th><th>Lớp</th><% skills.forEach(sk=>{ %><th class="text-center"><%= sk.label %></th><% }) %></tr></thead><tbody><% students.forEach(st=>{ const map=new Map((st.skills||[]).map(x=>[String(x.skill).toUpperCase(),Number(x.score)])); %><tr><td class="fw-semibold"><%= st.fullName %></td><td><%= st.className %></td><% skills.forEach(sk=>{ const score=map.get(sk.code); %><td class="text-center"><%= Number.isFinite(score)?score.toFixed(1):'—' %></td><% }) %></tr><% }) %></tbody></table></div></div>
+<div class="d-flex flex-column flex-lg-row justify-content-between gap-3 mb-4">
+  <div>
+    <h1 class="h3 mb-1">Theo dõi kỹ năng</h1>
+    <div class="text-secondary">Tổng hợp trực tiếp từ lịch sử kỹ năng: Google Sheets, bài tập, bài kiểm tra và nhập tay.</div>
+  </div>
+  <form class="d-flex gap-2" method="get">
+    <select class="form-select" name="classId"><option value="">Tất cả lớp</option><% classes.forEach(c=>{ %><option value="<%= c.id %>" <%= Number(selectedClassId)===Number(c.id)?'selected':'' %>><%= c.name %></option><% }) %></select>
+    <button class="btn btn-primary">Lọc</button>
+  </form>
+</div>
+<div class="alert alert-light border small">Điểm kỹ năng được quy đổi về thang 10 và tính trung bình có trọng số từ <code>student_skill_events</code>. Mũi tên thể hiện chênh lệch giữa 2 lần đánh giá gần nhất trong cùng lớp.</div>
+<div class="card app-card"><div class="table-responsive"><table class="table align-middle mb-0">
+<thead><tr><th>Học viên</th><th>Lớp</th><% skills.forEach(sk=>{ %><th class="text-center"><%= sk.label %></th><% }) %></tr></thead>
+<tbody>
+<% if(!students.length){ %><tr><td colspan="<%= skills.length+2 %>" class="text-center text-secondary py-5">Chưa có học viên hoặc dữ liệu kỹ năng.</td></tr><% } %>
+<% students.forEach(st=>{ const map=new Map((st.skills||[]).map(x=>[String(x.code||x.skill).toUpperCase(),x])); %>
+<tr>
+  <td class="fw-semibold"><a class="text-decoration-none" href="/students/<%= st.id %>?classId=<%= st.classId %>"><%= st.fullName %></a></td>
+  <td><%= st.className %></td>
+  <% skills.forEach(sk=>{ const item=map.get(sk.code); const score=item?Number(item.score):NaN; const trend=item&&item.trend!=null?Number(item.trend):null; %>
+    <td class="text-center">
+      <% if(Number.isFinite(score)){ %>
+        <div class="fw-semibold"><%= score.toFixed(1) %></div>
+        <div class="small <%= trend>0?'text-success':trend<0?'text-danger':'text-secondary' %>">
+          <% if(trend!==null){ %><%= trend>0?'↑':trend<0?'↓':'→' %> <%= Math.abs(trend).toFixed(1) %><% } else { %>—<% } %>
+          · <%= item.eventCount || 0 %> lần
+        </div>
+      <% } else { %>—<% } %>
+    </td>
+  <% }) %>
+</tr>
+<% }) %>
+</tbody></table></div></div>
 <%- include('../partials/app-end') %>

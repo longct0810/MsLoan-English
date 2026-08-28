@@ -93,10 +93,11 @@ function createGoogleSheetController({ repository, service }) {
         if (!user?.id) return res.status(401).send('Unauthorized');
         const sourceId = Number(req.params.id);
         const assessmentId = Number(req.params.assessmentId);
-        const [source, assessment, results] = await Promise.all([
+        const [source, assessment, results, skills] = await Promise.all([
           repository.getSource(sourceId, user.id),
           repository.getAssessmentDetail(sourceId, assessmentId, user.id),
           repository.listAssessmentResults(sourceId, assessmentId, user.id),
+          repository.listSkills(),
         ]);
         if (!source || !assessment) return res.status(404).send('Không tìm thấy bài kiểm tra nguồn.');
         return res.render('teacher/data-sources/assessment-detail', {
@@ -104,6 +105,9 @@ function createGoogleSheetController({ repository, service }) {
           source,
           assessment,
           results,
+          skills,
+          flashMessage: req.query.message || null,
+          flashType: req.query.type || 'info',
         });
       } catch (error) {
         return next(error);
@@ -130,6 +134,23 @@ function createGoogleSheetController({ repository, service }) {
       } catch (error) {
         const sourceId = Number(req.params.id);
         return res.redirect(`/teacher/data-sources/${sourceId}?message=${encodeURIComponent(error.message || 'Đồng bộ thất bại.')}&type=danger`);
+      }
+    },
+
+
+    async updateAssessmentSkill(req, res, next) {
+      try {
+        const user=currentUser(req);
+        if(!user?.id) return res.status(401).send('Unauthorized');
+        const sourceId=Number(req.params.id);
+        const assessmentId=Number(req.params.assessmentId);
+        await repository.manualSetAssessmentSkill({
+          sourceId,assessmentId,teacherId:user.id,skillCode:req.body.skill_code||null,
+        });
+        return res.redirect(`/teacher/data-sources/${sourceId}/assessments/${assessmentId}?message=${encodeURIComponent('Đã cập nhật kỹ năng. Bấm Đồng bộ ngay ở nguồn dữ liệu để tái tạo chỉ số kỹ năng theo mapping mới.')}&type=success`);
+      } catch(error){
+        const sourceId=Number(req.params.id); const assessmentId=Number(req.params.assessmentId);
+        return res.redirect(`/teacher/data-sources/${sourceId}/assessments/${assessmentId}?message=${encodeURIComponent(error.message||'Không thể cập nhật kỹ năng.')}&type=danger`);
       }
     },
 

@@ -1,5 +1,6 @@
 <%- include('../../partials/app-start', { title }) %>
 <div class="container-fluid py-3">
+  <% if (flashMessage) { %><div class="alert alert-<%= flashType %>"><%= flashMessage %></div><% } %>
   <div class="mb-3">
     <a href="/teacher/data-sources/<%= source.id %>" class="text-decoration-none">← <%= source.name %></a>
     <h3 class="mb-1 mt-2"><%= assessment.title %></h3>
@@ -11,7 +12,7 @@
 
   <div class="row g-3 mb-4">
     <div class="col-md-3"><div class="card app-card h-100"><div class="card-body"><div class="text-muted small">Loại</div><div class="fw-bold"><%= assessment.assessment_type %></div></div></div></div>
-    <div class="col-md-3"><div class="card app-card h-100"><div class="card-body"><div class="text-muted small">Kỹ năng</div><div class="fw-bold"><%= assessment.skill_code || 'Chưa xác định' %></div></div></div></div>
+    <div class="col-md-3"><div class="card app-card h-100"><div class="card-body"><div class="text-muted small mb-2">Kỹ năng dùng cho Skill Tracking</div><form method="post" action="/teacher/data-sources/<%= source.id %>/assessments/<%= assessment.id %>/skill" class="d-flex gap-2"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><select class="form-select form-select-sm" name="skill_code"><% const manualSkill = assessment.metadata && assessment.metadata.skill_source === 'MANUAL'; %><option value="__AUTO__" <%= !manualSkill ? 'selected' : '' %>>Tự động nhận diện</option><option value="__NONE__" <%= manualSkill && !assessment.skill_code ? 'selected' : '' %>>Không tính kỹ năng</option><% skills.forEach(sk=>{ %><option value="<%= sk.code %>" <%= manualSkill && assessment.skill_code===sk.code?'selected':'' %>><%= sk.label %></option><% }) %></select><button class="btn btn-sm btn-outline-primary">Lưu</button></form><div class="small text-muted mt-2">Có thể giữ Tự động, gán thủ công hoặc chọn Không tính kỹ năng. Mapping thủ công không bị parser ghi đè; áp dụng sau lần đồng bộ kế tiếp.</div></div></div></div>
     <div class="col-md-3"><div class="card app-card h-100"><div class="card-body"><div class="text-muted small">Thang điểm gốc</div><div class="fw-bold"><%= assessment.raw_max_score ? ('/' + Number(assessment.raw_max_score)) : 'Không có' %></div></div></div></div>
     <div class="col-md-3"><div class="card app-card h-100"><div class="card-body"><div class="text-muted small">Mapping</div><div class="fw-bold"><%= assessment.mapping_type %></div><div class="small text-muted"><%= assessment.exam_title || assessment.assignment_title || 'Bài ngoài hệ thống' %></div></div></div></div>
   </div>

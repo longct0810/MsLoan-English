@@ -32,10 +32,10 @@
       <div class="card-header"><strong>Điểm số</strong></div>
       <div class="table-responsive">
         <table class="table align-middle mb-0">
-          <thead><tr><th>Ngày</th><th>Nội dung</th><th>Nhóm</th><th>Điểm</th><th>/10</th></tr></thead>
+          <thead><tr><th>Ngày</th><th>Nội dung</th><th>Nhóm</th><th>Nguồn</th><th>Điểm</th><th>/10</th></tr></thead>
           <tbody>
-            <% if (!detail.scores.length) { %><tr><td colspan="5" class="text-center text-secondary py-4">Chưa có điểm trong tháng.</td></tr><% } %>
-            <% detail.scores.forEach(item => { %><tr><td><%= new Date(item.recordedAt).toLocaleDateString('vi-VN') %></td><td class="fw-semibold"><%= item.title %></td><td><%= item.category || '—' %></td><td><%= item.score %>/<%= item.maxScore %></td><td><%= metric(norm(item.score,item.maxScore)) %></td></tr><% }) %>
+            <% if (!detail.scores.length) { %><tr><td colspan="6" class="text-center text-secondary py-4">Chưa có điểm trong tháng.</td></tr><% } %>
+            <% detail.scores.forEach(item => { %><tr><td><%= new Date(item.recordedAt).toLocaleDateString('vi-VN') %></td><td class="fw-semibold"><%= item.title %></td><td><%= item.category || '—' %></td><td><%= item.sourceType === 'GOOGLE_SHEETS' ? 'Google Sheets' : (item.sourceType || 'Ứng dụng') %></td><td><%= item.score %>/<%= item.maxScore %></td><td><%= metric(norm(item.score,item.maxScore)) %></td></tr><% }) %>
           </tbody>
         </table>
       </div>
@@ -72,10 +72,13 @@
     <div class="card app-card mb-4">
       <div class="card-header"><strong>Kỹ năng</strong></div>
       <div class="card-body">
-        <% if (!detail.skillsScoped) { %><div class="alert alert-warning small mb-0">Dữ liệu kỹ năng hiện chưa có class scope và học viên đang thuộc lớp của nhiều giáo viên, vì vậy phần này được ẩn để tránh lộ dữ liệu chéo.</div><% } %>
-        <% if (detail.skillsScoped && !detail.skills.length) { %><div class="text-secondary">Chưa có dữ liệu kỹ năng.</div><% } %>
-        <% detail.skills.forEach(item => { %>
-          <div class="skill-row"><div class="d-flex justify-content-between mb-1"><span class="fw-semibold"><%= item.skill %></span><span><%= item.score %>/10</span></div><div class="progress skill-progress"><div class="progress-bar" style="width:<%= Math.max(0,Math.min(100,Number(item.score)*10)) %>%"></div></div></div>
+        <% if (!detail.skills.length) { %><div class="text-secondary">Chưa có dữ liệu kỹ năng trong tháng.</div><% } %>
+        <% detail.skills.forEach(item => { const trend=item.trend==null?null:Number(item.trend); %>
+          <div class="skill-row mb-3">
+            <div class="d-flex justify-content-between mb-1"><span class="fw-semibold"><%= item.skill %></span><span><%= Number(item.score).toFixed(1) %>/10</span></div>
+            <div class="progress skill-progress"><div class="progress-bar" style="width:<%= Math.max(0,Math.min(100,Number(item.score)*10)) %>%"></div></div>
+            <div class="small text-secondary mt-1"><%= item.eventCount %> lần đánh giá<% if(trend!==null){ %> · <span class="<%= trend>0?'text-success':trend<0?'text-danger':'' %>"><%= trend>0?'↑':trend<0?'↓':'→' %> <%= Math.abs(trend).toFixed(1) %></span><% } %><% if(item.sources&&item.sources.length){ %> · <%= item.sources.map(x=>x==='EXTERNAL'?'Google Sheets':x).join(', ') %><% } %></div>
+          </div>
         <% }) %>
       </div>
     </div>

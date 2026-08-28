@@ -1,6 +1,8 @@
-# English Classroom v0.21.2
+> Phiên bản hiện tại: **v0.22.0** – Student Learning Profile & Skill Analytics.
 
-> v0.21.2: DATE Boundary Hotfix — sửa lỗi PostgreSQL DATE bị so sánh dưới dạng `Thu Jan 01`, khiến toàn bộ điểm Google Sheets bị staging sai.
+# English Classroom v0.22.0
+
+> v0.22.0: Student Learning Profile & Skill Analytics — hồ sơ học viên, theo dõi kỹ năng dựa trên `student_skill_events` và mapping kỹ năng từ Google Sheets.
 > v0.21.1: Score Visibility & Progress Hotfix — đồng bộ Google Sheets refresh tiến độ học sinh và manual sync luôn re-process dữ liệu.
 
 Website responsive quản lý lớp học tiếng Anh dành cho giáo viên, học viên và phụ huynh.
