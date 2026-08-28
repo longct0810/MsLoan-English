@@ -1,0 +1,88 @@
+<div class="container-fluid py-3">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+      <h3 class="mb-1">Nguồn dữ liệu</h3>
+      <div class="text-muted">Đồng bộ dữ liệu theo dõi của giáo viên từ Google Sheets vào hệ thống.</div>
+    </div>
+  </div>
+
+  <% if (flashMessage) { %>
+    <div class="alert alert-<%= flashType %>"><%= flashMessage %></div>
+  <% } %>
+
+  <div class="card mb-4">
+    <div class="card-header"><strong>Thêm Google Sheet</strong></div>
+    <div class="card-body">
+      <form method="post" action="/teacher/data-sources" class="row g-3">
+        <% if (typeof csrfToken !== 'undefined' && csrfToken) { %>
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <% } %>
+        <div class="col-md-4">
+          <label class="form-label">Lớp</label>
+          <select name="class_id" class="form-select" required>
+            <option value="">-- Chọn lớp --</option>
+            <% classes.forEach(function(item) { %>
+              <option value="<%= item.id %>"><%= item.name %> (<%= item.school_year %>)</option>
+            <% }) %>
+          </select>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Tên nguồn</label>
+          <input name="name" class="form-control" value="Theo dõi lớp - Google Sheets" maxlength="250" required>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">Chu kỳ (phút)</label>
+          <input name="sync_interval_minutes" type="number" min="5" max="1440" value="15" class="form-control" required>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">Nhập từ ngày</label>
+          <input name="import_from_date" type="date" class="form-control">
+        </div>
+        <div class="col-12">
+          <label class="form-label">Google Sheets URL</label>
+          <input name="source_url" type="url" class="form-control" required
+                 value="https://docs.google.com/spreadsheets/d/1Pf4YrlHn-8JQIDCIjQR0Szumitn8Yt-v_QxAPF-JO_I/edit?gid=0#gid=0">
+          <div class="form-text">File phải có quyền Viewer. Sau khi chuyển sang Service Account có thể đổi lại thành Private.</div>
+        </div>
+        <div class="col-12">
+          <button class="btn btn-primary" type="submit"><i class="fa fa-plus"></i> Thêm nguồn dữ liệu</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><strong>Các nguồn đang cấu hình</strong></div>
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead>
+          <tr>
+            <th>Nguồn</th>
+            <th>Lớp</th>
+            <th>Chu kỳ</th>
+            <th>Lần thành công</th>
+            <th>Mapping</th>
+            <th>Trạng thái</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <% if (!sources.length) { %>
+            <tr><td colspan="7" class="text-center text-muted py-4">Chưa có nguồn dữ liệu.</td></tr>
+          <% } %>
+          <% sources.forEach(function(item) { %>
+            <tr>
+              <td><strong><%= item.name %></strong><br><small class="text-muted">Google Sheets · gid=<%= item.sheet_gid %></small></td>
+              <td><%= item.class_name %><br><small class="text-muted"><%= item.school_year %></small></td>
+              <td><%= item.sync_interval_minutes %> phút</td>
+              <td><%= item.last_success_at ? new Date(item.last_success_at).toLocaleString('vi-VN') : 'Chưa đồng bộ' %></td>
+              <td><span class="badge bg-success"><%= item.matched_students %> khớp</span> <span class="badge bg-warning text-dark"><%= item.unmatched_students %> cần xử lý</span></td>
+              <td><span class="badge <%= item.enabled ? 'bg-success' : 'bg-secondary' %>"><%= item.enabled ? 'Hoạt động' : 'Tạm dừng' %></span></td>
+              <td class="text-end"><a class="btn btn-sm btn-outline-primary" href="/teacher/data-sources/<%= item.id %>">Chi tiết</a></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
