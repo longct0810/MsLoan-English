@@ -1,4 +1,4 @@
-# English Classroom MVP v0.18.0
+# English Classroom v0.20.1
 
 Website responsive quản lý lớp học tiếng Anh dành cho giáo viên, học viên và phụ huynh.
 
@@ -10,7 +10,7 @@ Website responsive quản lý lớp học tiếng Anh dành cho giáo viên, h�
 - `pg`, `bcryptjs`, `express-session`, `connect-pg-simple`
 - ExcelJS + Multer cho import Question Bank
 
-## Chức năng chính đến v0.18.0
+## Chức năng chính
 
 
 

@@ -187,6 +187,66 @@ function createGoogleSheetRepository(pool) {
       return rows;
     },
 
+    async getTeacherStudentsForMapping(teacherId, sourceClassId, db = null) {
+      const { rows } = await query(db, `
+        WITH teacher_students AS (
+          SELECT DISTINCT s.id,s.full_name,s.status
+            FROM students s
+            JOIN class_students cs
+              ON cs.student_id=s.id
+             AND cs.status='ACTIVE'
+            JOIN classes c
+              ON c.id=cs.class_id
+             AND c.deleted_at IS NULL
+           WHERE c.teacher_id=$1
+             AND s.status='ACTIVE'
+             AND s.deleted_at IS NULL
+        )
+        SELECT ts.id,
+               ts.full_name,
+               ts.status,
+               EXISTS (
+                 SELECT 1
+                   FROM class_students src_cs
+                  WHERE src_cs.class_id=$2
+                    AND src_cs.student_id=ts.id
+                    AND src_cs.status='ACTIVE'
+               ) AS in_source_class,
+               COALESCE(
+                 STRING_AGG(
+                   DISTINCT c.name || CASE
+                     WHEN NULLIF(BTRIM(c.school_year), '') IS NOT NULL THEN ' · ' || c.school_year
+                     ELSE ''
+                   END,
+                   ', ' ORDER BY c.name || CASE
+                     WHEN NULLIF(BTRIM(c.school_year), '') IS NOT NULL THEN ' · ' || c.school_year
+                     ELSE ''
+                   END
+                 ),
+                 ''
+               ) AS class_names
+          FROM teacher_students ts
+          LEFT JOIN class_students cs
+            ON cs.student_id=ts.id
+           AND cs.status='ACTIVE'
+          LEFT JOIN classes c
+            ON c.id=cs.class_id
+           AND c.deleted_at IS NULL
+           AND c.teacher_id=$1
+         GROUP BY ts.id,ts.full_name,ts.status
+         ORDER BY
+           EXISTS (
+             SELECT 1
+               FROM class_students src_cs
+              WHERE src_cs.class_id=$2
+                AND src_cs.student_id=ts.id
+                AND src_cs.status='ACTIVE'
+           ) DESC,
+           ts.full_name,ts.id
+      `, [teacherId, sourceClassId]);
+      return rows;
+    },
+
     async getStudentLink(sourceId, externalKey, db = null) {
       const { rows } = await query(db, `
         SELECT * FROM external_student_links
@@ -238,23 +298,79 @@ function createGoogleSheetRepository(pool) {
     },
 
     async manualLinkStudent({ sourceId, externalKey, studentId, teacherId }) {
-      const allowed = await pool.query(`
-        SELECT 1
-          FROM external_data_sources src
-          JOIN class_students cs ON cs.class_id=src.class_id AND cs.student_id=$3 AND cs.status='ACTIVE'
-          JOIN students s ON s.id=cs.student_id AND s.deleted_at IS NULL
-         WHERE src.id=$1 AND src.teacher_id=$2
-         LIMIT 1
-      `, [sourceId, teacherId, studentId]);
-      if (!allowed.rows[0]) throw new Error('Học sinh không thuộc lớp của nguồn dữ liệu.');
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
 
-      const { rows } = await pool.query(`
-        UPDATE external_student_links
-           SET student_id=$3,match_status='MATCHED',match_method='MANUAL',confidence=100,updated_at=NOW()
-         WHERE source_id=$1 AND external_student_key=$2
-         RETURNING *
-      `, [sourceId, externalKey, studentId]);
-      return rows[0] || null;
+        const { rows: allowedRows } = await client.query(`
+          SELECT src.class_id
+            FROM external_data_sources src
+            JOIN students s
+              ON s.id=$3
+             AND s.status='ACTIVE'
+             AND s.deleted_at IS NULL
+           WHERE src.id=$1
+             AND src.teacher_id=$2
+             AND EXISTS (
+               SELECT 1
+                 FROM class_students own_cs
+                 JOIN classes own_c
+                   ON own_c.id=own_cs.class_id
+                  AND own_c.deleted_at IS NULL
+                WHERE own_cs.student_id=s.id
+                  AND own_cs.status='ACTIVE'
+                  AND own_c.teacher_id=$2
+             )
+           LIMIT 1
+        `, [sourceId, teacherId, studentId]);
+
+        const allowed = allowedRows[0];
+        if (!allowed) {
+          throw new Error('Học sinh không thuộc phạm vi quản lý của giáo viên hiện tại.');
+        }
+
+        // Mapping một học sinh vào Sheet của lớp đồng nghĩa học sinh phải là thành viên
+        // của đúng class_id mà nguồn dữ liệu đang đại diện. Nếu học sinh hiện thuộc một
+        // lớp khác của cùng giáo viên (ví dụ có hai lớp trùng tên), kích hoạt membership
+        // của lớp nguồn thay vì ẩn học sinh khỏi danh sách mapping.
+        await client.query(`
+          INSERT INTO class_students(class_id,student_id,status,joined_at,left_at)
+          VALUES($1,$2,'ACTIVE',CURRENT_DATE,NULL)
+          ON CONFLICT(class_id,student_id)
+          DO UPDATE SET status='ACTIVE',left_at=NULL
+        `, [allowed.class_id, studentId]);
+
+        const { rows } = await client.query(`
+          UPDATE external_student_links
+             SET student_id=$3,match_status='MATCHED',match_method='MANUAL',confidence=100,updated_at=NOW()
+           WHERE source_id=$1 AND external_student_key=$2
+           RETURNING *
+        `, [sourceId, externalKey, studentId]);
+
+        if (!rows[0]) throw new Error('Không tìm thấy học sinh trong dữ liệu Sheet để liên kết.');
+
+        // Gắn luôn các observation đã staging trước đó và buộc lần sync kế tiếp chạy lại
+        // dù nội dung Google Sheet chưa đổi. Nếu không reset hash, scheduler sẽ trả
+        // NO_CHANGE và dữ liệu lịch sử của học sinh vừa mapping sẽ chưa được materialize.
+        await client.query(`
+          UPDATE external_observations
+             SET student_id=$3,updated_at=NOW()
+           WHERE source_id=$1 AND external_student_key=$2
+        `, [sourceId, externalKey, studentId]);
+        await client.query(`
+          UPDATE external_data_sources
+             SET last_content_hash=NULL,updated_at=NOW()
+           WHERE id=$1 AND teacher_id=$2
+        `, [sourceId, teacherId]);
+
+        await client.query('COMMIT');
+        return rows[0];
+      } catch (error) {
+        try { await client.query('ROLLBACK'); } catch {}
+        throw error;
+      } finally {
+        client.release();
+      }
     },
 
     async upsertObservation(data, db = null) {

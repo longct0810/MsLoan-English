@@ -54,7 +54,7 @@ async function fetchText(url, { timeoutMs = 15000, retries = 2, maxBytes = 10 * 
         redirect: 'follow',
         signal: controller.signal,
         headers: {
-          'user-agent': 'English-Classroom/0.20.0 Google-Sheets-Sync',
+          'user-agent': 'English-Classroom/0.20.1 Google-Sheets-Sync',
           accept: 'text/csv,text/plain;q=0.9,*/*;q=0.1',
         },
       });

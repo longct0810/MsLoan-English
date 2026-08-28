@@ -6,10 +6,10 @@ const path = require('node:path');
 const root = path.join(__dirname, '..');
 const read = (name) => fs.readFileSync(path.join(root, name), 'utf8');
 
-test('v0.20.0 is the active application version', () => {
+test('v0.20.1 is the active application version', () => {
   const pkg = JSON.parse(read('package.json'));
-  assert.equal(pkg.version, '0.20.0');
-  assert.equal(read('VERSION').trim(), '0.20.0');
+  assert.equal(pkg.version, '0.20.1');
+  assert.equal(read('VERSION').trim(), '0.20.1');
 });
 
 test('Google Sheets module is mounted with teacher-only authorization', () => {
@@ -43,4 +43,24 @@ test('v0.20.0 migration is available in db and cumulative schema', () => {
   assert.match(migration, /CREATE TABLE IF NOT EXISTS external_observations/);
   assert.match(migration, /source_type IN \('LEGACY','ASSIGNMENT','EXAM','MANUAL','EXTERNAL'\)/);
   assert.match(read('db/schema.sql'), /v0\.20\.0 - Google Sheets Data Source/);
+});
+
+
+test('v0.20.1 mapping UI lists all teacher students and can activate source-class membership', () => {
+  const repository = read('src/modules/data-sources/google-sheet.repository.js');
+  const controller = read('src/modules/data-sources/google-sheet.controller.js');
+  const view = read('src/views/teacher/data-sources/detail.ejs');
+  assert.match(repository, /getTeacherStudentsForMapping/);
+  assert.match(repository, /INSERT INTO class_students\(class_id,student_id,status,joined_at,left_at\)/);
+  assert.match(repository, /UPDATE external_observations/);
+  assert.match(repository, /SET last_content_hash=NULL/);
+  assert.match(controller, /getTeacherStudentsForMapping\(user\.id, source\.class_id\)/);
+  assert.match(view, /Học sinh khác của giáo viên/);
+  assert.match(view, /in_source_class/);
+});
+
+test('v0.20.1 renders import_from_date as a Vietnamese date instead of Date.toString prefix', () => {
+  const view = read('src/views/teacher/data-sources/detail.ejs');
+  assert.match(view, /toLocaleDateString\('vi-VN'/);
+  assert.doesNotMatch(view, /String\(source\.import_from_date\)\.slice/);
 });

@@ -1,3 +1,13 @@
+# v0.20.1
+
+## Google Sheets mapping hotfix
+
+- Mapping dropdown hiển thị toàn bộ học sinh ACTIVE thuộc phạm vi giáo viên, không chỉ học sinh có `class_students.class_id` đúng tuyệt đối với nguồn.
+- Khi liên kết học sinh đang ở lớp khác của cùng giáo viên, hệ thống tự kích hoạt membership vào đúng lớp nguồn trong transaction rồi lưu mapping MANUAL.
+- Sau mapping thủ công, gắn lại observation đã staging và reset hash để lần sync kế tiếp xử lý dữ liệu ngay cả khi Sheet chưa đổi.
+- Sửa hiển thị ngày `import_from_date` bị thành `Thu Jan 01`.
+- Không thay đổi database schema so với v0.20.0.
+
 # v0.20.0
 
 ## Google Sheets Data Source

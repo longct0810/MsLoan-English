@@ -66,7 +66,7 @@ function createGoogleSheetController({ repository, service }) {
         const [runs, unmatched, classStudents] = await Promise.all([
           repository.getRecentRuns(sourceId, user.id, 50),
           repository.getUnmatchedStudents(sourceId, user.id),
-          repository.getClassStudents(source.class_id),
+          repository.getTeacherStudentsForMapping(user.id, source.class_id),
         ]);
 
         return res.render('teacher/data-sources/detail', {
@@ -114,7 +114,7 @@ function createGoogleSheetController({ repository, service }) {
           throw new Error('Thông tin mapping học sinh không hợp lệ.');
         }
         await repository.manualLinkStudent({ sourceId, externalKey, studentId, teacherId: user.id });
-        return res.redirect(`/teacher/data-sources/${sourceId}?message=${encodeURIComponent('Đã liên kết học sinh. Lần đồng bộ kế tiếp sẽ sử dụng mapping này.')}&type=success`);
+        return res.redirect(`/teacher/data-sources/${sourceId}?message=${encodeURIComponent('Đã liên kết học sinh. Nếu học sinh chưa thuộc lớp nguồn, hệ thống đã tự gán vào lớp này. Lần đồng bộ kế tiếp sẽ sử dụng mapping.')}&type=success`);
       } catch (error) {
         const sourceId = Number(req.params.id);
         return res.redirect(`/teacher/data-sources/${sourceId}?message=${encodeURIComponent(error.message || 'Không thể liên kết học sinh.')}&type=danger`);
