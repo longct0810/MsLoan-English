@@ -626,13 +626,23 @@ function createGoogleSheetRepository(pool) {
 
     async listAssessmentResults(sourceId, assessmentId, teacherId) {
       const { rows } = await pool.query(`
-        SELECT ar.*,l.external_student_name,s.full_name AS student_name
+        SELECT ar.*,l.external_student_name,s.full_name AS student_name,
+               ss.id AS materialized_score_id,
+               ss.score::float AS materialized_score,
+               ss.max_score::float AS materialized_max_score
           FROM external_assessment_results ar
           JOIN external_assessments a ON a.id=ar.assessment_id
           JOIN external_data_sources src ON src.id=a.source_id
           LEFT JOIN external_student_links l
             ON l.source_id=a.source_id AND l.external_student_key=ar.external_student_key
           LEFT JOIN students s ON s.id=ar.student_id
+          LEFT JOIN student_scores ss
+            ON ss.student_id=ar.student_id
+           AND ss.source_type='GOOGLE_SHEETS'
+           AND ss.source_ref=CASE
+             WHEN ar.primary_observation_id IS NOT NULL THEN 'external-observation:' || ar.primary_observation_id::text
+             ELSE 'external-assessment-result:' || ar.id::text
+           END
          WHERE ar.assessment_id=$1 AND a.source_id=$2 AND src.teacher_id=$3 AND ar.active=TRUE
          ORDER BY COALESCE(s.full_name,l.external_student_name,ar.external_student_key),ar.id
       `, [assessmentId, sourceId, teacherId]);
@@ -779,6 +789,68 @@ function createGoogleSheetRepository(pool) {
         ON CONFLICT(source_id,observed_on) DO NOTHING
       `, [source.id, observedOn, session.id]);
       return { session, warning: null };
+    },
+
+    async refreshStudentProgress(studentIds, db = null) {
+      const ids = [...new Set((studentIds || []).map(Number).filter((id) => Number.isInteger(id) && id > 0))];
+      if (!ids.length) return 0;
+
+      const { rows } = await query(db, `
+        WITH target AS (
+          SELECT UNNEST($1::bigint[]) AS student_id
+        ), score_summary AS (
+          SELECT t.student_id,
+                 COALESCE(
+                   ROUND(AVG((ss.score / NULLIF(ss.max_score,0)) * 10)::numeric, 2),
+                   0
+                 ) AS average_score
+            FROM target t
+            LEFT JOIN student_scores ss ON ss.student_id=t.student_id
+           GROUP BY t.student_id
+        ), session_rows AS (
+          SELECT a.student_id, cs.session_date AS attendance_date, a.status
+            FROM session_attendance a
+            JOIN class_sessions cs ON cs.id=a.session_id
+           WHERE a.student_id=ANY($1::bigint[])
+        ), combined_attendance AS (
+          SELECT student_id,attendance_date,status FROM session_rows
+          UNION ALL
+          SELECT ar.student_id,ar.attendance_date,ar.status
+            FROM attendance_records ar
+           WHERE ar.student_id=ANY($1::bigint[])
+             AND NOT EXISTS (
+               SELECT 1
+                 FROM session_rows sr
+                WHERE sr.student_id=ar.student_id
+                  AND sr.attendance_date=ar.attendance_date
+             )
+        ), attendance_summary AS (
+          SELECT t.student_id,
+                 CASE
+                   WHEN COUNT(c.student_id)=0 THEN 0
+                   ELSE ROUND(
+                     100.0 * COUNT(c.student_id) FILTER (WHERE c.status IN ('PRESENT','LATE','ONLINE'))
+                     / COUNT(c.student_id),
+                     2
+                   )
+                 END AS attendance_rate
+            FROM target t
+            LEFT JOIN combined_attendance c ON c.student_id=t.student_id
+           GROUP BY t.student_id
+        )
+        INSERT INTO student_progress_summary(student_id,average_score,attendance_rate,updated_at)
+        SELECT t.student_id,ss.average_score,att.attendance_rate,NOW()
+          FROM target t
+          JOIN score_summary ss ON ss.student_id=t.student_id
+          JOIN attendance_summary att ON att.student_id=t.student_id
+        ON CONFLICT(student_id)
+        DO UPDATE SET
+          average_score=EXCLUDED.average_score,
+          attendance_rate=EXCLUDED.attendance_rate,
+          updated_at=NOW()
+        RETURNING student_id
+      `, [ids]);
+      return rows.length;
     },
 
     async materializeScore({ observation, source }, db) {

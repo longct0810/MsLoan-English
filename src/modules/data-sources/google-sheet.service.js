@@ -54,7 +54,7 @@ async function fetchText(url, { timeoutMs = 15000, retries = 2, maxBytes = 10 * 
         redirect: 'follow',
         signal: controller.signal,
         headers: {
-          'user-agent': 'English-Classroom/0.21.0 Google-Sheets-Sync',
+          'user-agent': 'English-Classroom/0.21.1 Google-Sheets-Sync',
           accept: 'text/csv,text/plain;q=0.9,*/*;q=0.1',
         },
       });
@@ -223,6 +223,7 @@ function createGoogleSheetService({ pool, repository, logger = console }) {
         const settings = getSettings(source);
         const sessionCache = new Map();
         const assessmentMap = new Map();
+        const touchedStudentIds = new Set();
 
         for (const parsedAssessment of parsed.assessments || []) {
           const assessment = await repository.upsertAssessment({
@@ -344,6 +345,7 @@ function createGoogleSheetService({ pool, repository, logger = console }) {
             ) {
               await repository.materializeScore({ observation, source: sourceForMaterialization }, client);
               stats.materializedScores += 1;
+              touchedStudentIds.add(Number(link.student_id));
               continue;
             }
 
@@ -371,7 +373,10 @@ function createGoogleSheetService({ pool, repository, logger = console }) {
               }
 
               const result = await repository.materializeAttendance({ observation, source, session: sessionInfo.session }, client);
-              if (result.updated) stats.materializedAttendance += 1;
+              if (result.updated) {
+                stats.materializedAttendance += 1;
+                touchedStudentIds.add(Number(link.student_id));
+              }
               else {
                 stats.skipped += 1;
                 if (result.conflict && stats.details.warnings.length < 100) {
@@ -469,8 +474,18 @@ function createGoogleSheetService({ pool, repository, logger = console }) {
             if (scoreId) {
               stats.materializedAssessmentResults += 1;
               stats.materializedScores += 1;
+              touchedStudentIds.add(Number(link.student_id));
             }
           }
+        }
+
+        if (touchedStudentIds.size > 0) {
+          stats.details.progressSummariesUpdated = await repository.refreshStudentProgress(
+            [...touchedStudentIds],
+            client,
+          );
+        } else {
+          stats.details.progressSummariesUpdated = 0;
         }
 
         stats.status = stats.details.unmatched.length || stats.details.warnings.length ? 'PARTIAL' : 'SUCCESS';

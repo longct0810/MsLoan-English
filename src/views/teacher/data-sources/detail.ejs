@@ -7,6 +7,7 @@
       <div class="text-muted"><%= source.class_name %> · <%= source.school_year %></div>
     </div>
     <form method="post" action="/teacher/data-sources/<%= source.id %>/sync">
+      <input type="hidden" name="force" value="1">
       <% if (typeof csrfToken !== 'undefined' && csrfToken) { %>
         <input type="hidden" name="_csrf" value="<%= csrfToken %>">
       <% } %>
@@ -92,7 +93,7 @@
         </thead>
         <tbody>
           <% if (!assessments.length) { %>
-            <tr><td colspan="6" class="text-center text-muted py-3">Chưa nhận diện bài kiểm tra. Hãy bấm Đồng bộ ngay sau khi chạy migration v0.21.0.</td></tr>
+            <tr><td colspan="6" class="text-center text-muted py-3">Chưa nhận diện bài kiểm tra. Hãy bấm Đồng bộ ngay để hệ thống đọc lại toàn bộ dữ liệu nguồn.</td></tr>
           <% } %>
           <% assessments.forEach(function(item) { %>
             <% const selectedTarget = item.mapping_type === 'EXAM' ? ('EXAM:' + item.exam_id) : (item.mapping_type === 'ASSIGNMENT' ? ('ASSIGNMENT:' + item.assignment_id) : 'EXTERNAL'); %>

@@ -52,8 +52,11 @@
                   <span class="badge bg-warning text-dark">Cần kiểm tra</span><br><small class="text-danger"><%= result.warning %></small>
                 <% } else if (!result.student_id) { %>
                   <span class="badge bg-secondary">Chưa map học sinh</span>
+                <% } else if (result.materialized_score_id) { %>
+                  <span class="badge bg-success">Đã ghi điểm</span><br>
+                  <small class="text-muted">DB: <%= Number(result.materialized_score) %>/<%= Number(result.materialized_max_score) %></small>
                 <% } else { %>
-                  <span class="badge bg-success">Sẵn sàng</span>
+                  <span class="badge bg-warning text-dark">Chưa ghi student_scores</span>
                 <% } %>
               </td>
             </tr>

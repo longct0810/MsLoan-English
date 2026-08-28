@@ -6,10 +6,10 @@ const path = require('node:path');
 const root = path.join(__dirname, '..');
 const read = (name) => fs.readFileSync(path.join(root, name), 'utf8');
 
-test('v0.21.0 is the active application version', () => {
+test('v0.21.1 is the active application version', () => {
   const pkg = JSON.parse(read('package.json'));
-  assert.equal(pkg.version, '0.21.0');
-  assert.equal(read('VERSION').trim(), '0.21.0');
+  assert.equal(pkg.version, '0.21.1');
+  assert.equal(read('VERSION').trim(), '0.21.1');
 });
 
 test('Google Sheets module is mounted with teacher-only authorization', () => {

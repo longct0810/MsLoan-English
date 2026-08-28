@@ -1,6 +1,6 @@
-# English Classroom v0.21.0
+# English Classroom v0.21.1
 
-> v0.21.0: Google Sheets Assessment Mapping — gom cột điểm thành bài test, lưu điểm gốc + điểm /10 và cho phép map với Exam/Assignment.
+> v0.21.1: Score Visibility & Progress Hotfix — đồng bộ Google Sheets refresh tiến độ học sinh và manual sync luôn re-process dữ liệu.
 
 Website responsive quản lý lớp học tiếng Anh dành cho giáo viên, học viên và phụ huynh.
 

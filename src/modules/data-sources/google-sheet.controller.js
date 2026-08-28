@@ -118,11 +118,14 @@ function createGoogleSheetController({ repository, service }) {
         const result = await service.syncSource(sourceId, {
           triggerType: 'MANUAL',
           teacherId: user.id,
-          force: req.body.force === '1',
+          // Nút "Đồng bộ ngay" là thao tác chủ động của giáo viên nên luôn re-process
+          // dữ liệu, kể cả khi nội dung Sheet chưa đổi. Scheduler vẫn dùng content hash
+          // để tránh tải/ghi lặp không cần thiết.
+          force: req.body.force !== '0',
         });
         const message = result.status === 'NO_CHANGE'
           ? 'Google Sheet chưa có thay đổi.'
-          : `Đồng bộ ${result.status}: ${result.studentsMatched}/${result.studentsSeen} học sinh khớp, ${result.observationsSeen} ô dữ liệu.`;
+          : `Đồng bộ ${result.status}: ${result.studentsMatched}/${result.studentsSeen} học sinh khớp, ${result.observationsSeen} ô, ${result.assessmentsSeen || 0} bài test, ${result.materializedScores || 0} điểm đã ghi DB.`;
         return res.redirect(`/teacher/data-sources/${sourceId}?message=${encodeURIComponent(message)}&type=${result.status === 'FAILED' ? 'danger' : 'success'}`);
       } catch (error) {
         const sourceId = Number(req.params.id);
