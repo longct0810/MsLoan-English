@@ -1,4 +1,6 @@
-# English Classroom v0.20.1
+# English Classroom v0.21.0
+
+> v0.21.0: Google Sheets Assessment Mapping — gom cột điểm thành bài test, lưu điểm gốc + điểm /10 và cho phép map với Exam/Assignment.
 
 Website responsive quản lý lớp học tiếng Anh dành cho giáo viên, học viên và phụ huynh.
 

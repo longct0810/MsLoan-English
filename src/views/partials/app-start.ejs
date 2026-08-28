@@ -80,6 +80,12 @@
       </div>
     </nav>
 
+    <% if (demoMode) { %>
+      <div class="alert alert-danger rounded-0 border-start-0 border-end-0 mb-0 py-2 px-3 px-lg-4" role="alert">
+        <strong>DEMO MODE đang bật:</strong> thay đổi Học viên/Lớp chỉ lưu trong bộ nhớ của tiến trình và <strong>không ghi PostgreSQL/Neon</strong>. Không sử dụng chế độ này cho dữ liệu thật.
+      </div>
+    <% } %>
+
     <div class="offcanvas offcanvas-start" tabindex="-1" id="mobileMenu">
       <div class="offcanvas-header">
         <h5 class="offcanvas-title"><%= appName %></h5>

@@ -10,6 +10,8 @@ router.get('/health', (req, res) => {
     app: env.app.name,
     version: env.app.version,
     environment: env.app.nodeEnv,
+    storageMode: env.demo.enabled ? 'memory-demo' : 'postgresql',
+    demoMode: env.demo.enabled,
   });
 });
 

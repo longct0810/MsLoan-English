@@ -101,6 +101,13 @@ const env = {
   },
 };
 
+// Data-integrity guard: DEMO_MODE stores CRUD changes only in process memory.
+// Never allow that behavior on a production deployment because the UI can report
+// success while PostgreSQL/Neon remains unchanged.
+if (env.app.nodeEnv.trim().toLowerCase() === 'production' && env.demo.enabled) {
+  throw new Error('DEMO_MODE must be false when NODE_ENV=production. Demo mode stores changes in memory and does not persist them to PostgreSQL.');
+}
+
 process.env.TZ = env.app.timezone;
 
 module.exports = env;

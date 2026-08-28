@@ -63,10 +63,12 @@ function createGoogleSheetController({ repository, service }) {
         const source = await repository.getSource(sourceId, user.id);
         if (!source) return res.status(404).send('Không tìm thấy nguồn dữ liệu.');
 
-        const [runs, unmatched, classStudents] = await Promise.all([
+        const [runs, unmatched, classStudents, assessments, assessmentTargets] = await Promise.all([
           repository.getRecentRuns(sourceId, user.id, 50),
           repository.getUnmatchedStudents(sourceId, user.id),
           repository.getTeacherStudentsForMapping(user.id, source.class_id),
+          repository.listAssessmentsForSource(sourceId, user.id),
+          repository.listAssessmentTargets(user.id, source.class_id),
         ]);
 
         return res.render('teacher/data-sources/detail', {
@@ -75,8 +77,33 @@ function createGoogleSheetController({ repository, service }) {
           runs,
           unmatched,
           classStudents,
+          assessments,
+          assessmentTargets,
           flashMessage: req.query.message || null,
           flashType: req.query.type || 'info',
+        });
+      } catch (error) {
+        return next(error);
+      }
+    },
+
+    async assessmentDetail(req, res, next) {
+      try {
+        const user = currentUser(req);
+        if (!user?.id) return res.status(401).send('Unauthorized');
+        const sourceId = Number(req.params.id);
+        const assessmentId = Number(req.params.assessmentId);
+        const [source, assessment, results] = await Promise.all([
+          repository.getSource(sourceId, user.id),
+          repository.getAssessmentDetail(sourceId, assessmentId, user.id),
+          repository.listAssessmentResults(sourceId, assessmentId, user.id),
+        ]);
+        if (!source || !assessment) return res.status(404).send('Không tìm thấy bài kiểm tra nguồn.');
+        return res.render('teacher/data-sources/assessment-detail', {
+          title: assessment.title,
+          source,
+          assessment,
+          results,
         });
       } catch (error) {
         return next(error);
@@ -100,6 +127,35 @@ function createGoogleSheetController({ repository, service }) {
       } catch (error) {
         const sourceId = Number(req.params.id);
         return res.redirect(`/teacher/data-sources/${sourceId}?message=${encodeURIComponent(error.message || 'Đồng bộ thất bại.')}&type=danger`);
+      }
+    },
+
+    async linkAssessment(req, res, next) {
+      try {
+        const user = currentUser(req);
+        if (!user?.id) return res.status(401).send('Unauthorized');
+        const sourceId = Number(req.params.id);
+        const assessmentId = Number(req.params.assessmentId);
+        const mappingTarget = String(req.body.mapping_target || 'EXTERNAL').trim().toUpperCase();
+        const [mappingTypeRaw, targetIdRaw] = mappingTarget.split(':', 2);
+        const mappingType = mappingTypeRaw || 'EXTERNAL';
+        const targetId = targetIdRaw ? Number(targetIdRaw) : null;
+        if (!Number.isInteger(sourceId) || sourceId <= 0 || !Number.isInteger(assessmentId) || assessmentId <= 0) {
+          throw new Error('Thông tin bài kiểm tra nguồn không hợp lệ.');
+        }
+
+        await repository.manualLinkAssessment({
+          sourceId,
+          assessmentId,
+          teacherId: user.id,
+          mappingType,
+          targetId,
+        });
+
+        return res.redirect(`/teacher/data-sources/${sourceId}?message=${encodeURIComponent('Đã cập nhật liên kết bài kiểm tra. Lần đồng bộ kế tiếp sẽ áp dụng mapping này vào điểm học sinh.')}&type=success`);
+      } catch (error) {
+        const sourceId = Number(req.params.id);
+        return res.redirect(`/teacher/data-sources/${sourceId}?message=${encodeURIComponent(error.message || 'Không thể liên kết bài kiểm tra.')}&type=danger`);
       }
     },
 

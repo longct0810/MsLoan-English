@@ -1,0 +1,66 @@
+<%- include('../../partials/app-start', { title }) %>
+<div class="container-fluid py-3">
+  <div class="mb-3">
+    <a href="/teacher/data-sources/<%= source.id %>" class="text-decoration-none">← <%= source.name %></a>
+    <h3 class="mb-1 mt-2"><%= assessment.title %></h3>
+    <div class="text-muted">
+      <%= source.class_name %> · <%= source.school_year %>
+      <% if (assessment.observed_on) { %> · <%= new Date(assessment.observed_on).toLocaleDateString('vi-VN', { timeZone: 'UTC' }) %><% } %>
+    </div>
+  </div>
+
+  <div class="row g-3 mb-4">
+    <div class="col-md-3"><div class="card app-card h-100"><div class="card-body"><div class="text-muted small">Loại</div><div class="fw-bold"><%= assessment.assessment_type %></div></div></div></div>
+    <div class="col-md-3"><div class="card app-card h-100"><div class="card-body"><div class="text-muted small">Kỹ năng</div><div class="fw-bold"><%= assessment.skill_code || 'Chưa xác định' %></div></div></div></div>
+    <div class="col-md-3"><div class="card app-card h-100"><div class="card-body"><div class="text-muted small">Thang điểm gốc</div><div class="fw-bold"><%= assessment.raw_max_score ? ('/' + Number(assessment.raw_max_score)) : 'Không có' %></div></div></div></div>
+    <div class="col-md-3"><div class="card app-card h-100"><div class="card-body"><div class="text-muted small">Mapping</div><div class="fw-bold"><%= assessment.mapping_type %></div><div class="small text-muted"><%= assessment.exam_title || assessment.assignment_title || 'Bài ngoài hệ thống' %></div></div></div></div>
+  </div>
+
+  <div class="card app-card">
+    <div class="card-header"><strong>Kết quả học sinh</strong></div>
+    <div class="table-responsive">
+      <table class="table table-sm table-hover align-middle mb-0">
+        <thead>
+          <tr>
+            <th>Học sinh trong Sheet</th>
+            <th>Học sinh đã map</th>
+            <th>Điểm gốc</th>
+            <th>Quy đổi /10</th>
+            <th>Nhận diện</th>
+            <th>Trạng thái</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% if (!results.length) { %><tr><td colspan="6" class="text-center text-muted py-3">Chưa có kết quả cho bài này.</td></tr><% } %>
+          <% results.forEach(function(result) { %>
+            <tr>
+              <td><strong><%= result.external_student_name || result.external_student_key %></strong></td>
+              <td><%= result.student_name || 'Chưa mapping' %></td>
+              <td>
+                <% if (result.raw_score != null && result.raw_max_score != null) { %>
+                  <strong><%= Number(result.raw_score) %>/<%= Number(result.raw_max_score) %></strong>
+                <% } else { %>—<% } %>
+              </td>
+              <td>
+                <% if (result.normalized_score != null) { %>
+                  <strong><%= Number(result.normalized_score) %>/<%= Number(result.normalized_max_score || 10) %></strong>
+                <% } else { %>—<% } %>
+              </td>
+              <td><small><%= result.detection_mode || '—' %><% if (result.confidence != null) { %> · <%= Number(result.confidence) %>%<% } %></small></td>
+              <td>
+                <% if (result.warning) { %>
+                  <span class="badge bg-warning text-dark">Cần kiểm tra</span><br><small class="text-danger"><%= result.warning %></small>
+                <% } else if (!result.student_id) { %>
+                  <span class="badge bg-secondary">Chưa map học sinh</span>
+                <% } else { %>
+                  <span class="badge bg-success">Sẵn sàng</span>
+                <% } %>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+<%- include('../../partials/app-end') %>

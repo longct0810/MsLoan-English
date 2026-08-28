@@ -74,6 +74,7 @@ function createGoogleSheetRepository(pool) {
         ) VALUES($1,$2,'GOOGLE_SHEETS',$3,$4,$5,$6,TRUE,$7,$8,
           jsonb_build_object(
             'materialize_scores',TRUE,
+            'materialize_assessments',TRUE,
             'materialize_attendance',TRUE,
             'materialize_notes',TRUE,
             'materialize_skill_events',TRUE,
@@ -143,7 +144,8 @@ function createGoogleSheetRepository(pool) {
           rows_read=$4, students_seen=$5, students_matched=$6,
           observations_seen=$7, observations_inserted=$8, observations_updated=$9,
           materialized_scores=$10, materialized_attendance=$11, materialized_notes=$12,
-          skipped=$13, errors_count=$14, message=$15, details=$16::jsonb
+          assessments_seen=$13, assessment_results_seen=$14, materialized_assessment_results=$15,
+          skipped=$16, errors_count=$17, message=$18, details=$19::jsonb
          WHERE id=$1
       `, [
         runId,
@@ -158,6 +160,9 @@ function createGoogleSheetRepository(pool) {
         stats.materializedScores || 0,
         stats.materializedAttendance || 0,
         stats.materializedNotes || 0,
+        stats.assessmentsSeen || 0,
+        stats.assessmentResultsSeen || 0,
+        stats.materializedAssessmentResults || 0,
         stats.skipped || 0,
         stats.errorsCount || 0,
         stats.message || null,
@@ -358,6 +363,14 @@ function createGoogleSheetRepository(pool) {
            WHERE source_id=$1 AND external_student_key=$2
         `, [sourceId, externalKey, studentId]);
         await client.query(`
+          UPDATE external_assessment_results ar
+             SET student_id=$3,updated_at=NOW()
+            FROM external_assessments a
+           WHERE ar.assessment_id=a.id
+             AND a.source_id=$1
+             AND ar.external_student_key=$2
+        `, [sourceId, externalKey, studentId]);
+        await client.query(`
           UPDATE external_data_sources
              SET last_content_hash=NULL,updated_at=NOW()
            WHERE id=$1 AND teacher_id=$2
@@ -426,6 +439,289 @@ function createGoogleSheetRepository(pool) {
         data.warning || null,
       ]);
       return { observation: rows[0], inserted };
+    },
+
+    async upsertAssessment(data, db = null) {
+      const { rows } = await query(db, `
+        INSERT INTO external_assessments(
+          source_id,class_id,external_assessment_key,observed_on,title,assessment_type,
+          skill_code,raw_max_score,normalized_max_score,source_column_start,source_column_end,
+          metadata,first_seen_at,last_seen_at
+        ) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12::jsonb,NOW(),NOW())
+        ON CONFLICT(source_id,external_assessment_key)
+        DO UPDATE SET
+          class_id=EXCLUDED.class_id,
+          observed_on=EXCLUDED.observed_on,
+          title=EXCLUDED.title,
+          assessment_type=EXCLUDED.assessment_type,
+          skill_code=COALESCE(EXCLUDED.skill_code,external_assessments.skill_code),
+          raw_max_score=COALESCE(EXCLUDED.raw_max_score,external_assessments.raw_max_score),
+          normalized_max_score=EXCLUDED.normalized_max_score,
+          source_column_start=EXCLUDED.source_column_start,
+          source_column_end=EXCLUDED.source_column_end,
+          metadata=external_assessments.metadata || EXCLUDED.metadata,
+          last_seen_at=NOW(),updated_at=NOW()
+        RETURNING *
+      `, [
+        data.sourceId,
+        data.classId,
+        data.externalAssessmentKey,
+        data.observedOn || null,
+        String(data.title || 'Google Sheets').slice(0, 500),
+        data.assessmentType || 'TEST',
+        data.skillCode || null,
+        data.rawMaxScore ?? null,
+        data.normalizedMaxScore || 10,
+        data.sourceColumnStart,
+        data.sourceColumnEnd,
+        JSON.stringify(data.metadata || {}),
+      ]);
+      return rows[0];
+    },
+
+    async upsertAssessmentResult(data, db = null) {
+      const { rows } = await query(db, `
+        INSERT INTO external_assessment_results(
+          assessment_id,sync_run_id,external_student_key,student_id,primary_observation_id,
+          raw_score,raw_max_score,normalized_score,normalized_max_score,confidence,
+          detection_mode,warning,raw_values,active,first_seen_at,last_seen_at
+        ) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13::jsonb,TRUE,NOW(),NOW())
+        ON CONFLICT(assessment_id,external_student_key)
+        DO UPDATE SET
+          sync_run_id=EXCLUDED.sync_run_id,
+          student_id=COALESCE(EXCLUDED.student_id,external_assessment_results.student_id),
+          primary_observation_id=COALESCE(EXCLUDED.primary_observation_id,external_assessment_results.primary_observation_id),
+          raw_score=EXCLUDED.raw_score,
+          raw_max_score=EXCLUDED.raw_max_score,
+          normalized_score=EXCLUDED.normalized_score,
+          normalized_max_score=EXCLUDED.normalized_max_score,
+          confidence=EXCLUDED.confidence,
+          detection_mode=EXCLUDED.detection_mode,
+          warning=EXCLUDED.warning,
+          raw_values=EXCLUDED.raw_values,
+          active=TRUE,last_seen_at=NOW(),updated_at=NOW()
+        RETURNING *
+      `, [
+        data.assessmentId,
+        data.syncRunId,
+        data.externalStudentKey,
+        data.studentId || null,
+        data.primaryObservationId || null,
+        data.rawScore ?? null,
+        data.rawMaxScore ?? null,
+        data.normalizedScore ?? null,
+        data.normalizedMaxScore || 10,
+        data.confidence ?? null,
+        data.detectionMode || null,
+        data.warning || null,
+        JSON.stringify(data.rawValues || []),
+      ]);
+      return rows[0];
+    },
+
+    async materializeAssessmentResult({ result, assessment, source }, db) {
+      if (!result.student_id) return null;
+
+      const hasRaw = result.raw_score != null && result.raw_max_score != null && Number(result.raw_max_score) > 0;
+      const score = hasRaw ? result.raw_score : result.normalized_score;
+      const maxScore = hasRaw ? result.raw_max_score : result.normalized_max_score;
+      if (score == null || maxScore == null || Number(maxScore) <= 0) return null;
+
+      // Reuse the observation reference whenever possible. This upgrades v0.20.x
+      // derived scores in place instead of creating a duplicate row for the same Sheet cell.
+      const ref = result.primary_observation_id
+        ? `external-observation:${result.primary_observation_id}`
+        : `external-assessment-result:${result.id}`;
+      const category = assessment.skill_code || assessment.assessment_type || 'GOOGLE_SHEETS';
+      const { rows } = await query(db, `
+        INSERT INTO student_scores(
+          student_id,class_id,title,category,score,max_score,recorded_at,
+          source_type,source_ref,source_payload
+        ) VALUES($1,$2,$3,$4,$5,$6,$7,'GOOGLE_SHEETS',$8,$9::jsonb)
+        ON CONFLICT(student_id,source_type,source_ref) WHERE source_ref IS NOT NULL
+        DO UPDATE SET
+          class_id=EXCLUDED.class_id,title=EXCLUDED.title,category=EXCLUDED.category,
+          score=EXCLUDED.score,max_score=EXCLUDED.max_score,recorded_at=EXCLUDED.recorded_at,
+          source_payload=EXCLUDED.source_payload
+        RETURNING id
+      `, [
+        result.student_id,
+        source.class_id,
+        String(assessment.title || 'Google Sheets').slice(0, 250),
+        category,
+        score,
+        maxScore,
+        assessment.observed_on,
+        ref,
+        JSON.stringify({
+          sourceId: source.id,
+          assessmentId: assessment.id,
+          assessmentResultId: result.id,
+          mappingType: assessment.mapping_type,
+          rawScore: result.raw_score,
+          rawMaxScore: result.raw_max_score,
+          normalizedScore: result.normalized_score,
+          normalizedMaxScore: result.normalized_max_score,
+          detectionMode: result.detection_mode,
+          confidence: result.confidence,
+        }),
+      ]);
+
+      if (source.materializeSkillEvents !== false && assessment.skill_code) {
+        await query(db, `
+          INSERT INTO student_skill_events(
+            student_id,class_id,skill_code,source_type,source_id,score,max_score,weight,recorded_at
+          ) VALUES($1,$2,$3,'EXTERNAL',$4,$5,$6,1,$7::date::timestamptz)
+          ON CONFLICT(student_id,skill_code,source_type,source_id)
+          DO UPDATE SET
+            class_id=EXCLUDED.class_id,score=EXCLUDED.score,max_score=EXCLUDED.max_score,
+            recorded_at=EXCLUDED.recorded_at
+        `, [
+          result.student_id,
+          source.class_id,
+          assessment.skill_code,
+          result.primary_observation_id || result.id,
+          score,
+          maxScore,
+          assessment.observed_on,
+        ]);
+      }
+      return rows[0]?.id || null;
+    },
+
+    async listAssessmentsForSource(sourceId, teacherId) {
+      const { rows } = await pool.query(`
+        SELECT a.*,
+               e.title AS exam_title,
+               ass.title AS assignment_title,
+               COUNT(ar.id)::int AS result_count,
+               COUNT(ar.id) FILTER (WHERE ar.student_id IS NOT NULL)::int AS matched_result_count,
+               COUNT(ar.id) FILTER (WHERE ar.warning IS NOT NULL)::int AS warning_count
+          FROM external_assessments a
+          JOIN external_data_sources s ON s.id=a.source_id
+          LEFT JOIN exams e ON e.id=a.exam_id
+          LEFT JOIN assignments ass ON ass.id=a.assignment_id
+          LEFT JOIN external_assessment_results ar ON ar.assessment_id=a.id AND ar.active=TRUE
+         WHERE a.source_id=$1 AND s.teacher_id=$2 AND a.status='ACTIVE'
+         GROUP BY a.id,e.title,ass.title
+         ORDER BY a.observed_on DESC NULLS LAST,a.source_column_start,a.id
+      `, [sourceId, teacherId]);
+      return rows;
+    },
+
+    async getAssessmentDetail(sourceId, assessmentId, teacherId) {
+      const { rows } = await pool.query(`
+        SELECT a.*,s.name AS source_name,c.name AS class_name,c.school_year,
+               e.title AS exam_title,ass.title AS assignment_title
+          FROM external_assessments a
+          JOIN external_data_sources s ON s.id=a.source_id
+          JOIN classes c ON c.id=a.class_id
+          LEFT JOIN exams e ON e.id=a.exam_id
+          LEFT JOIN assignments ass ON ass.id=a.assignment_id
+         WHERE a.id=$1 AND a.source_id=$2 AND s.teacher_id=$3
+         LIMIT 1
+      `, [assessmentId, sourceId, teacherId]);
+      return rows[0] || null;
+    },
+
+    async listAssessmentResults(sourceId, assessmentId, teacherId) {
+      const { rows } = await pool.query(`
+        SELECT ar.*,l.external_student_name,s.full_name AS student_name
+          FROM external_assessment_results ar
+          JOIN external_assessments a ON a.id=ar.assessment_id
+          JOIN external_data_sources src ON src.id=a.source_id
+          LEFT JOIN external_student_links l
+            ON l.source_id=a.source_id AND l.external_student_key=ar.external_student_key
+          LEFT JOIN students s ON s.id=ar.student_id
+         WHERE ar.assessment_id=$1 AND a.source_id=$2 AND src.teacher_id=$3 AND ar.active=TRUE
+         ORDER BY COALESCE(s.full_name,l.external_student_name,ar.external_student_key),ar.id
+      `, [assessmentId, sourceId, teacherId]);
+      return rows;
+    },
+
+    async listAssessmentTargets(teacherId, classId) {
+      const [exams, assignments] = await Promise.all([
+        pool.query(`
+          SELECT e.id,e.title,e.status,e.start_at,e.end_at
+            FROM exams e
+            JOIN classes c ON c.id=e.class_id
+           WHERE e.class_id=$1 AND c.teacher_id=$2 AND c.deleted_at IS NULL
+           ORDER BY e.created_at DESC,e.id DESC
+        `, [classId, teacherId]),
+        pool.query(`
+          SELECT a.id,a.title,a.status,a.type,a.due_at
+            FROM assignments a
+            JOIN classes c ON c.id=a.class_id
+           WHERE a.class_id=$1 AND c.teacher_id=$2 AND c.deleted_at IS NULL
+           ORDER BY a.created_at DESC,a.id DESC
+        `, [classId, teacherId]),
+      ]);
+      return { exams: exams.rows, assignments: assignments.rows };
+    },
+
+    async manualLinkAssessment({ sourceId, assessmentId, teacherId, mappingType, targetId = null }) {
+      const type = String(mappingType || '').toUpperCase();
+      if (!['EXTERNAL','EXAM','ASSIGNMENT'].includes(type)) {
+        throw new Error('Loại liên kết bài kiểm tra không hợp lệ.');
+      }
+
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
+        const { rows: ownedRows } = await client.query(`
+          SELECT a.id,a.class_id
+            FROM external_assessments a
+            JOIN external_data_sources s ON s.id=a.source_id
+           WHERE a.id=$1 AND a.source_id=$2 AND s.teacher_id=$3
+           LIMIT 1
+        `, [assessmentId, sourceId, teacherId]);
+        const owned = ownedRows[0];
+        if (!owned) throw new Error('Không tìm thấy bài kiểm tra nguồn hoặc bạn không có quyền cập nhật.');
+
+        let examId = null;
+        let assignmentId = null;
+        if (type === 'EXAM') {
+          if (!Number.isInteger(targetId) || targetId <= 0) throw new Error('Vui lòng chọn bài kiểm tra trong ứng dụng.');
+          const { rows } = await client.query(`
+            SELECT e.id FROM exams e
+            JOIN classes c ON c.id=e.class_id
+            WHERE e.id=$1 AND e.class_id=$2 AND c.teacher_id=$3 AND c.deleted_at IS NULL
+            LIMIT 1
+          `, [targetId, owned.class_id, teacherId]);
+          if (!rows[0]) throw new Error('Exam không thuộc lớp nguồn hiện tại.');
+          examId = targetId;
+        } else if (type === 'ASSIGNMENT') {
+          if (!Number.isInteger(targetId) || targetId <= 0) throw new Error('Vui lòng chọn bài tập trong ứng dụng.');
+          const { rows } = await client.query(`
+            SELECT a.id FROM assignments a
+            JOIN classes c ON c.id=a.class_id
+            WHERE a.id=$1 AND a.class_id=$2 AND c.teacher_id=$3 AND c.deleted_at IS NULL
+            LIMIT 1
+          `, [targetId, owned.class_id, teacherId]);
+          if (!rows[0]) throw new Error('Assignment không thuộc lớp nguồn hiện tại.');
+          assignmentId = targetId;
+        }
+
+        const { rows } = await client.query(`
+          UPDATE external_assessments
+             SET mapping_type=$3,exam_id=$4,assignment_id=$5,updated_at=NOW()
+           WHERE id=$1 AND source_id=$2
+           RETURNING *
+        `, [assessmentId, sourceId, type, examId, assignmentId]);
+
+        await client.query(`
+          UPDATE external_data_sources
+             SET last_content_hash=NULL,updated_at=NOW()
+           WHERE id=$1 AND teacher_id=$2
+        `, [sourceId, teacherId]);
+        await client.query('COMMIT');
+        return rows[0];
+      } catch (error) {
+        try { await client.query('ROLLBACK'); } catch {}
+        throw error;
+      } finally {
+        client.release();
+      }
     },
 
     async ensureSessionLink({ source, observedOn, autoCreateSession }, db) {

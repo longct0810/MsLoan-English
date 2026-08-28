@@ -69,19 +69,91 @@
     </div>
   </div>
 
+  <div class="card app-card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <strong>Bài kiểm tra / điểm nhận diện từ Google Sheets</strong>
+      <span class="badge bg-light text-dark border"><%= assessments.length %> bài</span>
+    </div>
+    <div class="px-3 pt-3 small text-secondary">
+      Hệ thống gom các cột liên quan thành một bài đánh giá, lưu đồng thời điểm gốc (ví dụ 11/20) và điểm quy đổi /10.
+      Bạn có thể giữ là <strong>bài ngoài hệ thống</strong> hoặc liên kết với Exam/Assignment đã có. Liên kết không tự tạo exam attempt hay bài nộp.
+    </div>
+    <div class="table-responsive">
+      <table class="table table-sm align-middle mb-0">
+        <thead>
+          <tr>
+            <th>Ngày</th>
+            <th>Bài đánh giá</th>
+            <th>Kỹ năng</th>
+            <th>Thang điểm</th>
+            <th>Kết quả</th>
+            <th>Liên kết</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% if (!assessments.length) { %>
+            <tr><td colspan="6" class="text-center text-muted py-3">Chưa nhận diện bài kiểm tra. Hãy bấm Đồng bộ ngay sau khi chạy migration v0.21.0.</td></tr>
+          <% } %>
+          <% assessments.forEach(function(item) { %>
+            <% const selectedTarget = item.mapping_type === 'EXAM' ? ('EXAM:' + item.exam_id) : (item.mapping_type === 'ASSIGNMENT' ? ('ASSIGNMENT:' + item.assignment_id) : 'EXTERNAL'); %>
+            <tr>
+              <td class="text-nowrap"><%= item.observed_on ? new Date(item.observed_on).toLocaleDateString('vi-VN', { timeZone: 'UTC' }) : '—' %></td>
+              <td>
+                <strong><%= item.title %></strong><br>
+                <small class="text-muted"><%= item.assessment_type %> · cột <%= item.source_column_start + 1 %>-<%= item.source_column_end + 1 %></small>
+              </td>
+              <td><%= item.skill_code || '—' %></td>
+              <td>
+                <% if (item.raw_max_score) { %><span class="badge bg-light text-dark border">/<%= Number(item.raw_max_score) %></span><% } else { %><span class="text-muted">/10</span><% } %>
+              </td>
+              <td>
+                <a class="badge bg-primary text-decoration-none" href="/teacher/data-sources/<%= source.id %>/assessments/<%= item.id %>"><%= item.matched_result_count %>/<%= item.result_count %> học sinh · Xem</a>
+                <% if (item.warning_count > 0) { %><span class="badge bg-warning text-dark"><%= item.warning_count %> cảnh báo</span><% } %>
+              </td>
+              <td style="min-width: 310px">
+                <form method="post" action="/teacher/data-sources/<%= source.id %>/assessments/<%= item.id %>/link" class="d-flex gap-2">
+                  <% if (typeof csrfToken !== 'undefined' && csrfToken) { %><input type="hidden" name="_csrf" value="<%= csrfToken %>"><% } %>
+                  <select name="mapping_target" class="form-select form-select-sm">
+                    <option value="EXTERNAL" <%= selectedTarget === 'EXTERNAL' ? 'selected' : '' %>>Bài ngoài hệ thống</option>
+                    <% if (assessmentTargets.exams.length) { %>
+                      <optgroup label="Exam trong ứng dụng">
+                        <% assessmentTargets.exams.forEach(function(exam) { %>
+                          <option value="EXAM:<%= exam.id %>" <%= selectedTarget === ('EXAM:' + exam.id) ? 'selected' : '' %>><%= exam.title %> [<%= exam.status %>]</option>
+                        <% }) %>
+                      </optgroup>
+                    <% } %>
+                    <% if (assessmentTargets.assignments.length) { %>
+                      <optgroup label="Assignment trong ứng dụng">
+                        <% assessmentTargets.assignments.forEach(function(assignment) { %>
+                          <option value="ASSIGNMENT:<%= assignment.id %>" <%= selectedTarget === ('ASSIGNMENT:' + assignment.id) ? 'selected' : '' %>><%= assignment.title %> [<%= assignment.status %>]</option>
+                        <% }) %>
+                      </optgroup>
+                    <% } %>
+                  </select>
+                  <button class="btn btn-sm btn-outline-primary text-nowrap" type="submit">Lưu</button>
+                </form>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
   <div class="card app-card">
     <div class="card-header"><strong>Lịch sử đồng bộ</strong></div>
     <div class="table-responsive">
       <table class="table table-sm table-hover mb-0">
-        <thead><tr><th>Thời gian</th><th>Kết quả</th><th>Học sinh</th><th>Ô dữ liệu</th><th>Điểm</th><th>Điểm danh</th><th>Ghi chú</th><th>Thông báo</th></tr></thead>
+        <thead><tr><th>Thời gian</th><th>Kết quả</th><th>Học sinh</th><th>Ô dữ liệu</th><th>Bài test</th><th>Điểm</th><th>Điểm danh</th><th>Ghi chú</th><th>Thông báo</th></tr></thead>
         <tbody>
-          <% if (!runs.length) { %><tr><td colspan="8" class="text-center text-muted py-3">Chưa có lần đồng bộ.</td></tr><% } %>
+          <% if (!runs.length) { %><tr><td colspan="9" class="text-center text-muted py-3">Chưa có lần đồng bộ.</td></tr><% } %>
           <% runs.forEach(function(run) { %>
             <tr>
               <td><%= new Date(run.started_at).toLocaleString('vi-VN') %></td>
               <td><span class="badge <%= run.status === 'SUCCESS' ? 'bg-success' : (run.status === 'FAILED' ? 'bg-danger' : 'bg-warning text-dark') %>"><%= run.status %></span></td>
               <td><%= run.students_matched %>/<%= run.students_seen %></td>
               <td><%= run.observations_seen %></td>
+              <td><%= run.assessments_seen || 0 %> / <%= run.assessment_results_seen || 0 %></td>
               <td><%= run.materialized_scores %></td>
               <td><%= run.materialized_attendance %></td>
               <td><%= run.materialized_notes %></td>

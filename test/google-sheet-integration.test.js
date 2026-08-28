@@ -6,10 +6,10 @@ const path = require('node:path');
 const root = path.join(__dirname, '..');
 const read = (name) => fs.readFileSync(path.join(root, name), 'utf8');
 
-test('v0.20.1 is the active application version', () => {
+test('v0.21.0 is the active application version', () => {
   const pkg = JSON.parse(read('package.json'));
-  assert.equal(pkg.version, '0.20.1');
-  assert.equal(read('VERSION').trim(), '0.20.1');
+  assert.equal(pkg.version, '0.21.0');
+  assert.equal(read('VERSION').trim(), '0.21.0');
 });
 
 test('Google Sheets module is mounted with teacher-only authorization', () => {
@@ -63,4 +63,37 @@ test('v0.20.1 renders import_from_date as a Vietnamese date instead of Date.toSt
   const view = read('src/views/teacher/data-sources/detail.ejs');
   assert.match(view, /toLocaleDateString\('vi-VN'/);
   assert.doesNotMatch(view, /String\(source\.import_from_date\)\.slice/);
+});
+
+
+test('v0.21.0 migration adds external assessment mapping tables and sync metrics', () => {
+  const migration = read('db/neon_upgrade_v0.21.0.sql');
+  assert.match(migration, /CREATE TABLE IF NOT EXISTS external_assessments/);
+  assert.match(migration, /CREATE TABLE IF NOT EXISTS external_assessment_results/);
+  assert.match(migration, /materialized_assessment_results/);
+  assert.match(migration, /SET last_content_hash=NULL/);
+  assert.match(read('db/schema.sql'), /v0\.21\.0 - Google Sheets Assessment Mapping/);
+});
+
+test('v0.21.0 exposes assessment mapping UI and teacher-scoped target validation', () => {
+  const repository = read('src/modules/data-sources/google-sheet.repository.js');
+  const controller = read('src/modules/data-sources/google-sheet.controller.js');
+  const routes = read('src/modules/data-sources/google-sheet.routes.js');
+  const view = read('src/views/teacher/data-sources/detail.ejs');
+  assert.match(repository, /manualLinkAssessment/);
+  assert.match(repository, /e\.class_id=\$2 AND c\.teacher_id=\$3/);
+  assert.match(repository, /a\.class_id=\$2 AND c\.teacher_id=\$3/);
+  assert.match(controller, /mapping_target/);
+  assert.match(routes, /assessments\/:assessmentId\/link/);
+  assert.match(view, /Bài kiểm tra \/ điểm nhận diện từ Google Sheets/);
+  assert.match(view, /Bài ngoài hệ thống/);
+});
+
+test('v0.21.0 materializes assessment scores without creating fake exam attempts/submissions', () => {
+  const repository = read('src/modules/data-sources/google-sheet.repository.js');
+  assert.match(repository, /materializeAssessmentResult/);
+  assert.match(repository, /INSERT INTO student_scores/);
+  const materializer = repository.slice(repository.indexOf('async materializeAssessmentResult'), repository.indexOf('async listAssessmentsForSource'));
+  assert.doesNotMatch(materializer, /INSERT INTO exam_attempts/);
+  assert.doesNotMatch(materializer, /INSERT INTO assignment_submissions/);
 });

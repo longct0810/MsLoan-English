@@ -114,6 +114,12 @@ function parseNumber(value) {
   return Number.isFinite(result) ? result : null;
 }
 
+function roundScore(value, digits = 2) {
+  if (!Number.isFinite(value)) return null;
+  const factor = 10 ** digits;
+  return Math.round((value + Number.EPSILON) * factor) / factor;
+}
+
 function detectSkill(fieldName) {
   const n = normalizeText(fieldName);
   if (/\b(reading|doc hieu)\b/.test(n)) return 'READING';
@@ -182,7 +188,7 @@ function classifyObservation(fieldName, rawValue) {
     };
   }
 
-  const scoreishField = /\b(test|kiem tra|reading|listening|grammar|tenses?|vocabulary|tu vung|score|diem|pet|unit)\b/.test(field);
+  const scoreishField = /\b(test|kiem tra|reading|listening|grammar|tenses?|vocabulary|tu vung|score|diem|pet|unit|quiz)\b/.test(field);
 
   if (fraction) {
     return {
@@ -280,6 +286,9 @@ function buildColumnMeta(rows, headerInfo) {
   let currentDate = null;
   let currentDateIndex = -1;
   let nextExplicitPointer = 0;
+  let currentFieldGroupTitle = null;
+  let currentFieldGroupStart = -1;
+  let previousRawGroupTitle = null;
 
   for (let i = 0; i < maxColumns; i += 1) {
     while (nextExplicitPointer < explicitDates.length && explicitDates[nextExplicitPointer].index < i) {
@@ -288,6 +297,11 @@ function buildColumnMeta(rows, headerInfo) {
 
     const detected = extractDate(dateRow[i]);
     if (detected) {
+      if (detected !== currentDate) {
+        currentFieldGroupTitle = null;
+        currentFieldGroupStart = -1;
+        previousRawGroupTitle = null;
+      }
       currentDate = detected;
       currentDateIndex = i;
       if (nextExplicitPointer < explicitDates.length && explicitDates[nextExplicitPointer].index === i) {
@@ -297,16 +311,27 @@ function buildColumnMeta(rows, headerInfo) {
 
     if (i === headerInfo.sttIndex || i === headerInfo.nameIndex) continue;
 
-    const fieldName = String(fieldRow[i] ?? '').trim();
+    const rawFieldName = String(fieldRow[i] ?? '').trim();
     const dateHeader = String(dateRow[i] ?? '').trim();
-
-    let effectiveFieldName = fieldName;
-    if (!effectiveFieldName && headerInfo.fieldRowIndex === headerInfo.dateRowIndex) {
-      effectiveFieldName = dateHeader.replace(/\b\d{1,2}[./-]\d{1,2}[./-]\d{4}\b/g, '').trim();
+    let explicitFieldName = rawFieldName;
+    if (!explicitFieldName && headerInfo.fieldRowIndex === headerInfo.dateRowIndex) {
+      explicitFieldName = dateHeader.replace(/\b\d{1,2}[./-]\d{1,2}[./-]\d{4}\b/g, '').trim();
     }
 
-    if (!effectiveFieldName && !currentDate) continue;
+    if (explicitFieldName) {
+      const normalizedTitle = normalizeText(explicitFieldName);
+      // Google can export merged cells either with only the first title cell populated
+      // or with the same title repeated. Adjacent identical titles stay in one group.
+      if (!currentFieldGroupTitle || normalizedTitle !== previousRawGroupTitle) {
+        currentFieldGroupTitle = explicitFieldName;
+        currentFieldGroupStart = i;
+      }
+      previousRawGroupTitle = normalizedTitle;
+    }
 
+    if (!explicitFieldName && !currentDate && !currentFieldGroupTitle) continue;
+
+    const fieldName = explicitFieldName || `Cột ${i + 1}`;
     const hasNextExplicitDate = explicitDates.some((entry) => entry.index > currentDateIndex);
     let dateConfidence = null;
     if (currentDate) {
@@ -318,13 +343,241 @@ function buildColumnMeta(rows, headerInfo) {
     columns.push({
       index: i,
       observedOn: currentDate,
-      fieldName: effectiveFieldName || `Cột ${i + 1}`,
+      fieldName,
+      rawFieldName: explicitFieldName,
+      fieldGroupTitle: currentFieldGroupTitle || fieldName,
+      fieldGroupStartIndex: currentFieldGroupStart >= 0 ? currentFieldGroupStart : i,
       rawDateHeader: dateHeader,
       dateConfidence,
     });
   }
 
+  const groupEnds = new Map();
+  for (const col of columns) {
+    const key = `${col.observedOn || ''}|${col.fieldGroupStartIndex}`;
+    groupEnds.set(key, col.index);
+  }
+  for (const col of columns) {
+    const key = `${col.observedOn || ''}|${col.fieldGroupStartIndex}`;
+    col.fieldGroupEndIndex = groupEnds.get(key) ?? col.index;
+  }
+
   return columns;
+}
+
+function isAssessmentField(fieldName) {
+  const n = normalizeText(fieldName);
+  if (!n) return false;
+  if (/\b(diem danh|attendance|cambridge|cefr|luu y|ghi chu|nhan xet|chu y|note)\b/.test(n)) return false;
+  if (/\b(btvn|homework|workbook)\b/.test(n)) return false;
+  return Boolean(
+    extractHeaderMax(fieldName) !== null ||
+    /\b(test|kiem tra|quiz|pet|unit|reading|listening|grammar|tenses?|vocabulary|tu vung|score|diem)\b/.test(n)
+  );
+}
+
+function detectAssessmentType(fieldName) {
+  const n = normalizeText(fieldName);
+  if (/\b(quiz)\b/.test(n)) return 'QUIZ';
+  if (/\b(bai tap|exercise|practice)\b/.test(n)) return 'PRACTICE';
+  if (/\b(test|kiem tra|pet|unit)\b/.test(n)) return 'TEST';
+  return 'PRACTICE';
+}
+
+function makeAssessmentKey(sourceId, observedOn, startIndex, endIndex, title) {
+  const input = [sourceId, observedOn || '', startIndex, endIndex, normalizeText(title)].join('|');
+  return crypto.createHash('sha256').update(input).digest('hex');
+}
+
+function buildAssessmentGroups(columns, sourceId = 0) {
+  const grouped = new Map();
+  for (const col of columns) {
+    const title = col.fieldGroupTitle || col.fieldName;
+    if (!isAssessmentField(title)) continue;
+    const mapKey = `${col.observedOn || ''}|${col.fieldGroupStartIndex}|${normalizeText(title)}`;
+    if (!grouped.has(mapKey)) {
+      grouped.set(mapKey, {
+        observedOn: col.observedOn,
+        title,
+        assessmentType: detectAssessmentType(title),
+        skillCode: detectSkill(title),
+        rawMaxScore: extractHeaderMax(title),
+        sourceColumnStart: col.fieldGroupStartIndex,
+        sourceColumnEnd: col.fieldGroupEndIndex,
+        dateConfidence: col.dateConfidence,
+        columns: [],
+      });
+    }
+    const group = grouped.get(mapKey);
+    group.columns.push(col);
+    group.sourceColumnEnd = Math.max(group.sourceColumnEnd, col.index);
+    if (col.dateConfidence === 'UNBOUNDED_LAST_GROUP') group.dateConfidence = 'UNBOUNDED_LAST_GROUP';
+  }
+
+  return [...grouped.values()].map((group) => ({
+    ...group,
+    externalAssessmentKey: makeAssessmentKey(
+      sourceId,
+      group.observedOn,
+      group.sourceColumnStart,
+      group.sourceColumnEnd,
+      group.title,
+    ),
+  }));
+}
+
+function inferAssessmentResult(group, row) {
+  const cells = group.columns
+    .map((col) => ({
+      index: col.index,
+      rawValue: String(row[col.index] ?? '').trim(),
+      numeric: parseNumber(row[col.index]),
+      fraction: parseFraction(row[col.index]),
+    }))
+    .filter((cell) => cell.rawValue !== '');
+
+  if (!cells.length) return null;
+
+  const fractionCell = cells.find((cell) => cell.fraction);
+  if (fractionCell) {
+    const { score, max } = fractionCell.fraction;
+    return {
+      rawScore: score,
+      rawMaxScore: max,
+      normalizedScore: roundScore((score / max) * 10),
+      normalizedMaxScore: 10,
+      confidence: 100,
+      detectionMode: 'FRACTION',
+      primaryColumnIndex: fractionCell.index,
+      warning: score < 0 || score > max ? `Điểm ${score}/${max} không hợp lệ.` : null,
+      rawValues: cells.map(({ index, rawValue }) => ({ index, value: rawValue })),
+    };
+  }
+
+  const numericCells = cells.filter((cell) => cell.numeric !== null);
+  if (!numericCells.length) return null;
+
+  const headerMax = group.rawMaxScore;
+  if (headerMax !== null) {
+    let bestPair = null;
+    for (const normalizedCell of numericCells) {
+      if (normalizedCell.numeric < 0 || normalizedCell.numeric > 10) continue;
+      for (const rawCell of numericCells) {
+        if (rawCell.index === normalizedCell.index) continue;
+        if (rawCell.numeric < 0 || rawCell.numeric > headerMax) continue;
+        const expected = (rawCell.numeric / headerMax) * 10;
+        const diff = Math.abs(normalizedCell.numeric - expected);
+        if (diff <= 0.16 && (!bestPair || diff < bestPair.diff || (diff === bestPair.diff && rawCell.index > normalizedCell.index))) {
+          bestPair = { normalizedCell, rawCell, diff };
+        }
+      }
+    }
+
+    if (bestPair) {
+      return {
+        rawScore: bestPair.rawCell.numeric,
+        rawMaxScore: headerMax,
+        normalizedScore: bestPair.normalizedCell.numeric,
+        normalizedMaxScore: 10,
+        confidence: 100,
+        detectionMode: 'NORMALIZED_RAW_PAIR_WITH_HEADER_MAX',
+        primaryColumnIndex: bestPair.normalizedCell.index,
+        warning: null,
+        rawValues: cells.map(({ index, rawValue }) => ({ index, value: rawValue })),
+      };
+    }
+
+    const rawCell = [...numericCells]
+      .reverse()
+      .find((cell) => cell.numeric >= 0 && cell.numeric <= headerMax);
+    if (rawCell) {
+      return {
+        rawScore: rawCell.numeric,
+        rawMaxScore: headerMax,
+        normalizedScore: roundScore((rawCell.numeric / headerMax) * 10),
+        normalizedMaxScore: 10,
+        confidence: 92,
+        detectionMode: 'RAW_WITH_HEADER_MAX',
+        primaryColumnIndex: rawCell.index,
+        warning: null,
+        rawValues: cells.map(({ index, rawValue }) => ({ index, value: rawValue })),
+      };
+    }
+
+    return {
+      rawScore: null,
+      rawMaxScore: headerMax,
+      normalizedScore: null,
+      normalizedMaxScore: 10,
+      confidence: 0,
+      detectionMode: 'INVALID_HEADER_MAX_SCORE',
+      primaryColumnIndex: numericCells[0].index,
+      warning: `Không xác định được điểm hợp lệ trên thang ${headerMax}.`,
+      rawValues: cells.map(({ index, rawValue }) => ({ index, value: rawValue })),
+    };
+  }
+
+  // No explicit denominator: infer it only when the sheet provides a normalized /10
+  // value and a raw correct-answer count that are mathematically consistent.
+  let inferredPair = null;
+  for (const normalizedCell of numericCells) {
+    const n = normalizedCell.numeric;
+    if (!(n > 0 && n <= 10)) continue;
+    for (const rawCell of numericCells) {
+      const r = rawCell.numeric;
+      if (rawCell.index === normalizedCell.index || !(r > 10)) continue;
+      const inferredMax = (r * 10) / n;
+      const roundedMax = Math.round(inferredMax);
+      const diff = Math.abs(inferredMax - roundedMax);
+      if (roundedMax < r || roundedMax > 200 || diff > 0.08) continue;
+      const scoreDiff = Math.abs(n - (r / roundedMax) * 10);
+      if (scoreDiff > 0.16) continue;
+      if (!inferredPair || diff < inferredPair.diff) {
+        inferredPair = { normalizedCell, rawCell, rawMax: roundedMax, diff };
+      }
+    }
+  }
+
+  if (inferredPair) {
+    return {
+      rawScore: inferredPair.rawCell.numeric,
+      rawMaxScore: inferredPair.rawMax,
+      normalizedScore: inferredPair.normalizedCell.numeric,
+      normalizedMaxScore: 10,
+      confidence: 95,
+      detectionMode: 'NORMALIZED_RAW_PAIR_INFERRED_MAX',
+      primaryColumnIndex: inferredPair.normalizedCell.index,
+      warning: null,
+      rawValues: cells.map(({ index, rawValue }) => ({ index, value: rawValue })),
+    };
+  }
+
+  const normalizedOnly = numericCells.find((cell) => cell.numeric >= 0 && cell.numeric <= 10);
+  if (normalizedOnly) {
+    return {
+      rawScore: null,
+      rawMaxScore: null,
+      normalizedScore: normalizedOnly.numeric,
+      normalizedMaxScore: 10,
+      confidence: 80,
+      detectionMode: 'NORMALIZED_ONLY',
+      primaryColumnIndex: normalizedOnly.index,
+      warning: null,
+      rawValues: cells.map(({ index, rawValue }) => ({ index, value: rawValue })),
+    };
+  }
+
+  return {
+    rawScore: null,
+    rawMaxScore: null,
+    normalizedScore: null,
+    normalizedMaxScore: 10,
+    confidence: 0,
+    detectionMode: 'UNRESOLVED_NUMERIC',
+    primaryColumnIndex: numericCells[0].index,
+    warning: 'Có dữ liệu số nhưng chưa xác định được thang điểm; chỉ lưu staging.',
+    rawValues: cells.map(({ index, rawValue }) => ({ index, value: rawValue })),
+  };
 }
 
 function buildExternalStudentKey(name, stt, occurrence = 1) {
@@ -342,6 +595,12 @@ function parseTeacherTrackingSheet(csvText, { sourceId = 0 } = {}) {
   const rows = parseCsv(csvText);
   const headerInfo = findStudentHeaderRow(rows);
   const columns = buildColumnMeta(rows, headerInfo);
+  const assessments = buildAssessmentGroups(columns, sourceId);
+  const assessmentByColumn = new Map();
+  for (const assessment of assessments) {
+    for (const col of assessment.columns) assessmentByColumn.set(col.index, assessment);
+  }
+
   const students = [];
   const occurrences = new Map();
 
@@ -363,12 +622,15 @@ function parseTeacherTrackingSheet(csvText, { sourceId = 0 } = {}) {
       const rawValue = String(row[col.index] ?? '').trim();
       if (!rawValue) continue;
 
-      const classification = classifyObservation(col.fieldName, rawValue);
+      const assessment = assessmentByColumn.get(col.index) || null;
+      const classification = classifyObservation(assessment?.title || col.fieldName, rawValue);
       observations.push({
         externalStudentKey,
         observedOn: col.observedOn,
         sourceColumnIndex: col.index,
         fieldName: col.fieldName,
+        assessmentTitle: assessment?.title || null,
+        assessmentKey: assessment?.externalAssessmentKey || null,
         rawDateHeader: col.rawDateHeader,
         dateConfidence: col.dateConfidence,
         rawValue,
@@ -387,6 +649,33 @@ function parseTeacherTrackingSheet(csvText, { sourceId = 0 } = {}) {
       });
     }
 
+    const assessmentResults = [];
+    for (const assessment of assessments) {
+      const result = inferAssessmentResult(assessment, row);
+      if (!result) continue;
+      const primaryObservation = observations.find((obs) => obs.sourceColumnIndex === result.primaryColumnIndex);
+      assessmentResults.push({
+        externalAssessmentKey: assessment.externalAssessmentKey,
+        observedOn: assessment.observedOn,
+        title: assessment.title,
+        assessmentType: assessment.assessmentType,
+        skillCode: assessment.skillCode,
+        sourceColumnStart: assessment.sourceColumnStart,
+        sourceColumnEnd: assessment.sourceColumnEnd,
+        dateConfidence: assessment.dateConfidence,
+        rawScore: result.rawScore,
+        rawMaxScore: result.rawMaxScore,
+        normalizedScore: result.normalizedScore,
+        normalizedMaxScore: result.normalizedMaxScore,
+        confidence: result.confidence,
+        detectionMode: result.detectionMode,
+        warning: result.warning,
+        rawValues: result.rawValues,
+        primaryObservationKey: primaryObservation?.observationKey || null,
+        primaryColumnIndex: result.primaryColumnIndex,
+      });
+    }
+
     if (observations.length === 0 && !stt) continue;
     students.push({
       externalStudentKey,
@@ -394,6 +683,7 @@ function parseTeacherTrackingSheet(csvText, { sourceId = 0 } = {}) {
       externalRowHint: stt || String(r + 1),
       sourceRowIndex: r,
       observations,
+      assessmentResults,
     });
   }
 
@@ -401,6 +691,10 @@ function parseTeacherTrackingSheet(csvText, { sourceId = 0 } = {}) {
     rowsRead: rows.length,
     headerRowIndex: headerInfo.rowIndex,
     columns,
+    assessments: assessments.map(({ columns: assessmentColumns, ...assessment }) => ({
+      ...assessment,
+      sourceColumns: assessmentColumns.map((col) => col.index),
+    })),
     students,
   };
 }
@@ -419,6 +713,11 @@ module.exports = {
   classifyObservation,
   findStudentHeaderRow,
   buildColumnMeta,
+  isAssessmentField,
+  detectAssessmentType,
+  buildAssessmentGroups,
+  inferAssessmentResult,
+  makeAssessmentKey,
   makeObservationKey,
   parseTeacherTrackingSheet,
 };

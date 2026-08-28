@@ -1,4 +1,5 @@
 const service = require('./student.service');
+const env = require('../../config/env');
 
 async function index(req, res, next) {
   try {
@@ -6,7 +7,13 @@ async function index(req, res, next) {
     const data = await service.getStudentPageData({ classId }, req.session.user.id, req.session.user.role === 'ADMIN');
     res.render('students/index', {
       title: 'Học viên', ...data, selectedClassId: classId,
-      message: req.query.created ? 'Đã tạo học viên và tài khoản phụ huynh.' : req.query.updated ? 'Đã cập nhật học viên.' : req.query.deleted ? 'Đã xóa học viên khỏi danh sách sử dụng.' : '',
+      message: req.query.created
+        ? (env.demo.enabled ? 'Đã tạo học viên trong DEMO MODE (chỉ lưu bộ nhớ, chưa ghi PostgreSQL/Neon).' : 'Đã tạo học viên và tài khoản phụ huynh vào PostgreSQL/Neon.')
+        : req.query.updated
+          ? (env.demo.enabled ? 'Đã cập nhật học viên trong DEMO MODE (chỉ lưu bộ nhớ).' : 'Đã cập nhật học viên trong PostgreSQL/Neon.')
+          : req.query.deleted
+            ? (env.demo.enabled ? 'Đã xóa học viên trong DEMO MODE (chỉ lưu bộ nhớ).' : 'Đã xóa học viên khỏi danh sách sử dụng.')
+            : '',
     });
   } catch (error) { next(error); }
 }

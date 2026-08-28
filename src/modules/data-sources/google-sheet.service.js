@@ -54,7 +54,7 @@ async function fetchText(url, { timeoutMs = 15000, retries = 2, maxBytes = 10 * 
         redirect: 'follow',
         signal: controller.signal,
         headers: {
-          'user-agent': 'English-Classroom/0.20.1 Google-Sheets-Sync',
+          'user-agent': 'English-Classroom/0.21.0 Google-Sheets-Sync',
           accept: 'text/csv,text/plain;q=0.9,*/*;q=0.1',
         },
       });
@@ -128,6 +128,7 @@ function getSettings(source) {
   const settings = source.settings || {};
   return {
     materializeScores: settings.materialize_scores !== false,
+    materializeAssessments: settings.materialize_assessments !== false,
     materializeAttendance: settings.materialize_attendance !== false,
     materializeNotes: settings.materialize_notes !== false,
     materializeSkillEvents: settings.materialize_skill_events !== false,
@@ -171,6 +172,9 @@ function createGoogleSheetService({ pool, repository, logger = console }) {
       materializedScores: 0,
       materializedAttendance: 0,
       materializedNotes: 0,
+      assessmentsSeen: 0,
+      assessmentResultsSeen: 0,
+      materializedAssessmentResults: 0,
       skipped: 0,
       errorsCount: 0,
       details: { warnings: [], unmatched: [] },
@@ -218,6 +222,29 @@ function createGoogleSheetService({ pool, repository, logger = console }) {
         const matchStudent = buildStudentMatcher(classStudents);
         const settings = getSettings(source);
         const sessionCache = new Map();
+        const assessmentMap = new Map();
+
+        for (const parsedAssessment of parsed.assessments || []) {
+          const assessment = await repository.upsertAssessment({
+            sourceId: source.id,
+            classId: source.class_id,
+            externalAssessmentKey: parsedAssessment.externalAssessmentKey,
+            observedOn: parsedAssessment.observedOn,
+            title: parsedAssessment.title,
+            assessmentType: parsedAssessment.assessmentType,
+            skillCode: parsedAssessment.skillCode,
+            rawMaxScore: parsedAssessment.rawMaxScore,
+            normalizedMaxScore: 10,
+            sourceColumnStart: parsedAssessment.sourceColumnStart,
+            sourceColumnEnd: parsedAssessment.sourceColumnEnd,
+            metadata: {
+              dateConfidence: parsedAssessment.dateConfidence,
+              sourceColumns: parsedAssessment.sourceColumns,
+            },
+          }, client);
+          assessmentMap.set(parsedAssessment.externalAssessmentKey, assessment);
+          stats.assessmentsSeen += 1;
+        }
 
         for (const extStudent of parsed.students) {
           const existingLink = await repository.getStudentLink(source.id, extStudent.externalStudentKey, client);
@@ -249,6 +276,7 @@ function createGoogleSheetService({ pool, repository, logger = console }) {
             });
           }
 
+          const observationMap = new Map();
           for (const item of extStudent.observations) {
             stats.observationsSeen += 1;
             const dateCheck = isDateAllowed(source, item.observedOn);
@@ -286,8 +314,11 @@ function createGoogleSheetService({ pool, repository, logger = console }) {
                 dateConfidence: item.dateConfidence,
                 sourceRow: extStudent.sourceRowIndex + 1,
                 stt: extStudent.externalRowHint,
+                assessmentKey: item.assessmentKey || null,
+                assessmentTitle: item.assessmentTitle || null,
               },
             }, client);
+            observationMap.set(item.observationKey, observation);
 
             if (inserted) stats.observationsInserted += 1;
             else stats.observationsUpdated += 1;
@@ -305,6 +336,7 @@ function createGoogleSheetService({ pool, repository, logger = console }) {
 
             if (
               settings.materializeScores &&
+              !item.assessmentKey &&
               observation.observation_type === 'SCORE' &&
               observation.numeric_value != null &&
               observation.max_value != null &&
@@ -356,6 +388,87 @@ function createGoogleSheetService({ pool, repository, logger = console }) {
               }
               await repository.materializeNote({ observation, source, classSessionId: sessionId }, client);
               stats.materializedNotes += 1;
+            }
+          }
+
+          for (const parsedResult of extStudent.assessmentResults || []) {
+            stats.assessmentResultsSeen += 1;
+            let assessment = assessmentMap.get(parsedResult.externalAssessmentKey);
+            if (!assessment) continue;
+
+            if (parsedResult.rawMaxScore != null && assessment.raw_max_score == null) {
+              assessment = await repository.upsertAssessment({
+                sourceId: source.id,
+                classId: source.class_id,
+                externalAssessmentKey: parsedResult.externalAssessmentKey,
+                observedOn: parsedResult.observedOn,
+                title: parsedResult.title,
+                assessmentType: parsedResult.assessmentType,
+                skillCode: parsedResult.skillCode,
+                rawMaxScore: parsedResult.rawMaxScore,
+                normalizedMaxScore: parsedResult.normalizedMaxScore || 10,
+                sourceColumnStart: parsedResult.sourceColumnStart,
+                sourceColumnEnd: parsedResult.sourceColumnEnd,
+                metadata: { inferredMaxFromResult: parsedResult.detectionMode === 'NORMALIZED_RAW_PAIR_INFERRED_MAX' },
+              }, client);
+              assessmentMap.set(parsedResult.externalAssessmentKey, assessment);
+            }
+
+            const dateCheck = isDateAllowed(source, parsedResult.observedOn);
+            let warning = parsedResult.warning || dateCheck.warning;
+            if (
+              !warning &&
+              parsedResult.rawMaxScore != null &&
+              assessment.raw_max_score != null &&
+              Math.abs(Number(parsedResult.rawMaxScore) - Number(assessment.raw_max_score)) > 0.001
+            ) {
+              warning = `Thang điểm suy luận ${parsedResult.rawMaxScore} không khớp thang ${assessment.raw_max_score} của cùng bài; chỉ lưu staging.`;
+            }
+            if (!warning && parsedResult.dateConfidence === 'UNBOUNDED_LAST_GROUP' && source.settings?.allow_unbounded_last_date_group !== true) {
+              warning = 'Nhóm bài kiểm tra nằm sau mốc ngày cuối cùng chưa có biên xác nhận; chỉ lưu staging.';
+            }
+
+            const primaryObservation = parsedResult.primaryObservationKey
+              ? observationMap.get(parsedResult.primaryObservationKey)
+              : null;
+            const assessmentResult = await repository.upsertAssessmentResult({
+              assessmentId: assessment.id,
+              syncRunId: run.id,
+              externalStudentKey: extStudent.externalStudentKey,
+              studentId: link.student_id,
+              primaryObservationId: primaryObservation?.id || null,
+              rawScore: parsedResult.rawScore,
+              rawMaxScore: parsedResult.rawMaxScore,
+              normalizedScore: parsedResult.normalizedScore,
+              normalizedMaxScore: parsedResult.normalizedMaxScore || 10,
+              confidence: parsedResult.confidence,
+              detectionMode: parsedResult.detectionMode,
+              warning,
+              rawValues: parsedResult.rawValues,
+            }, client);
+
+            if (warning && stats.details.warnings.length < 100) {
+              stats.details.warnings.push({ student: extStudent.externalStudentName, field: parsedResult.title, warning });
+            }
+
+            const hasScore = (
+              (assessmentResult.raw_score != null && assessmentResult.raw_max_score != null && Number(assessmentResult.raw_max_score) > 0) ||
+              (assessmentResult.normalized_score != null && Number(assessmentResult.normalized_max_score) > 0)
+            );
+            if (!settings.materializeScores || !settings.materializeAssessments || !link.student_id || !dateCheck.allowed || warning || !hasScore) {
+              stats.skipped += 1;
+              continue;
+            }
+
+            const sourceForMaterialization = { ...source, materializeSkillEvents: settings.materializeSkillEvents };
+            const scoreId = await repository.materializeAssessmentResult({
+              result: assessmentResult,
+              assessment,
+              source: sourceForMaterialization,
+            }, client);
+            if (scoreId) {
+              stats.materializedAssessmentResults += 1;
+              stats.materializedScores += 1;
             }
           }
         }
