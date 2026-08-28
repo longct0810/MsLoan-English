@@ -2,6 +2,7 @@
 <%
   const role = currentUser?.role || '';
   const isTeacher = ['TEACHER', 'ADMIN'].includes(role);
+  const canManageDataSources = role === 'TEACHER';
   const isStudent = role === 'STUDENT';
   const isParent = role === 'PARENT';
   const homeUrl = isStudent ? '/student' : (isParent ? '/parent' : '/dashboard');
@@ -25,6 +26,7 @@
         <a class="nav-link <%= currentPath.startsWith('/classes') ? 'active' : '' %>" href="/classes">Lớp học</a>
         <a class="nav-link <%= currentPath.startsWith('/students') ? 'active' : '' %>" href="/students">Học viên</a>
         <a class="nav-link <%= currentPath.startsWith('/sessions') ? 'active' : '' %>" href="/sessions">Buổi học & điểm danh</a>
+        <% if (canManageDataSources) { %><a class="nav-link <%= currentPath.startsWith('/teacher/data-sources') ? 'active' : '' %>" href="/teacher/data-sources">Nguồn dữ liệu</a><% } %>
         <div class="nav-section-label mt-3">Nội dung & đánh giá</div>
         <a class="nav-link <%= currentPath.startsWith('/lessons') ? 'active' : '' %>" href="/lessons">Bài học & tài liệu</a>
         <a class="nav-link <%= currentPath.startsWith('/assignments') ? 'active' : '' %>" href="/assignments">Bài tập & chấm bài</a>
@@ -91,6 +93,7 @@
             <a class="nav-link <%= currentPath.startsWith('/classes') ? 'active' : '' %>" href="/classes">Lớp học</a>
             <a class="nav-link <%= currentPath.startsWith('/students') ? 'active' : '' %>" href="/students">Học viên</a>
             <a class="nav-link <%= currentPath.startsWith('/sessions') ? 'active' : '' %>" href="/sessions">Buổi học & điểm danh</a>
+            <% if (canManageDataSources) { %><a class="nav-link <%= currentPath.startsWith('/teacher/data-sources') ? 'active' : '' %>" href="/teacher/data-sources">Nguồn dữ liệu</a><% } %>
             <div class="nav-section-label mt-3">Nội dung & đánh giá</div>
             <a class="nav-link <%= currentPath.startsWith('/lessons') ? 'active' : '' %>" href="/lessons">Bài học & tài liệu</a>
             <a class="nav-link <%= currentPath.startsWith('/assignments') ? 'active' : '' %>" href="/assignments">Bài tập & chấm bài</a>

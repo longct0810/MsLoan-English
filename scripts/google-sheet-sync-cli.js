@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 'use strict';
 
-const { Pool } = require('pg');
+const pool = require('../src/config/db');
 const { createGoogleSheetRepository } = require('../src/modules/data-sources/google-sheet.repository');
 const { createGoogleSheetService } = require('../src/modules/data-sources/google-sheet.service');
 
@@ -20,13 +20,6 @@ function argsToObject(argv) {
 
 async function main() {
   const args = argsToObject(process.argv);
-  if (!process.env.DATABASE_URL) throw new Error('Thiếu DATABASE_URL.');
-
-  const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-    ssl: String(process.env.PGSSL || 'true').toLowerCase() === 'false' ? false : { rejectUnauthorized: false },
-  });
-
   try {
     const repository = createGoogleSheetRepository(pool);
     const service = createGoogleSheetService({ pool, repository, logger: console });

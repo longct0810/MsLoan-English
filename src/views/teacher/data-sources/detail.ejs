@@ -1,0 +1,81 @@
+<%- include('../../partials/app-start', { title }) %>
+<div class="container-fluid py-3">
+  <div class="d-flex justify-content-between align-items-start mb-3">
+    <div>
+      <a href="/teacher/data-sources" class="text-decoration-none">← Nguồn dữ liệu</a>
+      <h3 class="mb-1 mt-2"><%= source.name %></h3>
+      <div class="text-muted"><%= source.class_name %> · <%= source.school_year %></div>
+    </div>
+    <form method="post" action="/teacher/data-sources/<%= source.id %>/sync">
+      <% if (typeof csrfToken !== 'undefined' && csrfToken) { %>
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <% } %>
+      <button class="btn btn-primary" type="submit"><i class="fa fa-refresh"></i> Đồng bộ ngay</button>
+    </form>
+  </div>
+
+  <% if (flashMessage) { %><div class="alert alert-<%= flashType %>"><%= flashMessage %></div><% } %>
+  <% if (source.last_error) { %><div class="alert alert-danger"><strong>Lỗi gần nhất:</strong> <%= source.last_error %></div><% } %>
+
+  <div class="row g-3 mb-4">
+    <div class="col-md-3"><div class="card app-card h-100"><div class="card-body"><div class="text-muted small">Chu kỳ</div><div class="fs-4 fw-bold"><%= source.sync_interval_minutes %> phút</div></div></div></div>
+    <div class="col-md-3"><div class="card app-card h-100"><div class="card-body"><div class="text-muted small">Lần kiểm tra</div><div class="fw-bold"><%= source.last_synced_at ? new Date(source.last_synced_at).toLocaleString('vi-VN') : 'Chưa có' %></div></div></div></div>
+    <div class="col-md-3"><div class="card app-card h-100"><div class="card-body"><div class="text-muted small">Lần thành công</div><div class="fw-bold"><%= source.last_success_at ? new Date(source.last_success_at).toLocaleString('vi-VN') : 'Chưa có' %></div></div></div></div>
+    <div class="col-md-3"><div class="card app-card h-100"><div class="card-body"><div class="text-muted small">Giới hạn lịch sử</div><div class="fw-bold"><%= source.import_from_date ? String(source.import_from_date).slice(0,10) : 'Không giới hạn' %></div></div></div></div>
+  </div>
+
+  <div class="card app-card mb-4">
+    <div class="card-header"><strong>Học sinh cần mapping</strong></div>
+    <div class="table-responsive">
+      <table class="table table-sm align-middle mb-0">
+        <thead><tr><th>Tên trong Sheet</th><th>Trạng thái</th><th>Liên kết với học sinh</th></tr></thead>
+        <tbody>
+          <% if (!unmatched.length) { %><tr><td colspan="3" class="text-center text-muted py-3">Tất cả học sinh đã được mapping.</td></tr><% } %>
+          <% unmatched.forEach(function(item) { %>
+            <tr>
+              <td><strong><%= item.external_student_name %></strong><br><small class="text-muted"><%= item.external_student_key %></small></td>
+              <td><span class="badge bg-warning text-dark"><%= item.match_status %></span></td>
+              <td>
+                <form method="post" action="/teacher/data-sources/<%= source.id %>/student-links" class="d-flex gap-2">
+                  <% if (typeof csrfToken !== 'undefined' && csrfToken) { %><input type="hidden" name="_csrf" value="<%= csrfToken %>"><% } %>
+                  <input type="hidden" name="external_student_key" value="<%= item.external_student_key %>">
+                  <select name="student_id" class="form-select form-select-sm" required>
+                    <option value="">-- Chọn học sinh --</option>
+                    <% classStudents.forEach(function(student) { %><option value="<%= student.id %>"><%= student.full_name %></option><% }) %>
+                  </select>
+                  <button class="btn btn-sm btn-outline-primary" type="submit">Liên kết</button>
+                </form>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card app-card">
+    <div class="card-header"><strong>Lịch sử đồng bộ</strong></div>
+    <div class="table-responsive">
+      <table class="table table-sm table-hover mb-0">
+        <thead><tr><th>Thời gian</th><th>Kết quả</th><th>Học sinh</th><th>Ô dữ liệu</th><th>Điểm</th><th>Điểm danh</th><th>Ghi chú</th><th>Thông báo</th></tr></thead>
+        <tbody>
+          <% if (!runs.length) { %><tr><td colspan="8" class="text-center text-muted py-3">Chưa có lần đồng bộ.</td></tr><% } %>
+          <% runs.forEach(function(run) { %>
+            <tr>
+              <td><%= new Date(run.started_at).toLocaleString('vi-VN') %></td>
+              <td><span class="badge <%= run.status === 'SUCCESS' ? 'bg-success' : (run.status === 'FAILED' ? 'bg-danger' : 'bg-warning text-dark') %>"><%= run.status %></span></td>
+              <td><%= run.students_matched %>/<%= run.students_seen %></td>
+              <td><%= run.observations_seen %></td>
+              <td><%= run.materialized_scores %></td>
+              <td><%= run.materialized_attendance %></td>
+              <td><%= run.materialized_notes %></td>
+              <td><small><%= run.message || '' %></small></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<%- include('../../partials/app-end') %>

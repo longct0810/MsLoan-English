@@ -1,3 +1,15 @@
+# v0.20.0
+
+## Google Sheets Data Source
+
+- Tích hợp Google Sheet theo dõi của giáo viên thành nguồn dữ liệu định kỳ cho PostgreSQL/Neon.
+- Đồng bộ theo chu kỳ từng nguồn (mặc định 15 phút), SHA-256 bỏ qua lần không đổi và advisory lock chống chạy trùng trên PM2 cluster.
+- Parser động cho cấu trúc nhóm ngày/cột, staging toàn bộ observation trước khi materialize.
+- Auto-map học sinh theo tên chuẩn hóa duy nhất; hỗ trợ mapping thủ công.
+- Materialize an toàn điểm, skill event, điểm danh và ghi chú; không ghi đè điểm danh nhập tay, không tự xóa dữ liệu nghiệp vụ.
+- Thêm giao diện `/teacher/data-sources`, lịch sử sync và nút đồng bộ ngay.
+- Migration: `db/neon_upgrade_v0.20.0.sql`.
+
 # v0.19.1
 
 ## Assignment hotfix

@@ -20,8 +20,20 @@ const questionRoutes = require('./modules/questions/question.routes');
 const examRoutes = require('./modules/exams/exam.routes');
 const reportRoutes = require('./modules/reports/report.routes');
 const skillRoutes = require('./modules/skills/skill.routes');
+const { requireAuth, requireRole } = require('./middleware/auth.middleware');
+const { createGoogleSheetModule } = require('./modules/data-sources');
 
 const app = express();
+
+const googleSheetModule = createGoogleSheetModule({
+  pool,
+  logger: console,
+  requireAuth,
+  // v0.20.0: data sources are teacher-owned. ADMIN impersonation/selection is not
+  // implemented, so keep this route TEACHER-only to preserve ownership scope.
+  requireTeacher: requireRole('TEACHER'),
+});
+app.googleSheetModule = googleSheetModule;
 
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
@@ -79,6 +91,7 @@ app.use(questionRoutes.web);
 app.use(examRoutes.web);
 app.use(reportRoutes);
 app.use(skillRoutes);
+app.use('/teacher/data-sources', googleSheetModule.router);
 app.use(portalRoutes);
 app.use(env.app.apiPrefix, classRoutes.api);
 app.use(env.app.apiPrefix, studentRoutes.api);
