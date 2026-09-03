@@ -1,0 +1,142 @@
+<%- include('../partials/app-start', { title }) %>
+<% const money = (v) => new Intl.NumberFormat('vi-VN').format(Number(v || 0)) + 'đ'; %>
+<div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3 mb-4">
+  <div>
+    <div class="eyebrow">Thu học phí</div>
+    <h1 class="h3 mb-1">Học phí & QR chuyển khoản</h1>
+    <p class="text-secondary mb-0">Tính học phí theo điểm danh đã lưu trong hệ thống, bao gồm dữ liệu đồng bộ từ Google Sheets.</p>
+  </div>
+</div>
+
+<% if (message) { %><div class="alert alert-success"><%= message %></div><% } %>
+<% if (errorMessage) { %><div class="alert alert-danger"><%= errorMessage %></div><% } %>
+<% if (demoMode) { %><div class="alert alert-warning">Module học phí chỉ sử dụng PostgreSQL/Neon. Không tạo dữ liệu học phí trong DEMO MODE.</div><% } %>
+
+<div class="row g-4 mb-4">
+  <div class="col-xl-5">
+    <div class="card app-card h-100">
+      <div class="card-header">
+        <strong>Tài khoản nhận học phí</strong>
+        <div class="small text-secondary">Dùng để sinh VietQR cho từng thông báo.</div>
+      </div>
+      <div class="card-body">
+        <form method="post" action="/teacher/tuition/settings" class="row g-3">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <div class="col-12">
+            <label class="form-label">Ngân hàng</label>
+            <input class="form-control" name="bankName" list="bankPresetNames" value="<%= paymentSettings?.bankName || '' %>" required placeholder="Ví dụ: MB Bank">
+            <datalist id="bankPresetNames"><% bankPresets.forEach(b => { %><option value="<%= b.name %>"><%= b.code %> - BIN <%= b.bin %></option><% }) %></datalist>
+          </div>
+          <div class="col-md-5">
+            <label class="form-label">Mã ngắn</label>
+            <input class="form-control" name="bankCode" value="<%= paymentSettings?.bankCode || '' %>" placeholder="MB / VCB">
+          </div>
+          <div class="col-md-7">
+            <label class="form-label">BIN ngân hàng</label>
+            <input class="form-control" name="bankBin" value="<%= paymentSettings?.bankBin || '' %>" inputmode="numeric" maxlength="6" required placeholder="970422">
+          </div>
+          <div class="col-12">
+            <div class="small text-secondary mb-2">BIN thường dùng: <% bankPresets.forEach((b, idx) => { %><%= idx ? ' • ' : '' %><strong><%= b.code %></strong> <%= b.bin %><% }) %></div>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Số tài khoản</label>
+            <input class="form-control" name="bankAccountNo" value="<%= paymentSettings?.bankAccountNo || '' %>" required autocomplete="off">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Tên chủ tài khoản</label>
+            <input class="form-control text-uppercase" name="bankAccountName" value="<%= paymentSettings?.bankAccountName || '' %>" required>
+          </div>
+          <div class="col-12"><button class="btn btn-primary">Lưu tài khoản nhận tiền</button></div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-xl-7" id="cycles">
+    <div class="card app-card h-100">
+      <div class="card-header">
+        <strong>Tạo kỳ học phí</strong>
+        <div class="small text-secondary">Hệ thống đọc <code>session_attendance</code>; dữ liệu Google Sheets đã sync sẽ được tính tự động.</div>
+      </div>
+      <div class="card-body">
+        <form method="post" action="/teacher/tuition/cycles" class="row g-3">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <div class="col-lg-5">
+            <label class="form-label">Lớp</label>
+            <select class="form-select" name="classId" required>
+              <option value="">-- Chọn lớp --</option>
+              <% classes.forEach(c => { %><option value="<%= c.id %>" <%= !c.planId ? 'disabled' : '' %>><%= c.name %><%= c.planId ? ` • ${money(c.unitPrice)}/buổi` : ' • Chưa cấu hình' %></option><% }) %>
+            </select>
+          </div>
+          <div class="col-lg-3">
+            <label class="form-label">Tháng</label>
+            <input class="form-control" type="month" name="month" value="<%= defaultMonth %>" required>
+          </div>
+          <div class="col-lg-4">
+            <label class="form-label">Hạn thanh toán</label>
+            <input class="form-control" type="date" name="dueDate" value="<%= defaultDueDate %>">
+          </div>
+          <div class="col-12">
+            <button class="btn btn-primary">Tính học phí từ điểm danh</button>
+            <div class="small text-secondary mt-2">Nếu kỳ đang ở trạng thái Nháp, thao tác này sẽ tính lại snapshot từ dữ liệu điểm danh hiện tại.</div>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card app-card mb-4" id="plans">
+  <div class="card-header">
+    <strong>Đơn giá theo lớp</strong>
+    <div class="small text-secondary">Mặc định: lớp 5 lên 6 (khối 6) 150.000đ/buổi; lớp 7, 8, 9 là 220.000đ/buổi.</div>
+  </div>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table align-middle mb-0">
+        <thead><tr><th>Lớp</th><th>Đơn giá</th><th>Trạng thái được tính phí</th><th style="min-width:360px">Cập nhật</th></tr></thead>
+        <tbody>
+          <% classes.forEach(c => { const statuses = Array.isArray(c.billedStatuses) ? c.billedStatuses : ['PRESENT','LATE','ONLINE']; %>
+            <tr>
+              <td><strong><%= c.name %></strong><div class="small text-secondary">Khối <%= c.grade %> • <%= c.schoolYear %></div></td>
+              <td><span class="fw-semibold"><%= c.planId ? money(c.unitPrice) : 'Chưa cấu hình' %></span><div class="small text-secondary">/ buổi</div></td>
+              <td class="small"><%= statuses.map(s => ({PRESENT:'Có mặt',LATE:'Đi muộn',ONLINE:'Online',ABSENT:'Vắng',ABSENT_EXCUSED:'Vắng có phép'}[s] || s)).join(', ') %></td>
+              <td>
+                <form method="post" action="/teacher/tuition/plans/<%= c.id %>" class="row g-2 align-items-end">
+                  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                  <input type="hidden" name="name" value="<%= c.planName || (c.grade === 6 ? 'Học phí lớp 5 lên 6' : 'Học phí lớp ' + c.grade) %>">
+                  <div class="col-5"><label class="form-label small">Đơn giá</label><input class="form-control form-control-sm" type="number" min="0" step="1000" name="unitPrice" value="<%= c.planId ? c.unitPrice : c.suggestedUnitPrice %>" required></div>
+                  <div class="col-7">
+                    <div class="small mb-1">Tính phí khi:</div>
+                    <% [['PRESENT','Có mặt'],['LATE','Muộn'],['ONLINE','Online']].forEach(([value,label]) => { %><label class="form-check form-check-inline small"><input class="form-check-input" type="checkbox" name="status_<%= value %>" <%= statuses.includes(value) ? 'checked' : '' %>><span class="form-check-label"><%= label %></span></label><% }) %>
+                  </div>
+                  <div class="col-12"><button class="btn btn-sm btn-outline-primary">Lưu đơn giá</button></div>
+                </form>
+              </td>
+            </tr>
+          <% }) %>
+          <% if (!classes.length) { %><tr><td colspan="4" class="text-center text-secondary py-4">Chưa có lớp đang hoạt động.</td></tr><% } %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="card app-card">
+  <div class="card-header"><strong>Các kỳ học phí gần đây</strong></div>
+  <div class="table-responsive">
+    <table class="table align-middle mb-0">
+      <thead><tr><th>Kỳ</th><th>Lớp</th><th>Hóa đơn</th><th>Tổng tiền</th><th>Đã thu</th><th>Trạng thái</th><th></th></tr></thead>
+      <tbody>
+        <% cycles.forEach(c => { %><tr>
+          <td><%= new Date(c.periodMonth).toLocaleDateString('vi-VN', {month:'2-digit',year:'numeric'}) %></td>
+          <td><%= c.className %></td><td><%= c.invoiceCount %></td><td class="fw-semibold"><%= money(c.totalAmount) %></td><td><%= money(c.paidAmount) %></td>
+          <td><span class="badge <%= c.status === 'SENT' ? 'text-bg-primary' : c.status === 'DRAFT' ? 'text-bg-warning' : 'text-bg-secondary' %>"><%= c.status %></span></td>
+          <td><a class="btn btn-sm btn-light" href="/teacher/tuition/cycles/<%= c.id %>">Xem</a></td>
+        </tr><% }) %>
+        <% if (!cycles.length) { %><tr><td colspan="7" class="text-center text-secondary py-4">Chưa tạo kỳ học phí.</td></tr><% } %>
+      </tbody>
+    </table>
+  </div>
+</div>
+<%- include('../partials/app-end') %>

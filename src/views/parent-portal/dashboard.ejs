@@ -21,6 +21,13 @@
   <div class="col-6 col-xl-3"><div class="metric-card"><div class="metric-label">Điểm mới nhất</div><div class="metric-value"><%= p.latestScores[0]?.score ?? '-' %></div><div class="metric-meta"><%= p.latestScores[0]?.title || 'Chưa có' %></div></div></div>
 </div>
 
+<% if (p.tuition?.outstanding > 0) { %>
+<div class="alert alert-warning d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 mb-4">
+  <div><strong>Có học phí cần thanh toán</strong><div class="small">Số tiền còn lại: <%= new Intl.NumberFormat('vi-VN').format(p.tuition.outstanding) %>đ.</div></div>
+  <a class="btn btn-sm btn-primary" href="/parent/tuition?childId=<%= portal.selected.id %>">Xem thông báo & QR</a>
+</div>
+<% } %>
+
 <% if (p.student.attendanceRate < 90 || p.pendingAssignments.some(a => a.submission.status === 'LATE')) { %>
 <div class="parent-alert mb-4">
   <strong>Cần lưu ý</strong>

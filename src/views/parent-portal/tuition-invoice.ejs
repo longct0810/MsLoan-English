@@ -1,0 +1,23 @@
+<%- include('../partials/app-start', { title }) %>
+<% const money = (v) => new Intl.NumberFormat('vi-VN').format(Number(v || 0)) + 'đ'; %>
+<div class="mb-4"><a href="/parent/tuition?childId=<%= invoice.studentId %>" class="small text-decoration-none">← Học phí</a><h1 class="h3 mt-2 mb-1">Thông báo học phí</h1><div class="text-secondary"><%= invoice.studentName %> • <%= invoice.className %> • <%= invoice.publicCode %></div></div>
+<div class="row g-4">
+  <div class="col-xl-6">
+    <div class="card app-card mb-4"><div class="card-header"><strong>Thông tin kỳ học</strong></div><div class="card-body">
+      <div class="d-flex justify-content-between py-2 border-bottom"><span>Kỳ</span><strong><%= new Date(invoice.periodMonth).toLocaleDateString('vi-VN',{month:'2-digit',year:'numeric'}) %></strong></div>
+      <div class="d-flex justify-content-between py-2 border-bottom"><span>Số buổi tính phí</span><strong><%= invoice.billableSessions %></strong></div>
+      <div class="d-flex justify-content-between py-2 border-bottom"><span>Đơn giá</span><strong><%= money(invoice.unitPrice) %>/buổi</strong></div>
+      <div class="d-flex justify-content-between py-2 border-bottom"><span>Hạn thanh toán</span><strong><%= new Date(invoice.dueDate).toLocaleDateString('vi-VN') %></strong></div>
+      <div class="d-flex justify-content-between pt-3 fs-5"><span>Tổng học phí</span><strong><%= money(invoice.finalAmount) %></strong></div>
+      <% if (invoice.amountPaid > 0) { %><div class="d-flex justify-content-between pt-2"><span>Đã thanh toán</span><strong class="text-success"><%= money(invoice.amountPaid) %></strong></div><% } %>
+      <div class="d-flex justify-content-between pt-2"><span>Còn phải thanh toán</span><strong class="text-danger"><%= money(invoice.remainingAmount) %></strong></div>
+    </div></div>
+    <div class="card app-card"><div class="card-header"><strong>Điểm danh trong kỳ</strong></div><div class="card-body"><div class="row text-center"><div class="col"><div class="small text-secondary">Có mặt</div><strong><%= invoice.presentCount %></strong></div><div class="col"><div class="small text-secondary">Muộn</div><strong><%= invoice.lateCount %></strong></div><div class="col"><div class="small text-secondary">Online</div><strong><%= invoice.onlineCount %></strong></div><div class="col"><div class="small text-secondary">Vắng</div><strong><%= invoice.absentCount + invoice.excusedCount %></strong></div></div></div></div>
+  </div>
+  <div class="col-xl-6">
+    <div class="card app-card"><div class="card-header"><strong>Quét QR để chuyển khoản</strong></div><div class="card-body text-center">
+      <% if (invoice.qrImageUrl) { %><img src="<%= invoice.qrImageUrl %>" class="img-fluid border rounded mb-3" style="max-width:360px" alt="QR thanh toán học phí"><div class="text-start mx-auto" style="max-width:420px"><div class="d-flex justify-content-between py-1"><span class="text-secondary">Ngân hàng</span><strong><%= invoice.paymentSnapshot.bankName %></strong></div><div class="d-flex justify-content-between py-1"><span class="text-secondary">Số tài khoản</span><strong><%= invoice.paymentSnapshot.bankAccountNo %></strong></div><div class="d-flex justify-content-between py-1"><span class="text-secondary">Chủ tài khoản</span><strong><%= invoice.paymentSnapshot.bankAccountName %></strong></div><div class="d-flex justify-content-between py-1"><span class="text-secondary">Số tiền</span><strong><%= money(invoice.remainingAmount) %></strong></div><div class="alert alert-light border mt-3 mb-0"><div class="small text-secondary">Nội dung chuyển khoản</div><div class="fs-5 fw-bold"><%= invoice.transferContent %></div><div class="small text-secondary mt-1">Vui lòng giữ nguyên nội dung để thuận tiện đối soát.</div></div></div><% } else if (invoice.status === 'PAID') { %><div class="display-6 text-success">✓</div><h2 class="h5">Đã thanh toán đủ</h2><div class="text-secondary">Cảm ơn phụ huynh.</div><% } else { %><div class="text-secondary">Chưa có thông tin QR. Vui lòng liên hệ giáo viên.</div><% } %>
+    </div></div>
+  </div>
+</div>
+<%- include('../partials/app-end') %>

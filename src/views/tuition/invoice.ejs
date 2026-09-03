@@ -1,0 +1,46 @@
+<%- include('../partials/app-start', { title }) %>
+<% const money = (v) => new Intl.NumberFormat('vi-VN').format(Number(v || 0)) + 'đ'; %>
+<div class="d-flex flex-column flex-lg-row justify-content-between gap-3 mb-4">
+  <div><a href="/teacher/tuition" class="small text-decoration-none">← Học phí & QR</a><h1 class="h3 mt-2 mb-1"><%= invoice.studentName %></h1><div class="text-secondary"><%= invoice.className %> • <%= invoice.publicCode %></div></div>
+  <div><span class="badge fs-6 <%= invoice.status === 'PAID' ? 'text-bg-success' : invoice.status === 'PARTIAL' ? 'text-bg-info' : invoice.status === 'UNPAID' ? 'text-bg-danger' : 'text-bg-warning' %>"><%= invoice.status %></span></div>
+</div>
+<% if (message) { %><div class="alert alert-success"><%= message %></div><% } %><% if (errorMessage) { %><div class="alert alert-danger"><%= errorMessage %></div><% } %>
+<div class="row g-4">
+  <div class="col-xl-7">
+    <div class="card app-card mb-4"><div class="card-header"><strong>Căn cứ điểm danh</strong></div><div class="card-body">
+      <div class="row g-3 mb-3">
+        <div class="col-4 col-md-2"><div class="small text-secondary">Có mặt</div><strong><%= invoice.presentCount %></strong></div>
+        <div class="col-4 col-md-2"><div class="small text-secondary">Muộn</div><strong><%= invoice.lateCount %></strong></div>
+        <div class="col-4 col-md-2"><div class="small text-secondary">Online</div><strong><%= invoice.onlineCount %></strong></div>
+        <div class="col-4 col-md-2"><div class="small text-secondary">Vắng</div><strong><%= invoice.absentCount %></strong></div>
+        <div class="col-4 col-md-2"><div class="small text-secondary">Có phép</div><strong><%= invoice.excusedCount %></strong></div>
+        <div class="col-4 col-md-2"><div class="small text-secondary">Tính phí</div><strong><%= invoice.billableSessions %></strong></div>
+      </div>
+      <div class="small text-secondary mb-2">Nguồn điểm danh snapshot: <% const sourceEntries = Object.entries(invoice.sourceCounts || {}); %><%= sourceEntries.length ? sourceEntries.map(([k,v]) => `${k === 'GOOGLE_SHEETS' ? 'Google Sheets' : k}: ${v}`).join(' • ') : 'Chưa có bản ghi điểm danh' %></div>
+      <div class="table-responsive"><table class="table table-sm align-middle"><thead><tr><th>Ngày</th><th>Buổi học</th><th>Trạng thái</th><th>Nguồn</th></tr></thead><tbody>
+        <% invoice.attendanceRows.forEach(a => { %><tr><td><%= new Date(a.sessionDate).toLocaleDateString('vi-VN') %></td><td><%= a.topic || '-' %></td><td><%= a.status %></td><td><%= a.sourceType === 'GOOGLE_SHEETS' ? 'Google Sheets' : (a.sourceType || 'Nhập tay') %></td></tr><% }) %>
+        <% if (!invoice.attendanceRows.length) { %><tr><td colspan="4" class="text-secondary">Chưa có dữ liệu điểm danh trong kỳ.</td></tr><% } %>
+      </tbody></table></div>
+    </div></div>
+
+    <div class="card app-card mb-4"><div class="card-header"><strong>Chi tiết học phí</strong></div><div class="card-body">
+      <% invoice.items.forEach(item => { %><div class="d-flex justify-content-between py-2 border-bottom"><span><%= item.description %><% if (item.itemType === 'TUITION') { %><div class="small text-secondary"><%= item.quantity %> × <%= money(item.unitPrice) %></div><% } %></span><strong><%= money(item.amount) %></strong></div><% }) %>
+      <div class="d-flex justify-content-between pt-3 fs-5"><strong>Tổng phải thu</strong><strong><%= money(invoice.finalAmount) %></strong></div>
+      <div class="d-flex justify-content-between pt-2"><span>Đã thu</span><strong><%= money(invoice.amountPaid) %></strong></div>
+      <div class="d-flex justify-content-between pt-2"><span>Còn thiếu</span><strong class="text-danger"><%= money(invoice.remainingAmount) %></strong></div>
+    </div></div>
+
+    <% if (invoice.status === 'DRAFT') { %><div class="card app-card"><div class="card-header"><strong>Điều chỉnh trước khi gửi</strong></div><div class="card-body"><form method="post" action="/teacher/tuition/invoices/<%= invoice.id %>/adjust" class="row g-3"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><div class="col-md-4"><label class="form-label">Giảm học phí</label><input class="form-control" type="number" min="0" step="1000" name="discountAmount" value="<%= invoice.discountAmount %>"></div><div class="col-md-4"><label class="form-label">Phụ thu</label><input class="form-control" type="number" min="0" step="1000" name="otherFeeAmount" value="<%= invoice.otherFeeAmount %>"></div><div class="col-12"><label class="form-label">Ghi chú</label><textarea class="form-control" name="note" rows="2"><%= invoice.note || '' %></textarea></div><div class="col-12"><button class="btn btn-outline-primary">Lưu điều chỉnh</button></div></form></div></div><% } %>
+  </div>
+
+  <div class="col-xl-5">
+    <div class="card app-card mb-4"><div class="card-header"><strong>Thanh toán bằng QR</strong></div><div class="card-body text-center">
+      <% if (invoice.qrImageUrl) { %><img src="<%= invoice.qrImageUrl %>" alt="QR chuyển khoản học phí" class="img-fluid border rounded mb-3" style="max-width:320px"><div class="text-start small"><div><span class="text-secondary">Ngân hàng:</span> <strong><%= invoice.paymentSnapshot.bankName %></strong></div><div><span class="text-secondary">Số TK:</span> <strong><%= invoice.paymentSnapshot.bankAccountNo %></strong></div><div><span class="text-secondary">Chủ TK:</span> <strong><%= invoice.paymentSnapshot.bankAccountName %></strong></div><div><span class="text-secondary">Số tiền:</span> <strong><%= money(invoice.remainingAmount) %></strong></div><div><span class="text-secondary">Nội dung:</span> <strong><%= invoice.transferContent %></strong></div></div><% } else if (invoice.status === 'DRAFT') { %><div class="text-secondary">QR được tạo sau khi kỳ học phí được gửi.</div><% } else { %><div class="text-success fw-semibold">Học phí đã thanh toán đủ.</div><% } %>
+    </div></div>
+
+    <% if (['UNPAID','PARTIAL'].includes(invoice.status)) { %><div class="card app-card"><div class="card-header"><strong>Ghi nhận thanh toán</strong></div><div class="card-body"><form method="post" action="/teacher/tuition/invoices/<%= invoice.id %>/payments" class="row g-3"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><div class="col-12"><label class="form-label">Số tiền</label><input class="form-control" type="number" min="1" max="<%= invoice.remainingAmount %>" name="amount" value="<%= invoice.remainingAmount %>" required></div><div class="col-12"><label class="form-label">Hình thức</label><select class="form-select" name="paymentMethod"><option value="BANK_TRANSFER">Chuyển khoản</option><option value="CASH">Tiền mặt</option><option value="OTHER">Khác</option></select></div><div class="col-12"><label class="form-label">Mã giao dịch</label><input class="form-control" name="referenceNo"></div><div class="col-12"><label class="form-label">Ghi chú</label><textarea class="form-control" name="note" rows="2"></textarea></div><div class="col-12"><button class="btn btn-success">Xác nhận đã thu</button></div></form></div></div><% } %>
+
+    <% if (invoice.payments?.length) { %><div class="card app-card mt-4"><div class="card-header"><strong>Lịch sử thu tiền</strong></div><div class="card-body p-0"><% invoice.payments.forEach(p => { %><div class="p-3 border-bottom"><div class="d-flex justify-content-between"><strong><%= money(p.amount) %></strong><span class="small"><%= new Date(p.paidAt).toLocaleString('vi-VN') %></span></div><div class="small text-secondary"><%= p.paymentMethod %><%= p.referenceNo ? ' • ' + p.referenceNo : '' %></div></div><% }) %></div></div><% } %>
+  </div>
+</div>
+<%- include('../partials/app-end') %>

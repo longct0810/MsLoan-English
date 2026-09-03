@@ -1,0 +1,14 @@
+<%- include('../partials/app-start', { title }) %>
+<% const money = (v) => new Intl.NumberFormat('vi-VN').format(Number(v || 0)) + 'đ'; %>
+<% if (!tuition.selected) { %><div class="alert alert-info">Tài khoản chưa được liên kết với học sinh.</div><% } else { %>
+<div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3 mb-4">
+  <div><div class="eyebrow">Thông báo học phí</div><h1 class="h3 mb-1"><%= tuition.selected.fullName %></h1><p class="text-secondary mb-0">Xem số tiền, hạn thanh toán và mã QR chuyển khoản.</p></div>
+  <% if (tuition.children.length > 1) { %><form method="get" action="/parent/tuition"><select class="form-select" name="childId" onchange="this.form.submit()"><% tuition.children.forEach(c => { %><option value="<%= c.id %>" <%= Number(c.id)===Number(tuition.selected.id)?'selected':'' %>><%= c.fullName %></option><% }) %></select></form><% } %>
+</div>
+<div class="row g-3 mb-4"><div class="col-md-6"><div class="metric-card"><div class="metric-label">Còn phải thanh toán</div><div class="metric-value fs-3"><%= money(tuition.outstanding) %></div></div></div><div class="col-md-6"><div class="metric-card"><div class="metric-label">Thông báo học phí</div><div class="metric-value"><%= tuition.invoices.length %></div></div></div></div>
+<div class="card app-card"><div class="table-responsive"><table class="table align-middle mb-0"><thead><tr><th>Kỳ</th><th>Lớp</th><th>Hạn</th><th>Học phí</th><th>Còn thiếu</th><th>Trạng thái</th><th></th></tr></thead><tbody>
+  <% tuition.invoices.forEach(i => { const remain=Math.max(0,Number(i.finalAmount)-Number(i.amountPaid)); %><tr><td><%= new Date(i.periodMonth).toLocaleDateString('vi-VN',{month:'2-digit',year:'numeric'}) %></td><td><%= i.className %></td><td><%= new Date(i.dueDate).toLocaleDateString('vi-VN') %></td><td class="fw-semibold"><%= money(i.finalAmount) %></td><td class="text-danger fw-semibold"><%= money(remain) %></td><td><span class="badge <%= i.status==='PAID'?'text-bg-success':i.status==='PARTIAL'?'text-bg-info':'text-bg-danger' %>"><%= i.status %></span></td><td><a class="btn btn-sm btn-primary" href="/parent/tuition/<%= i.id %>"><%= remain>0?'Xem QR':'Xem' %></a></td></tr><% }) %>
+  <% if (!tuition.invoices.length) { %><tr><td colspan="7" class="text-center text-secondary py-5">Chưa có thông báo học phí.</td></tr><% } %>
+</tbody></table></div></div>
+<% } %>
+<%- include('../partials/app-end') %>

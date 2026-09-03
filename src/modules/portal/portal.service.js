@@ -1,4 +1,5 @@
 const repo = require('./portal.repository');
+const tuitionService = require('../tuition/tuition.service');
 
 function statusMeta(status) {
   const map = {
@@ -56,6 +57,7 @@ async function getParentPortal(parentUserId, requestedStudentId) {
   if (snapshot) {
     snapshot.notes = snapshot.notes.filter((note) => note.isParentVisible !== false);
     snapshot.latestNote = snapshot.notes[0] || null;
+    snapshot.tuition = await tuitionService.getParentStudentOutstanding(parentUserId, selectedId);
   }
   return { children, selected: children.find((c) => Number(c.id) === selectedId), snapshot };
 }
@@ -76,8 +78,16 @@ async function getParentNotifications(parentUserId, requestedStudentId) {
   const snapshot = enrich(await repo.getStudentSnapshot(selectedId));
   if (!snapshot) return { children, selected: children.find((child) => Number(child.id) === selectedId), notifications: [] };
   snapshot.notes = snapshot.notes.filter((note) => note.isParentVisible !== false);
+  const tuition = await tuitionService.getParentStudentOutstanding(parentUserId, selectedId);
   const now = Date.now();
   const notifications = [];
+  tuition.invoices.slice(0, 5).forEach((item) => notifications.push({
+    type: 'warning',
+    title: 'Thông báo học phí',
+    body: `${snapshot.student.fullName}: còn ${new Intl.NumberFormat('vi-VN').format(Math.max(0, Number(item.finalAmount || 0) - Number(item.amountPaid || 0)))}đ cần thanh toán cho kỳ ${new Date(item.periodMonth).toLocaleDateString('vi-VN', { month: '2-digit', year: 'numeric' })}.`,
+    date: item.sentAt || item.dueDate,
+    href: `/parent/tuition/${item.id}`,
+  }));
   snapshot.assignments.filter((item) => item.submission.status === 'LATE').forEach((item) => notifications.push({ type: 'warning', title: 'Bài tập được nộp trễ', body: `${item.title} của ${snapshot.student.fullName} đã được nộp trễ.`, date: item.submission.submittedAt || item.dueAt, href: '/parent/reports' }));
   snapshot.assignments.filter((item) => item.submission.status === 'NOT_STARTED' && item.dueAt && new Date(item.dueAt).getTime() >= now && new Date(item.dueAt).getTime() - now <= 7 * 86400000).forEach((item) => notifications.push({ type: 'info', title: 'Bài tập sắp đến hạn', body: `${item.title} còn hạn đến ${new Date(item.dueAt).toLocaleDateString('vi-VN')}.`, date: item.dueAt, href: '/parent/reports' }));
   snapshot.scores.slice(0, 5).forEach((item) => notifications.push({ type: 'success', title: 'Có điểm mới', body: `${item.title}: ${item.score}/${item.maxScore || 10}.`, date: item.recordedAt, href: '/parent/progress' }));

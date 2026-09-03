@@ -1,0 +1,36 @@
+<%- include('../partials/app-start', { title }) %>
+<% const money = (v) => new Intl.NumberFormat('vi-VN').format(Number(v || 0)) + 'đ'; const total = cycle.invoices.reduce((s,i)=>s+Number(i.finalAmount||0),0); const paid = cycle.invoices.reduce((s,i)=>s+Number(i.amountPaid||0),0); %>
+<div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-start gap-3 mb-4">
+  <div>
+    <a href="/teacher/tuition" class="small text-decoration-none">← Học phí & QR</a>
+    <h1 class="h3 mt-2 mb-1"><%= cycle.className %> • <%= new Date(cycle.periodMonth).toLocaleDateString('vi-VN',{month:'2-digit',year:'numeric'}) %></h1>
+    <div class="text-secondary"><%= new Date(cycle.fromDate).toLocaleDateString('vi-VN') %> – <%= new Date(cycle.toDate).toLocaleDateString('vi-VN') %> • Hạn <%= new Date(cycle.dueDate).toLocaleDateString('vi-VN') %></div>
+  </div>
+  <div class="d-flex gap-2">
+    <% if (cycle.status === 'DRAFT') { %>
+      <form method="post" action="/teacher/tuition/cycles/<%= cycle.id %>/send" onsubmit="return confirm('Gửi thông báo học phí cho phụ huynh? Sau khi gửi không thể tính lại kỳ này.');">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="btn btn-primary">Gửi thông báo & tạo QR</button>
+      </form>
+    <% } %>
+  </div>
+</div>
+<% if (message) { %><div class="alert alert-success"><%= message %></div><% } %>
+<% if (errorMessage) { %><div class="alert alert-danger"><%= errorMessage %></div><% } %>
+<div class="row g-3 mb-4">
+  <div class="col-6 col-lg-3"><div class="metric-card"><div class="metric-label">Học viên</div><div class="metric-value"><%= cycle.invoices.length %></div></div></div>
+  <div class="col-6 col-lg-3"><div class="metric-card"><div class="metric-label">Tổng học phí</div><div class="metric-value fs-4"><%= money(total) %></div></div></div>
+  <div class="col-6 col-lg-3"><div class="metric-card"><div class="metric-label">Đã thu</div><div class="metric-value fs-4"><%= money(paid) %></div></div></div>
+  <div class="col-6 col-lg-3"><div class="metric-card"><div class="metric-label">Trạng thái</div><div class="metric-value fs-5"><%= cycle.status %></div></div></div>
+</div>
+<div class="card app-card">
+  <div class="card-header"><strong>Chi tiết học phí theo học viên</strong><div class="small text-secondary">Số buổi được tính từ điểm danh của kỳ và được snapshot khi tạo.</div></div>
+  <div class="table-responsive"><table class="table align-middle mb-0"><thead><tr><th>Học viên</th><th>Có mặt</th><th>Muộn</th><th>Online</th><th>Vắng</th><th>Buổi tính phí</th><th>Đơn giá</th><th>Học phí</th><th>TT</th><th></th></tr></thead><tbody>
+    <% cycle.invoices.forEach(i => { %><tr>
+      <td class="fw-semibold"><%= i.studentName %></td><td><%= i.presentCount %></td><td><%= i.lateCount %></td><td><%= i.onlineCount %></td><td><%= i.absentCount + i.excusedCount %></td>
+      <td><strong><%= i.billableSessions %></strong></td><td><%= money(i.unitPrice) %></td><td class="fw-semibold"><%= money(i.finalAmount) %></td>
+      <td><span class="badge <%= i.status === 'PAID' ? 'text-bg-success' : i.status === 'PARTIAL' ? 'text-bg-info' : i.status === 'UNPAID' ? 'text-bg-danger' : 'text-bg-warning' %>"><%= i.status %></span></td>
+      <td><a class="btn btn-sm btn-light" href="/teacher/tuition/invoices/<%= i.id %>">Xem</a></td>
+    </tr><% }) %>
+  </tbody></table></div>
+</div>
+<%- include('../partials/app-end') %>

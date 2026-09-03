@@ -63,6 +63,17 @@ async function main() {
     classIds[grade] = id;
   }
 
+  // v0.23.0: default per-session tuition rates confirmed for the teaching model.
+  for (const grade of [6, 7, 8, 9]) {
+    const unitPrice = grade === 6 ? 150000 : 220000;
+    const planName = grade === 6 ? 'Học phí lớp 5 lên 6' : `Học phí lớp ${grade}`;
+    await pool.query(`
+      INSERT INTO tuition_plans(teacher_id,class_id,name,billing_type,unit_price,billed_statuses,effective_from,is_active)
+      SELECT $1,$2,$3,'PER_SESSION',$4,'["PRESENT","LATE","ONLINE"]'::jsonb,CURRENT_DATE,TRUE
+       WHERE NOT EXISTS (SELECT 1 FROM tuition_plans WHERE class_id=$2 AND is_active=TRUE)
+    `, [teacherId, classIds[grade], planName, unitPrice]);
+  }
+
   const students = [
     ['Nguyễn Minh Anh', 'THCS Nguyễn Trãi', '6A2', '0900000001', 6, 8.6, 96],
     ['Trần Gia Hân', 'THCS Lê Lợi', '6A1', '0900000002', 6, 7.8, 92],

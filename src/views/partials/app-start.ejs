@@ -27,6 +27,7 @@
         <a class="nav-link <%= currentPath.startsWith('/students') ? 'active' : '' %>" href="/students">Học viên</a>
         <a class="nav-link <%= currentPath.startsWith('/sessions') ? 'active' : '' %>" href="/sessions">Buổi học & điểm danh</a>
         <% if (canManageDataSources) { %><a class="nav-link <%= currentPath.startsWith('/teacher/data-sources') ? 'active' : '' %>" href="/teacher/data-sources">Nguồn dữ liệu</a><% } %>
+        <% if (role === 'TEACHER') { %><a class="nav-link <%= currentPath.startsWith('/teacher/tuition') ? 'active' : '' %>" href="/teacher/tuition">Học phí & QR</a><% } %>
         <div class="nav-section-label mt-3">Nội dung & đánh giá</div>
         <a class="nav-link <%= currentPath.startsWith('/lessons') ? 'active' : '' %>" href="/lessons">Bài học & tài liệu</a>
         <a class="nav-link <%= currentPath.startsWith('/assignments') ? 'active' : '' %>" href="/assignments">Bài tập & chấm bài</a>
@@ -49,7 +50,7 @@
         <a class="nav-link <%= currentPath.startsWith('/parent/progress') ? 'active' : '' %>" href="/parent/progress">Kết quả học tập</a>
         <a class="nav-link <%= currentPath.startsWith('/parent/reports') ? 'active' : '' %>" href="/parent/reports">Báo cáo học tập</a>
         <a class="nav-link <%= currentPath.startsWith('/parent/notifications') ? 'active' : '' %>" href="/parent/notifications">Thông báo</a>
-        <a class="nav-link disabled" href="#">Thông báo <span class="badge text-bg-light ms-auto">Soon</span></a>
+        <a class="nav-link <%= currentPath.startsWith('/parent/tuition') ? 'active' : '' %>" href="/parent/tuition">Học phí</a>
       <% } %>
     </nav>
 
@@ -100,6 +101,7 @@
             <a class="nav-link <%= currentPath.startsWith('/students') ? 'active' : '' %>" href="/students">Học viên</a>
             <a class="nav-link <%= currentPath.startsWith('/sessions') ? 'active' : '' %>" href="/sessions">Buổi học & điểm danh</a>
             <% if (canManageDataSources) { %><a class="nav-link <%= currentPath.startsWith('/teacher/data-sources') ? 'active' : '' %>" href="/teacher/data-sources">Nguồn dữ liệu</a><% } %>
+            <% if (role === 'TEACHER') { %><a class="nav-link <%= currentPath.startsWith('/teacher/tuition') ? 'active' : '' %>" href="/teacher/tuition">Học phí & QR</a><% } %>
             <div class="nav-section-label mt-3">Nội dung & đánh giá</div>
             <a class="nav-link <%= currentPath.startsWith('/lessons') ? 'active' : '' %>" href="/lessons">Bài học & tài liệu</a>
             <a class="nav-link <%= currentPath.startsWith('/assignments') ? 'active' : '' %>" href="/assignments">Bài tập & chấm bài</a>
@@ -120,6 +122,7 @@
             <a class="nav-link" href="/parent/progress">Kết quả học tập</a>
             <a class="nav-link <%= currentPath.startsWith('/parent/reports') ? 'active' : '' %>" href="/parent/reports">Báo cáo học tập</a>
             <a class="nav-link <%= currentPath.startsWith('/parent/notifications') ? 'active' : '' %>" href="/parent/notifications">Thông báo</a>
+            <a class="nav-link <%= currentPath.startsWith('/parent/tuition') ? 'active' : '' %>" href="/parent/tuition">Học phí</a>
           <% } %>
         </div>
         <hr>
