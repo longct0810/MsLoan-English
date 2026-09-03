@@ -54,17 +54,6 @@
       <% } %>
     </nav>
 
-    <div class="sidebar-bottom mt-auto">
-      <div class="small text-secondary">Đăng nhập bởi</div>
-      <div class="fw-semibold"><%= currentUser.fullName %></div>
-      <div class="small text-secondary"><%= role %></div>
-      <div class="small text-secondary mt-1">Version <strong>v<%= appVersion %></strong></div>
-      <a class="btn btn-sm <%= currentPath.startsWith('/account/password') ? 'btn-primary' : 'btn-outline-primary' %> w-100 mt-2" href="/account/password">Đổi mật khẩu</a>
-      <form method="post" action="/logout" class="mt-2">
-        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-        <button class="btn btn-sm btn-outline-secondary w-100">Đăng xuất</button>
-      </form>
-    </div>
   </aside>
 
   <main class="app-main">
@@ -74,10 +63,40 @@
         <div class="text-secondary small"><%= appName %></div>
         <strong><%= title %></strong>
       </div>
-      <div class="ms-auto d-flex align-items-center gap-2">
-        <span class="<%= avatarClass %>"><%= currentUser.fullName.charAt(0) %></span>
-        <span class="d-none d-sm-inline small fw-semibold"><%= currentUser.fullName %></span>
-        <span class="badge rounded-pill text-bg-light border d-none d-md-inline">v<%= appVersion %></span>
+      <div class="ms-auto dropdown account-menu">
+        <button
+          class="btn account-menu-toggle d-flex align-items-center gap-2"
+          type="button"
+          data-bs-toggle="dropdown"
+          aria-expanded="false"
+          aria-label="Mở menu tài khoản"
+        >
+          <span class="<%= avatarClass %>"><%= currentUser.fullName.charAt(0) %></span>
+          <span class="account-menu-summary d-none d-sm-block text-start">
+            <span class="account-menu-name"><%= currentUser.fullName %></span>
+            <span class="account-menu-role"><%= role %></span>
+          </span>
+          <span class="account-menu-caret" aria-hidden="true">⌄</span>
+        </button>
+
+        <div class="dropdown-menu dropdown-menu-end account-dropdown shadow-sm">
+          <div class="px-3 py-2">
+            <div class="small text-secondary">Đăng nhập bởi</div>
+            <div class="fw-semibold text-break"><%= currentUser.fullName %></div>
+            <div class="d-flex align-items-center justify-content-between gap-3 mt-1">
+              <span class="small text-secondary"><%= role %></span>
+              <span class="badge rounded-pill text-bg-light border">v<%= appVersion %></span>
+            </div>
+          </div>
+          <div class="dropdown-divider"></div>
+          <a class="dropdown-item <%= currentPath.startsWith('/account/password') ? 'active' : '' %>" href="/account/password">
+            Đổi mật khẩu
+          </a>
+          <form method="post" action="/logout" class="m-0">
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <button class="dropdown-item text-danger" type="submit">Đăng xuất</button>
+          </form>
+        </div>
       </div>
     </nav>
 
@@ -125,12 +144,6 @@
             <a class="nav-link <%= currentPath.startsWith('/parent/tuition') ? 'active' : '' %>" href="/parent/tuition">Học phí</a>
           <% } %>
         </div>
-        <hr>
-        <a class="btn <%= currentPath.startsWith('/account/password') ? 'btn-primary' : 'btn-outline-primary' %> w-100 mb-2" href="/account/password">Đổi mật khẩu</a>
-        <form method="post" action="/logout">
-          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-          <button class="btn btn-outline-secondary w-100">Đăng xuất</button>
-        </form>
       </div>
     </div>
 

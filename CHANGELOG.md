@@ -1,3 +1,11 @@
+# Changelog
+
+## v0.23.1 - Compact Navigation & Account Menu
+
+- Chuyển thông tin đăng nhập, Đổi mật khẩu và Đăng xuất từ cuối sidebar lên menu tài khoản góc trên bên phải.
+- Sidebar tự cuộn khi menu dài, tránh đẩy các mục điều hướng ra ngoài màn hình.
+- Giữ CSRF cho Đăng xuất và không thay đổi database.
+
 # v0.23.0 - Tuition Billing & QR Payment
 
 - Tạo module `/teacher/tuition` để cấu hình đơn giá theo lớp, tài khoản nhận tiền và tạo kỳ học phí theo tháng.
