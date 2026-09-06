@@ -1,17 +1,18 @@
-> Phiên bản hiện tại: **v0.23.0** – Tuition Billing & QR Payment.
+> Phiên bản hiện tại: **v0.24.0** – Username Authentication + Student Code + Tuition Transfer Code.
 
-# English Classroom v0.23.0
+# English Classroom v0.24.0
 
-Bản này bổ sung tính học phí từ điểm danh (bao gồm dữ liệu Google Sheets), thông báo học phí cho phụ huynh và QR chuyển khoản.
+Ứng dụng quản lý lớp học tiếng Anh cho giáo viên, học sinh và phụ huynh.
 
-## Đơn giá mặc định
-- Lớp 5 lên 6 / khối 6: **150.000đ/buổi**.
-- Lớp 7, 8, 9: **220.000đ/buổi**.
+## Điểm mới v0.24.0
 
-## Luồng dữ liệu
-`Google Sheets → session_attendance → Tuition Cycle → Invoice Snapshot → Parent Portal → VietQR`.
+- Đăng nhập bằng **tên tài khoản** thay cho email cho mọi vai trò.
+- Tạo/sửa học viên dùng username học viên/phụ huynh, không validate email đăng nhập.
+- Mã học sinh ổn định: `Y{grade}_HS{student_id}` với grade 6/7/8/9.
+- Nội dung chuyển khoản học phí: `HP YYYYMM {student_code}` và được đưa vào VietQR.
 
-## Nâng cấp
-Chạy `db/neon_upgrade_v0.23.0.sql`, sau đó deploy source và restart PM2.
+## Nâng từ v0.23.1
 
-Xem `RELEASE_v0.23.0.md` để biết chi tiết.
+Chạy `db/neon_upgrade_v0.24.0.sql` **trước khi deploy source**, sau đó `npm ci` và restart PM2.
+
+Xem `DEPLOY_v0.24.0.md` và `RELEASE_v0.24.0.md`.

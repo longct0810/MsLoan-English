@@ -6,6 +6,7 @@ const demoStore = {
     {
       id: 1,
       fullName: env.demo.teacher.fullName,
+      username: env.demo.teacher.username,
       email: env.demo.teacher.email,
       passwordHash: bcrypt.hashSync(env.demo.teacher.password, env.security.bcryptRounds),
       role: 'TEACHER',
@@ -13,6 +14,7 @@ const demoStore = {
     {
       id: 2,
       fullName: env.demo.student.fullName,
+      username: env.demo.student.username,
       email: env.demo.student.email,
       passwordHash: bcrypt.hashSync(env.demo.student.password, env.security.bcryptRounds),
       role: 'STUDENT',
@@ -20,6 +22,7 @@ const demoStore = {
     {
       id: 3,
       fullName: env.demo.parent.fullName,
+      username: env.demo.parent.username,
       email: env.demo.parent.email,
       passwordHash: bcrypt.hashSync(env.demo.parent.password, env.security.bcryptRounds),
       role: 'PARENT',
@@ -32,14 +35,14 @@ const demoStore = {
     { id: 4, name: 'English 9 - T3/T6', grade: 9, schoolYear: env.academic.defaultSchoolYear, schedule: 'Thứ 3, Thứ 6 • 19:00', status: 'ACTIVE', teacherId: 1 },
   ],
   students: [
-    { id: 1, fullName: 'Nguyễn Minh Anh', school: 'THCS Nguyễn Trãi', schoolClass: '6A2', parentPhone: '0900000001', status: 'ACTIVE', classIds: [1], averageScore: 8.6, attendanceRate: 96 },
-    { id: 2, fullName: 'Trần Gia Hân', school: 'THCS Lê Lợi', schoolClass: '6A1', parentPhone: '0900000002', status: 'ACTIVE', classIds: [1], averageScore: 7.8, attendanceRate: 92 },
-    { id: 3, fullName: 'Lê Hoàng Nam', school: 'THCS Văn Quán', schoolClass: '7A3', parentPhone: '0900000003', status: 'ACTIVE', classIds: [2], averageScore: 7.1, attendanceRate: 88 },
-    { id: 4, fullName: 'Phạm Khánh Linh', school: 'THCS Mỗ Lao', schoolClass: '7A1', parentPhone: '0900000004', status: 'ACTIVE', classIds: [2], averageScore: 9.0, attendanceRate: 100 },
-    { id: 5, fullName: 'Vũ Đức Minh', school: 'THCS Nguyễn Du', schoolClass: '8A4', parentPhone: '0900000005', status: 'ACTIVE', classIds: [3], averageScore: 6.9, attendanceRate: 84 },
-    { id: 6, fullName: 'Đỗ Ngọc Mai', school: 'THCS Nguyễn Trãi', schoolClass: '8A2', parentPhone: '0900000006', status: 'ACTIVE', classIds: [3], averageScore: 8.2, attendanceRate: 95 },
-    { id: 7, fullName: 'Bùi Quang Huy', school: 'THCS Lê Quý Đôn', schoolClass: '9A1', parentPhone: '0900000007', status: 'ACTIVE', classIds: [4], averageScore: 7.5, attendanceRate: 90 },
-    { id: 8, fullName: 'Hoàng Thu Trang', school: 'THCS Văn Khê', schoolClass: '9A2', parentPhone: '0900000008', status: 'ACTIVE', classIds: [4], averageScore: 8.8, attendanceRate: 98 },
+    { id: 1, studentCode: 'Y6_HS1', fullName: 'Nguyễn Minh Anh', school: 'THCS Nguyễn Trãi', schoolClass: '6A2', parentPhone: '0900000001', status: 'ACTIVE', classIds: [1], averageScore: 8.6, attendanceRate: 96 },
+    { id: 2, studentCode: 'Y6_HS2', fullName: 'Trần Gia Hân', school: 'THCS Lê Lợi', schoolClass: '6A1', parentPhone: '0900000002', status: 'ACTIVE', classIds: [1], averageScore: 7.8, attendanceRate: 92 },
+    { id: 3, studentCode: 'Y7_HS3', fullName: 'Lê Hoàng Nam', school: 'THCS Văn Quán', schoolClass: '7A3', parentPhone: '0900000003', status: 'ACTIVE', classIds: [2], averageScore: 7.1, attendanceRate: 88 },
+    { id: 4, studentCode: 'Y7_HS4', fullName: 'Phạm Khánh Linh', school: 'THCS Mỗ Lao', schoolClass: '7A1', parentPhone: '0900000004', status: 'ACTIVE', classIds: [2], averageScore: 9.0, attendanceRate: 100 },
+    { id: 5, studentCode: 'Y8_HS5', fullName: 'Vũ Đức Minh', school: 'THCS Nguyễn Du', schoolClass: '8A4', parentPhone: '0900000005', status: 'ACTIVE', classIds: [3], averageScore: 6.9, attendanceRate: 84 },
+    { id: 6, studentCode: 'Y8_HS6', fullName: 'Đỗ Ngọc Mai', school: 'THCS Nguyễn Trãi', schoolClass: '8A2', parentPhone: '0900000006', status: 'ACTIVE', classIds: [3], averageScore: 8.2, attendanceRate: 95 },
+    { id: 7, studentCode: 'Y9_HS7', fullName: 'Bùi Quang Huy', school: 'THCS Lê Quý Đôn', schoolClass: '9A1', parentPhone: '0900000007', status: 'ACTIVE', classIds: [4], averageScore: 7.5, attendanceRate: 90 },
+    { id: 8, studentCode: 'Y9_HS8', fullName: 'Hoàng Thu Trang', school: 'THCS Văn Khê', schoolClass: '9A2', parentPhone: '0900000008', status: 'ACTIVE', classIds: [4], averageScore: 8.8, attendanceRate: 98 },
   ],
   studentAccounts: [
     { userId: 2, studentId: 3 },

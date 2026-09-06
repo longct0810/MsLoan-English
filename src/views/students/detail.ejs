@@ -8,7 +8,7 @@
   const avgScore=scoreValues.length?Math.round(scoreValues.reduce((a,b)=>a+b,0)/scoreValues.length*10)/10:null;
 %>
 <div class="d-flex flex-column flex-lg-row justify-content-between gap-3 mb-4">
-  <div><div class="eyebrow">Hồ sơ học tập · <%= detail.month %></div><h1 class="h3 mb-1"><%= detail.student.fullName %></h1><div class="text-secondary"><%= detail.classInfo.name %> · Khối <%= detail.classInfo.grade %><% if(detail.student.school){ %> · <%= detail.student.school %><% } %></div></div>
+  <div><div class="eyebrow">Hồ sơ học tập · <%= detail.month %></div><h1 class="h3 mb-1"><%= detail.student.fullName %></h1><div class="text-secondary"><%= detail.classInfo.name %> · Khối <%= detail.classInfo.grade %><% if(detail.account && detail.account.studentCode){ %> · <strong><%= detail.account.studentCode %></strong><% } %><% if(detail.student.school){ %> · <%= detail.student.school %><% } %></div></div>
   <div class="d-flex gap-2 flex-wrap"><a class="btn btn-light" href="/students">← Học viên</a><a class="btn btn-outline-primary" href="/students/<%= detail.student.id %>/edit">Sửa hồ sơ</a></div>
 </div>
 <div class="card app-card mb-4"><div class="card-body"><form method="get" class="row g-2 align-items-end">

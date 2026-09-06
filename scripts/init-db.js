@@ -10,29 +10,29 @@ async function main() {
 
   const passwordHash = await bcrypt.hash(env.demo.teacher.password, env.security.bcryptRounds);
   const user = await pool.query(`
-    INSERT INTO users (full_name, email, password_hash, role)
-    VALUES ($2, $3, $1, 'TEACHER')
-    ON CONFLICT (email) DO UPDATE SET password_hash = EXCLUDED.password_hash
+    INSERT INTO users (full_name, username, email, password_hash, role)
+    VALUES ($2, $3, NULLIF($4,''), $1, 'TEACHER')
+    ON CONFLICT (username) DO UPDATE SET password_hash = EXCLUDED.password_hash, full_name=EXCLUDED.full_name
     RETURNING id
-  `, [passwordHash, env.demo.teacher.fullName, env.demo.teacher.email]);
+  `, [passwordHash, env.demo.teacher.fullName, env.demo.teacher.username, env.demo.teacher.email]);
   const teacherId = user.rows[0].id;
 
   const studentPasswordHash = await bcrypt.hash(env.demo.student.password, env.security.bcryptRounds);
   const studentUser = await pool.query(`
-    INSERT INTO users (full_name, email, password_hash, role)
-    VALUES ($2, $3, $1, 'STUDENT')
-    ON CONFLICT (email) DO UPDATE SET password_hash = EXCLUDED.password_hash, role = 'STUDENT'
+    INSERT INTO users (full_name, username, email, password_hash, role)
+    VALUES ($2, $3, NULLIF($4,''), $1, 'STUDENT')
+    ON CONFLICT (username) DO UPDATE SET password_hash = EXCLUDED.password_hash, role = 'STUDENT', full_name=EXCLUDED.full_name
     RETURNING id
-  `, [studentPasswordHash, env.demo.student.fullName, env.demo.student.email]);
+  `, [studentPasswordHash, env.demo.student.fullName, env.demo.student.username, env.demo.student.email]);
   const studentUserId = studentUser.rows[0].id;
 
   const parentPasswordHash = await bcrypt.hash(env.demo.parent.password, env.security.bcryptRounds);
   const parentUser = await pool.query(`
-    INSERT INTO users (full_name, email, password_hash, role)
-    VALUES ($2, $3, $1, 'PARENT')
-    ON CONFLICT (email) DO UPDATE SET password_hash = EXCLUDED.password_hash, role = 'PARENT'
+    INSERT INTO users (full_name, username, email, password_hash, role)
+    VALUES ($2, $3, NULLIF($4,''), $1, 'PARENT')
+    ON CONFLICT (username) DO UPDATE SET password_hash = EXCLUDED.password_hash, role = 'PARENT', full_name=EXCLUDED.full_name
     RETURNING id
-  `, [parentPasswordHash, env.demo.parent.fullName, env.demo.parent.email]);
+  `, [parentPasswordHash, env.demo.parent.fullName, env.demo.parent.username, env.demo.parent.email]);
   const parentUserId = parentUser.rows[0].id;
 
   for (const grade of [6, 7, 8, 9]) {
@@ -95,6 +95,7 @@ async function main() {
       studentId = r.rows[0].id;
     }
     studentIds[fullName] = studentId;
+    await pool.query(`UPDATE students SET student_code=COALESCE(student_code,$1) WHERE id=$2`, [`Y${grade}_HS${studentId}`, studentId]);
     await pool.query(`INSERT INTO class_students (class_id, student_id) VALUES ($1,$2) ON CONFLICT DO NOTHING`, [classIds[grade], studentId]);
     await pool.query(`INSERT INTO student_progress_summary (student_id, average_score, attendance_rate) VALUES ($1,$2,$3) ON CONFLICT (student_id) DO UPDATE SET average_score=EXCLUDED.average_score, attendance_rate=EXCLUDED.attendance_rate, updated_at=NOW()`, [studentId, score, attendance]);
   }
@@ -419,9 +420,9 @@ async function main() {
   }
 
   console.log('Database initialized.');
-  console.log(`Teacher: ${env.demo.teacher.email} / ${env.demo.teacher.password}`);
-  console.log(`Student: ${env.demo.student.email} / ${env.demo.student.password}`);
-  console.log(`Parent: ${env.demo.parent.email} / ${env.demo.parent.password}`);
+  console.log(`Teacher: ${env.demo.teacher.username} / ${env.demo.teacher.password}`);
+  console.log(`Student: ${env.demo.student.username} / ${env.demo.student.password}`);
+  console.log(`Parent: ${env.demo.parent.username} / ${env.demo.parent.password}`);
 }
 
 main().catch((err) => {

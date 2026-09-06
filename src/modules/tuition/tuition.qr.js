@@ -10,7 +10,7 @@ function buildVietQrImageUrl({ bankBin, accountNo, accountName, amount, transfer
   const params = new URLSearchParams();
   const numericAmount = Math.max(0, Math.round(Number(amount) || 0));
   if (numericAmount > 0) params.set('amount', String(numericAmount));
-  const info = cleanText(transferContent, 80);
+  const info = cleanText(transferContent, 25);
   const name = cleanText(accountName, 200);
   if (info) params.set('addInfo', info);
   if (name) params.set('accountName', name);

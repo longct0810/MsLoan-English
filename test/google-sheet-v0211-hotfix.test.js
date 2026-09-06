@@ -6,9 +6,9 @@ const path = require('node:path');
 const root = path.join(__dirname, '..');
 const read = (name) => fs.readFileSync(path.join(root, name), 'utf8');
 
-test('v0.23.0 is active', () => {
-  assert.equal(JSON.parse(read('package.json')).version, '0.23.0');
-  assert.equal(read('VERSION').trim(), '0.23.0');
+test('v0.24.0 is active', () => {
+  assert.equal(JSON.parse(read('package.json')).version, '0.24.0');
+  assert.equal(read('VERSION').trim(), '0.24.0');
 });
 
 test('manual Google Sheets sync forces re-processing', () => {

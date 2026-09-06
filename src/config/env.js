@@ -74,17 +74,20 @@ const env = {
     showAccountsOnLogin: bool('SHOW_DEMO_ACCOUNTS_ON_LOGIN'),
     teacher: {
       fullName: required('DEMO_TEACHER_NAME'),
-      email: required('DEMO_TEACHER_EMAIL'),
+      username: optional('DEMO_TEACHER_USERNAME', optional('DEMO_TEACHER_EMAIL', 'teacher').split('@')[0]),
+      email: optional('DEMO_TEACHER_EMAIL', ''),
       password: required('DEMO_TEACHER_PASSWORD'),
     },
     student: {
       fullName: required('DEMO_STUDENT_NAME'),
-      email: required('DEMO_STUDENT_EMAIL'),
+      username: optional('DEMO_STUDENT_USERNAME', optional('DEMO_STUDENT_EMAIL', 'student').split('@')[0]),
+      email: optional('DEMO_STUDENT_EMAIL', ''),
       password: required('DEMO_STUDENT_PASSWORD'),
     },
     parent: {
       fullName: required('DEMO_PARENT_NAME'),
-      email: required('DEMO_PARENT_EMAIL'),
+      username: optional('DEMO_PARENT_USERNAME', optional('DEMO_PARENT_EMAIL', 'parent').split('@')[0]),
+      email: optional('DEMO_PARENT_EMAIL', ''),
       password: required('DEMO_PARENT_PASSWORD'),
     },
   },

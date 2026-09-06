@@ -15,8 +15,8 @@
         <form method="post" action="/login">
           <input type="hidden" name="_csrf" value="<%= csrfToken %>">
           <div class="mb-3">
-            <label class="form-label">Email</label>
-            <input class="form-control form-control-lg" name="email" type="email" required value="<%= showDemoAccounts ? demoAccounts.teacher.email : '' %>">
+            <label class="form-label">Tên tài khoản</label>
+            <input class="form-control form-control-lg" name="username" type="text" required autocomplete="username" value="<%= showDemoAccounts ? demoAccounts.teacher.username : '' %>">
           </div>
           <div class="mb-3">
             <label class="form-label">Mật khẩu</label>
@@ -28,9 +28,9 @@
         <% if (showDemoAccounts) { %>
           <div class="demo-hint mt-4 p-3 rounded-3">
             <div class="fw-semibold mb-2">Tài khoản demo</div>
-            <div class="small text-secondary"><strong>Giáo viên:</strong> <%= demoAccounts.teacher.email %> / <%= demoAccounts.teacher.password %></div>
-            <div class="small text-secondary"><strong>Học sinh:</strong> <%= demoAccounts.student.email %> / <%= demoAccounts.student.password %></div>
-            <div class="small text-secondary"><strong>Phụ huynh:</strong> <%= demoAccounts.parent.email %> / <%= demoAccounts.parent.password %></div>
+            <div class="small text-secondary"><strong>Giáo viên:</strong> <%= demoAccounts.teacher.username %> / <%= demoAccounts.teacher.password %></div>
+            <div class="small text-secondary"><strong>Học sinh:</strong> <%= demoAccounts.student.username %> / <%= demoAccounts.student.password %></div>
+            <div class="small text-secondary"><strong>Phụ huynh:</strong> <%= demoAccounts.parent.username %> / <%= demoAccounts.parent.password %></div>
           </div>
         <% } %>
       </div>

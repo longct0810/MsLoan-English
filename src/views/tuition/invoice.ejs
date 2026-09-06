@@ -1,7 +1,7 @@
 <%- include('../partials/app-start', { title }) %>
 <% const money = (v) => new Intl.NumberFormat('vi-VN').format(Number(v || 0)) + 'đ'; %>
 <div class="d-flex flex-column flex-lg-row justify-content-between gap-3 mb-4">
-  <div><a href="/teacher/tuition" class="small text-decoration-none">← Học phí & QR</a><h1 class="h3 mt-2 mb-1"><%= invoice.studentName %></h1><div class="text-secondary"><%= invoice.className %> • <%= invoice.publicCode %></div></div>
+  <div><a href="/teacher/tuition" class="small text-decoration-none">← Học phí & QR</a><h1 class="h3 mt-2 mb-1"><%= invoice.studentName %></h1><div class="text-secondary"><%= invoice.className %> • <%= invoice.studentCode || '—' %> • <%= invoice.publicCode %></div></div>
   <div><span class="badge fs-6 <%= invoice.status === 'PAID' ? 'text-bg-success' : invoice.status === 'PARTIAL' ? 'text-bg-info' : invoice.status === 'UNPAID' ? 'text-bg-danger' : 'text-bg-warning' %>"><%= invoice.status %></span></div>
 </div>
 <% if (message) { %><div class="alert alert-success"><%= message %></div><% } %><% if (errorMessage) { %><div class="alert alert-danger"><%= errorMessage %></div><% } %>

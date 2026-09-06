@@ -2,6 +2,7 @@ const bcrypt = require('bcryptjs');
 const env = require('../../config/env');
 const pool = require('../../config/db');
 const demoStore = require('../../shared/demo-store');
+const { buildStudentCode, normalizeUsername } = require('../../shared/account-identifiers');
 
 function nextId(items) {
   return items.reduce((max, item) => Math.max(max, Number(item.id || item.userId || 0)), 0) + 1;
@@ -28,8 +29,11 @@ function publicStudentDemo(student, actorUserId = null, isAdmin = false) {
     ...student,
     classes: classItems.map((item) => item.name),
     classIds: classItems.map((item) => item.id),
+    studentCode: student.studentCode || '',
+    studentUsername: studentUser?.username || '',
     studentEmail: studentUser?.email || student.email || '',
     parentName: parentUser?.fullName || student.parentName || '',
+    parentUsername: parentUser?.username || '',
     parentEmail: parentUser?.email || '',
     parentPhone: parentUser?.phone || student.parentPhone || '',
     relationship: parentLink?.relationship || 'Bố/Mẹ',
@@ -87,13 +91,16 @@ async function findAll({ classId } = {}, actorUserId = null, isAdmin = false) {
            s.school_class AS "schoolClass",
            s.phone,
            s.email,
+           s.student_code AS "studentCode",
            s.status,
            COALESCE(sp.average_score, 0)::float AS "averageScore",
            COALESCE(sp.attendance_rate, 0)::float AS "attendanceRate",
            ARRAY_REMOVE(ARRAY_AGG(DISTINCT c.name), NULL) AS classes,
            ARRAY_REMOVE(ARRAY_AGG(DISTINCT c.id), NULL) AS "classIds",
+           su.username AS "studentUsername",
            su.email AS "studentEmail",
            pu.full_name AS "parentName",
+           pu.username AS "parentUsername",
            pu.email AS "parentEmail",
            COALESCE(pu.phone, s.parent_phone) AS "parentPhone",
            ps.relationship
@@ -131,8 +138,8 @@ async function findAll({ classId } = {}, actorUserId = null, isAdmin = false) {
               AND ($2::boolean OR $1::bigint IS NULL OR filter_c.teacher_id = $1)
          )
        )
-     GROUP BY s.id, sp.average_score, sp.attendance_rate, su.email,
-              pu.full_name, pu.email, pu.phone, ps.relationship
+     GROUP BY s.id, sp.average_score, sp.attendance_rate, su.username, su.email,
+              pu.full_name, pu.username, pu.email, pu.phone, ps.relationship
      ORDER BY s.full_name
   `, [actorUserId, isAdmin, selectedClassId]);
   return rows;
@@ -154,11 +161,14 @@ async function findById(id, actorUserId = null, isAdmin = false) {
            s.school_class AS "schoolClass",
            s.phone,
            s.email,
+           s.student_code AS "studentCode",
            s.status,
            ARRAY_REMOVE(ARRAY_AGG(DISTINCT c.id), NULL) AS "classIds",
+           su.username AS "studentUsername",
            su.email AS "studentEmail",
            pu.id AS "parentUserId",
            pu.full_name AS "parentName",
+           pu.username AS "parentUsername",
            pu.email AS "parentEmail",
            COALESCE(pu.phone, s.parent_phone) AS "parentPhone",
            ps.relationship
@@ -184,39 +194,57 @@ async function findById(id, actorUserId = null, isAdmin = false) {
               AND own_c.teacher_id = $2
          )
        )
-     GROUP BY s.id, su.email, pu.id, pu.full_name, pu.email, pu.phone, ps.relationship
+     GROUP BY s.id, su.username, su.email, pu.id, pu.full_name, pu.username, pu.email, pu.phone, ps.relationship
   `, [id, actorUserId, isAdmin]);
   return rows[0] || null;
 }
 
-async function emailInUse(email, exceptUserId = null, client = pool) {
-  const params = [email];
+async function usernameInUse(username, exceptUserId = null, client = pool) {
+  const normalized = normalizeUsername(username);
+  const params = [normalized];
   let extra = '';
   if (exceptUserId) {
     params.push(exceptUserId);
     extra = 'AND id <> $2';
   }
   const { rows } = await client.query(
-    `SELECT id, role FROM users WHERE LOWER(email)=LOWER($1) ${extra} LIMIT 1`,
+    `SELECT id, role FROM users WHERE LOWER(username)=LOWER($1) ${extra} LIMIT 1`,
     params,
   );
   return rows[0] || null;
 }
 
+async function resolveStudentGrade(classIds, client = pool) {
+  const ids = normalizeIds(classIds);
+  if (!ids.length) throw new Error('STUDENT_CODE_GRADE_REQUIRED');
+  const { rows } = await client.query(`
+    SELECT g.grade_no AS grade
+      FROM classes c
+      JOIN grades g ON g.id=c.grade_id
+     WHERE c.id = ANY($1::bigint[])
+       AND g.grade_no IN (6,7,8,9)
+     ORDER BY array_position($1::bigint[], c.id), c.id
+     LIMIT 1
+  `, [ids]);
+  if (!rows[0]) throw new Error('STUDENT_CODE_GRADE_REQUIRED');
+  return Number(rows[0].grade);
+}
+
 async function create(data, actorUserId, isAdmin = false) {
   if (env.demo.enabled) {
     const classIds = assertDemoClasses(data.classIds, actorUserId, isAdmin);
-    const studentEmailExists = demoStore.users.find((user) => user.email.toLowerCase() === data.studentEmail.toLowerCase());
-    if (studentEmailExists) throw new Error('Email đăng nhập học viên đã được sử dụng.');
+    const studentUsernameExists = demoStore.users.find((user) => normalizeUsername(user.username) === data.studentUsername);
+    if (studentUsernameExists) throw new Error('Tên tài khoản học viên đã được sử dụng.');
 
-    let parentUser = demoStore.users.find((user) => user.email.toLowerCase() === data.parentEmail.toLowerCase());
-    if (parentUser && parentUser.role !== 'PARENT') throw new Error('Email phụ huynh đang thuộc một tài khoản không phải phụ huynh.');
+    let parentUser = demoStore.users.find((user) => normalizeUsername(user.username) === data.parentUsername);
+    if (parentUser && parentUser.role !== 'PARENT') throw new Error('Tên tài khoản phụ huynh đang thuộc một tài khoản không phải phụ huynh.');
     if (!parentUser) {
       if (!data.parentPassword) throw new Error('Cần nhập mật khẩu khi tạo tài khoản phụ huynh mới.');
       parentUser = {
         id: nextId(demoStore.users),
         fullName: data.parentName,
-        email: data.parentEmail,
+        username: data.parentUsername,
+        email: '',
         phone: data.parentPhone,
         passwordHash: bcrypt.hashSync(data.parentPassword, env.security.bcryptRounds),
         role: 'PARENT',
@@ -228,7 +256,8 @@ async function create(data, actorUserId, isAdmin = false) {
     const studentUser = {
       id: nextId(demoStore.users),
       fullName: data.fullName,
-      email: data.studentEmail,
+      username: data.studentUsername,
+      email: '',
       passwordHash: bcrypt.hashSync(data.studentPassword, env.security.bcryptRounds),
       role: 'STUDENT',
       status: 'ACTIVE',
@@ -242,7 +271,8 @@ async function create(data, actorUserId, isAdmin = false) {
       school: data.school || '',
       schoolClass: data.schoolClass || '',
       phone: data.phone || '',
-      email: data.studentEmail,
+      email: '',
+      studentCode: '',
       parentName: data.parentName,
       parentPhone: data.parentPhone,
       status: 'ACTIVE',
@@ -250,6 +280,9 @@ async function create(data, actorUserId, isAdmin = false) {
       averageScore: 0,
       attendanceRate: 0,
     };
+    const primaryClass = demoStore.classes.find((item) => Number(item.id) === Number(classIds[0]));
+    if (!primaryClass || ![6,7,8,9].includes(Number(primaryClass.grade))) throw new Error('Không xác định được khối 6/7/8/9 để tạo mã học sinh.');
+    student.studentCode = buildStudentCode(primaryClass.grade, student.id);
     demoStore.students.push(student);
     demoStore.studentAccounts.push({ userId: studentUser.id, studentId: student.id });
     demoStore.parentStudents.push({ parentUserId: parentUser.id, studentId: student.id, relationship: data.relationship });
@@ -260,15 +293,15 @@ async function create(data, actorUserId, isAdmin = false) {
   try {
     await client.query('BEGIN');
     const classIds = await assertClassAccess(data.classIds, actorUserId, isAdmin, client);
-    if (await emailInUse(data.studentEmail, null, client)) throw new Error('Email đăng nhập học viên đã được sử dụng.');
+    if (await usernameInUse(data.studentUsername, null, client)) throw new Error('Tên tài khoản học viên đã được sử dụng.');
 
     let parentUserResult = await client.query(
-      'SELECT id, role FROM users WHERE LOWER(email)=LOWER($1) LIMIT 1',
-      [data.parentEmail],
+      'SELECT id, role FROM users WHERE LOWER(username)=LOWER($1) LIMIT 1',
+      [data.parentUsername],
     );
     let parentUserId;
     if (parentUserResult.rows[0]) {
-      if (parentUserResult.rows[0].role !== 'PARENT') throw new Error('Email phụ huynh đang thuộc một tài khoản không phải phụ huynh.');
+      if (parentUserResult.rows[0].role !== 'PARENT') throw new Error('Tên tài khoản phụ huynh đang thuộc một tài khoản không phải phụ huynh.');
       parentUserId = parentUserResult.rows[0].id;
       await client.query(
         `UPDATE users SET full_name=$1, phone=$2, status='ACTIVE', updated_at=NOW() WHERE id=$3`,
@@ -278,28 +311,31 @@ async function create(data, actorUserId, isAdmin = false) {
       if (!data.parentPassword) throw new Error('Cần nhập mật khẩu khi tạo tài khoản phụ huynh mới.');
       const parentHash = await bcrypt.hash(data.parentPassword, env.security.bcryptRounds);
       parentUserResult = await client.query(
-        `INSERT INTO users(full_name,email,password_hash,role,status,phone)
-         VALUES($1,$2,$3,'PARENT','ACTIVE',$4) RETURNING id`,
-        [data.parentName, data.parentEmail, parentHash, data.parentPhone || null],
+        `INSERT INTO users(full_name,username,email,password_hash,role,status,phone)
+         VALUES($1,$2,NULL,$3,'PARENT','ACTIVE',$4) RETURNING id`,
+        [data.parentName, data.parentUsername, parentHash, data.parentPhone || null],
       );
       parentUserId = parentUserResult.rows[0].id;
     }
 
     const studentHash = await bcrypt.hash(data.studentPassword, env.security.bcryptRounds);
     const studentUserResult = await client.query(
-      `INSERT INTO users(full_name,email,password_hash,role,status,phone)
-       VALUES($1,$2,$3,'STUDENT','ACTIVE',$4) RETURNING id`,
-      [data.fullName, data.studentEmail, studentHash, data.phone || null],
+      `INSERT INTO users(full_name,username,email,password_hash,role,status,phone)
+       VALUES($1,$2,NULL,$3,'STUDENT','ACTIVE',$4) RETURNING id`,
+      [data.fullName, data.studentUsername, studentHash, data.phone || null],
     );
     const studentUserId = studentUserResult.rows[0].id;
 
     const studentResult = await client.query(
       `INSERT INTO students(full_name,date_of_birth,school,school_class,phone,email,parent_name,parent_phone,status)
-       VALUES($1,$2,$3,$4,$5,$6,$7,$8,'ACTIVE') RETURNING id`,
+       VALUES($1,$2,$3,$4,$5,NULL,$6,$7,'ACTIVE') RETURNING id`,
       [data.fullName, data.dateOfBirth || null, data.school || null, data.schoolClass || null,
-        data.phone || null, data.studentEmail, data.parentName, data.parentPhone || null],
+        data.phone || null, data.parentName, data.parentPhone || null],
     );
     const studentId = studentResult.rows[0].id;
+    const studentGrade = await resolveStudentGrade(classIds, client);
+    const studentCode = buildStudentCode(studentGrade, studentId);
+    await client.query('UPDATE students SET student_code=$1 WHERE id=$2', [studentCode, studentId]);
 
     await client.query('INSERT INTO student_accounts(user_id,student_id) VALUES($1,$2)', [studentUserId, studentId]);
     await client.query(
@@ -335,13 +371,13 @@ async function update(id, data, actorUserId = null, isAdmin = false) {
     const classIds = assertDemoClasses(data.classIds, actorUserId, isAdmin);
     const studentAccount = demoStore.studentAccounts.find((item) => item.studentId === student.id);
     const studentUser = studentAccount ? demoStore.users.find((item) => item.id === studentAccount.userId) : null;
-    const emailOwner = demoStore.users.find((user) => user.email.toLowerCase() === data.studentEmail.toLowerCase() && user.id !== studentUser?.id);
-    if (emailOwner) throw new Error('Email đăng nhập học viên đã được sử dụng.');
+    const usernameOwner = demoStore.users.find((user) => normalizeUsername(user.username) === data.studentUsername && user.id !== studentUser?.id);
+    if (usernameOwner) throw new Error('Tên tài khoản học viên đã được sử dụng.');
 
     let parentLink = demoStore.parentStudents.find((item) => item.studentId === student.id);
     let parentUser = parentLink ? demoStore.users.find((item) => item.id === parentLink.parentUserId) : null;
-    const targetParent = demoStore.users.find((user) => user.email.toLowerCase() === data.parentEmail.toLowerCase());
-    if (targetParent && targetParent.role !== 'PARENT') throw new Error('Email phụ huynh đang thuộc một tài khoản không phải phụ huynh.');
+    const targetParent = demoStore.users.find((user) => normalizeUsername(user.username) === data.parentUsername);
+    if (targetParent && targetParent.role !== 'PARENT') throw new Error('Tên tài khoản phụ huynh đang thuộc một tài khoản không phải phụ huynh.');
     if (targetParent && targetParent.id !== parentUser?.id) {
       parentUser = targetParent;
       if (parentLink) parentLink.parentUserId = parentUser.id;
@@ -350,10 +386,14 @@ async function update(id, data, actorUserId = null, isAdmin = false) {
         demoStore.parentStudents.push(parentLink);
       }
     }
+    if (!targetParent && parentUser) {
+      // Rename the currently linked parent account when the new username is still free.
+      parentUser.username = data.parentUsername;
+    }
     if (!parentUser) {
       if (!data.parentPassword) throw new Error('Cần nhập mật khẩu khi tạo tài khoản phụ huynh mới.');
       parentUser = {
-        id: nextId(demoStore.users), fullName: data.parentName, email: data.parentEmail,
+        id: nextId(demoStore.users), fullName: data.parentName, username: data.parentUsername, email: '',
         phone: data.parentPhone, passwordHash: bcrypt.hashSync(data.parentPassword, env.security.bcryptRounds),
         role: 'PARENT', status: 'ACTIVE',
       };
@@ -361,17 +401,17 @@ async function update(id, data, actorUserId = null, isAdmin = false) {
       parentLink = { parentUserId: parentUser.id, studentId: student.id, relationship: data.relationship };
       demoStore.parentStudents.push(parentLink);
     }
-    Object.assign(parentUser, { fullName: data.parentName, email: data.parentEmail, phone: data.parentPhone, status: 'ACTIVE' });
+    Object.assign(parentUser, { fullName: data.parentName, username: data.parentUsername, phone: data.parentPhone, status: 'ACTIVE' });
     if (data.parentPassword) parentUser.passwordHash = bcrypt.hashSync(data.parentPassword, env.security.bcryptRounds);
     parentLink.relationship = data.relationship;
 
     if (studentUser) {
-      Object.assign(studentUser, { fullName: data.fullName, email: data.studentEmail, phone: data.phone, status: 'ACTIVE' });
+      Object.assign(studentUser, { fullName: data.fullName, username: data.studentUsername, phone: data.phone, status: 'ACTIVE' });
       if (data.studentPassword) studentUser.passwordHash = bcrypt.hashSync(data.studentPassword, env.security.bcryptRounds);
     } else {
       if (!data.studentPassword) throw new Error('Học viên này chưa có tài khoản. Hãy nhập mật khẩu để tạo tài khoản học viên.');
       const newStudentUser = {
-        id: nextId(demoStore.users), fullName: data.fullName, email: data.studentEmail, phone: data.phone,
+        id: nextId(demoStore.users), fullName: data.fullName, username: data.studentUsername, email: '', phone: data.phone,
         passwordHash: bcrypt.hashSync(data.studentPassword, env.security.bcryptRounds), role: 'STUDENT', status: 'ACTIVE',
       };
       demoStore.users.push(newStudentUser);
@@ -388,7 +428,6 @@ async function update(id, data, actorUserId = null, isAdmin = false) {
       school: data.school || '',
       schoolClass: data.schoolClass || '',
       phone: data.phone || '',
-      email: data.studentEmail,
       parentName: data.parentName,
       parentPhone: data.parentPhone || '',
       classIds: [...new Set([...preserved, ...classIds])],
@@ -401,7 +440,7 @@ async function update(id, data, actorUserId = null, isAdmin = false) {
   try {
     await client.query('BEGIN');
     const current = await client.query(`
-      SELECT s.id,
+      SELECT s.id,s.student_code,
              sa.user_id AS student_user_id,
              (SELECT ps.parent_user_id FROM parent_students ps WHERE ps.student_id=s.id ORDER BY ps.parent_user_id LIMIT 1) AS parent_user_id
         FROM students s
@@ -427,27 +466,35 @@ async function update(id, data, actorUserId = null, isAdmin = false) {
     }
     const classIds = await assertClassAccess(data.classIds, actorUserId, isAdmin, client);
     const row = current.rows[0];
-    if (await emailInUse(data.studentEmail, row.student_user_id, client)) throw new Error('Email đăng nhập học viên đã được sử dụng.');
+    if (!row.student_code) {
+      const grade = await resolveStudentGrade(classIds, client);
+      row.student_code = buildStudentCode(grade, Number(id));
+      await client.query('UPDATE students SET student_code=$1 WHERE id=$2', [row.student_code, id]);
+    }
+    if (await usernameInUse(data.studentUsername, row.student_user_id, client)) throw new Error('Tên tài khoản học viên đã được sử dụng.');
 
-    let targetParent = await client.query('SELECT id,role FROM users WHERE LOWER(email)=LOWER($1) LIMIT 1', [data.parentEmail]);
+    let targetParent = await client.query('SELECT id,role FROM users WHERE LOWER(username)=LOWER($1) LIMIT 1', [data.parentUsername]);
     let parentUserId;
     if (targetParent.rows[0]) {
-      if (targetParent.rows[0].role !== 'PARENT') throw new Error('Email phụ huynh đang thuộc một tài khoản không phải phụ huynh.');
+      if (targetParent.rows[0].role !== 'PARENT') throw new Error('Tên tài khoản phụ huynh đang thuộc một tài khoản không phải phụ huynh.');
       parentUserId = targetParent.rows[0].id;
+    } else if (row.parent_user_id) {
+      // Username mới chưa ai dùng: đổi username ngay trên tài khoản phụ huynh đang liên kết.
+      parentUserId = row.parent_user_id;
     } else {
       if (!data.parentPassword) throw new Error('Cần nhập mật khẩu khi tạo tài khoản phụ huynh mới.');
       const hash = await bcrypt.hash(data.parentPassword, env.security.bcryptRounds);
       targetParent = await client.query(
-        `INSERT INTO users(full_name,email,password_hash,role,status,phone)
-         VALUES($1,$2,$3,'PARENT','ACTIVE',$4) RETURNING id`,
-        [data.parentName, data.parentEmail, hash, data.parentPhone || null],
+        `INSERT INTO users(full_name,username,email,password_hash,role,status,phone)
+         VALUES($1,$2,NULL,$3,'PARENT','ACTIVE',$4) RETURNING id`,
+        [data.parentName, data.parentUsername, hash, data.parentPhone || null],
       );
       parentUserId = targetParent.rows[0].id;
     }
 
     await client.query(
-      `UPDATE users SET full_name=$1,email=$2,phone=$3,status='ACTIVE',updated_at=NOW() WHERE id=$4`,
-      [data.parentName, data.parentEmail, data.parentPhone || null, parentUserId],
+      `UPDATE users SET full_name=$1,username=$2,phone=$3,status='ACTIVE',updated_at=NOW() WHERE id=$4`,
+      [data.parentName, data.parentUsername, data.parentPhone || null, parentUserId],
     );
     if (data.parentPassword && Number(parentUserId) === Number(row.parent_user_id)) {
       const hash = await bcrypt.hash(data.parentPassword, env.security.bcryptRounds);
@@ -463,8 +510,8 @@ async function update(id, data, actorUserId = null, isAdmin = false) {
     let studentUserId = row.student_user_id;
     if (studentUserId) {
       await client.query(
-        `UPDATE users SET full_name=$1,email=$2,phone=$3,status='ACTIVE',updated_at=NOW() WHERE id=$4`,
-        [data.fullName, data.studentEmail, data.phone || null, studentUserId],
+        `UPDATE users SET full_name=$1,username=$2,phone=$3,status='ACTIVE',updated_at=NOW() WHERE id=$4`,
+        [data.fullName, data.studentUsername, data.phone || null, studentUserId],
       );
       if (data.studentPassword) {
         const hash = await bcrypt.hash(data.studentPassword, env.security.bcryptRounds);
@@ -474,20 +521,20 @@ async function update(id, data, actorUserId = null, isAdmin = false) {
       if (!data.studentPassword) throw new Error('Học viên này chưa có tài khoản. Hãy nhập mật khẩu để tạo tài khoản học viên.');
       const hash = await bcrypt.hash(data.studentPassword, env.security.bcryptRounds);
       const createdUser = await client.query(
-        `INSERT INTO users(full_name,email,password_hash,role,status,phone)
-         VALUES($1,$2,$3,'STUDENT','ACTIVE',$4) RETURNING id`,
-        [data.fullName, data.studentEmail, hash, data.phone || null],
+        `INSERT INTO users(full_name,username,email,password_hash,role,status,phone)
+         VALUES($1,$2,NULL,$3,'STUDENT','ACTIVE',$4) RETURNING id`,
+        [data.fullName, data.studentUsername, hash, data.phone || null],
       );
       studentUserId = createdUser.rows[0].id;
       await client.query('INSERT INTO student_accounts(user_id,student_id) VALUES($1,$2)', [studentUserId, id]);
     }
 
     await client.query(
-      `UPDATE students SET full_name=$1,date_of_birth=$2,school=$3,school_class=$4,phone=$5,email=$6,
-               parent_name=$7,parent_phone=$8,status='ACTIVE',updated_at=NOW()
-       WHERE id=$9`,
+      `UPDATE students SET full_name=$1,date_of_birth=$2,school=$3,school_class=$4,phone=$5,
+               parent_name=$6,parent_phone=$7,status='ACTIVE',updated_at=NOW()
+       WHERE id=$8`,
       [data.fullName, data.dateOfBirth || null, data.school || null, data.schoolClass || null,
-        data.phone || null, data.studentEmail, data.parentName, data.parentPhone || null, id],
+        data.phone || null, data.parentName, data.parentPhone || null, id],
     );
 
     if (isAdmin || !actorUserId) {

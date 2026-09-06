@@ -1,6 +1,7 @@
 const repo = require('./student.repository');
 const classService = require('../classes/class.service');
 const reportService = require('../reports/report.service');
+const { normalizeUsername, validateUsername } = require('../../shared/account-identifiers');
 
 function normalize(body) {
   return {
@@ -9,11 +10,11 @@ function normalize(body) {
     school: String(body.school || '').trim(),
     schoolClass: String(body.schoolClass || '').trim(),
     phone: String(body.phone || '').trim(),
-    studentEmail: String(body.studentEmail || '').trim().toLowerCase(),
+    studentUsername: normalizeUsername(body.studentUsername),
     studentPassword: String(body.studentPassword || ''),
     parentName: String(body.parentName || '').trim(),
     parentPhone: String(body.parentPhone || '').trim(),
-    parentEmail: String(body.parentEmail || '').trim().toLowerCase(),
+    parentUsername: normalizeUsername(body.parentUsername),
     parentPassword: String(body.parentPassword || ''),
     relationship: String(body.relationship || 'Bố/Mẹ').trim(),
     classIds: Array.isArray(body.classIds) ? body.classIds.filter(Boolean) : (body.classIds ? [body.classIds] : []),
@@ -23,13 +24,15 @@ function normalize(body) {
 function validate(data, { creating = false } = {}) {
   const errors = [];
   if (!data.fullName) errors.push('Họ tên học viên là bắt buộc.');
-  if (!/^\S+@\S+\.\S+$/.test(data.studentEmail)) errors.push('Email đăng nhập học viên không hợp lệ.');
+  const studentUsernameError = validateUsername(data.studentUsername);
+  if (studentUsernameError) errors.push(`Tên tài khoản học viên: ${studentUsernameError}`);
   if (!data.parentName) errors.push('Họ tên phụ huynh là bắt buộc.');
-  if (!/^\S+@\S+\.\S+$/.test(data.parentEmail)) errors.push('Email phụ huynh không hợp lệ.');
+  const parentUsernameError = validateUsername(data.parentUsername);
+  if (parentUsernameError) errors.push(`Tên tài khoản phụ huynh: ${parentUsernameError}`);
   if (creating && data.studentPassword.length < 8) errors.push('Mật khẩu học viên phải có ít nhất 8 ký tự.');
   if (!creating && data.studentPassword && data.studentPassword.length < 8) errors.push('Mật khẩu học viên mới phải có ít nhất 8 ký tự.');
   if (data.parentPassword && data.parentPassword.length < 8) errors.push('Mật khẩu phụ huynh mới phải có ít nhất 8 ký tự.');
-  if (data.studentEmail && data.parentEmail && data.studentEmail === data.parentEmail) errors.push('Email học viên và email phụ huynh phải khác nhau.');
+  if (data.studentUsername && data.parentUsername && data.studentUsername === data.parentUsername) errors.push('Tên tài khoản học viên và phụ huynh phải khác nhau.');
   if (!data.classIds.length) errors.push('Hãy chọn ít nhất một lớp cho học viên.');
   return errors;
 }
@@ -54,7 +57,6 @@ async function getFormData(id = null, actorUserId = null, isAdmin = false) {
   return { student, classes };
 }
 
-
 async function getLearningProfile(id, filters = {}, actorUserId = null, isAdmin = false) {
   const { student, classes } = await getFormData(id, actorUserId, isAdmin);
   if (!student) return null;
@@ -68,7 +70,7 @@ async function getLearningProfile(id, filters = {}, actorUserId = null, isAdmin 
     month: filters.month,
   });
   if (!detail) return null;
-  return { ...detail, availableClasses };
+  return { ...detail, availableClasses, account: student };
 }
 
 async function createStudent(body, actorUserId, isAdmin = false) {

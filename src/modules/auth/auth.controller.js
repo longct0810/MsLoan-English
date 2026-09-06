@@ -8,14 +8,14 @@ function showLogin(req, res) {
 
 async function login(req, res, next) {
   try {
-    const email = String(req.body.email || '').trim();
+    const username = String(req.body.username || '').trim();
     const password = String(req.body.password || '');
-    const user = await authService.login(email, password);
+    const user = await authService.login(username, password);
 
     if (!user) {
       return res.status(401).render('auth/login', {
         title: 'Đăng nhập',
-        error: 'Email hoặc mật khẩu không đúng.',
+        error: 'Tên tài khoản hoặc mật khẩu không đúng.',
       });
     }
 

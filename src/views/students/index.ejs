@@ -17,7 +17,7 @@
         </select>
       </div>
       <div class="col-auto"><button class="btn btn-outline-primary">Áp dụng</button></div>
-      <div class="col-md ms-md-auto"><label class="form-label small text-secondary">Tìm nhanh</label><input class="form-control" placeholder="Tên, trường, email, phụ huynh..." data-table-search="#allStudentTable"></div>
+      <div class="col-md ms-md-auto"><label class="form-label small text-secondary">Tìm nhanh</label><input class="form-control" placeholder="Tên, mã học sinh, tài khoản, trường, phụ huynh..." data-table-search="#allStudentTable"></div>
     </form>
   </div>
 </div>
@@ -30,11 +30,11 @@
         <% if (!students.length) { %><tr><td colspan="7" class="text-center text-secondary py-5">Chưa có học viên.</td></tr><% } %>
         <% students.forEach(s => { %>
           <tr>
-            <td><div class="d-flex align-items-center gap-2"><span class="student-avatar small"><%= s.fullName.charAt(0) %></span><div><strong><%= s.fullName %></strong><div class="small text-secondary"><%= s.phone || '' %></div></div></div></td>
+            <td><div class="d-flex align-items-center gap-2"><span class="student-avatar small"><%= s.fullName.charAt(0) %></span><div><strong><%= s.fullName %></strong><div class="small text-secondary"><%= s.studentCode || 'Chưa có mã HS' %><% if (s.phone) { %> · <%= s.phone %><% } %></div></div></div></td>
             <td><%= (s.classes || []).join(', ') || '—' %></td>
             <td><%= s.school || '—' %><div class="small text-secondary"><%= s.schoolClass || '' %></div></td>
-            <td><div class="small"><%= s.studentEmail || s.email || '—' %></div></td>
-            <td><strong><%= s.parentName || '—' %></strong><div class="small text-secondary"><%= s.parentPhone || '' %></div><div class="small text-secondary"><%= s.parentEmail || '' %></div></td>
+            <td><div class="small fw-semibold"><%= s.studentUsername || '—' %></div></td>
+            <td><strong><%= s.parentName || '—' %></strong><div class="small text-secondary"><%= s.parentPhone || '' %></div><div class="small text-secondary"><%= s.parentUsername ? '@' + s.parentUsername : '' %></div></td>
             <td><span class="score-badge <%= s.averageScore >= 8 ? 'good' : s.averageScore < 7 ? 'warn' : '' %>"><%= s.averageScore %></span><div class="small text-secondary mt-1"><%= s.attendanceRate %>% chuyên cần</div></td>
             <td class="text-end">
               <div class="d-flex justify-content-end gap-1 flex-wrap">

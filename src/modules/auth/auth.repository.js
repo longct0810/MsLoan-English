@@ -1,23 +1,28 @@
 const env = require('../../config/env');
 const pool = require('../../config/db');
 const demoStore = require('../../shared/demo-store');
+const { normalizeUsername } = require('../../shared/account-identifiers');
 
-async function findByEmail(email) {
+async function findByUsername(username) {
+  const normalized = normalizeUsername(username);
+  if (!normalized) return null;
+
   if (env.demo.enabled) {
-    return demoStore.users.find((u) => u.email.toLowerCase() === email.toLowerCase() && u.status !== 'INACTIVE') || null;
+    return demoStore.users.find((u) => normalizeUsername(u.username) === normalized && u.status !== 'INACTIVE') || null;
   }
 
   const { rows } = await pool.query(
     `SELECT id,
             full_name AS "fullName",
+            username,
             email,
             password_hash AS "passwordHash",
             role
        FROM users
-      WHERE LOWER(email) = LOWER($1)
+      WHERE LOWER(username) = LOWER($1)
         AND status = 'ACTIVE'
       LIMIT 1`,
-    [email],
+    [normalized],
   );
   return rows[0] || null;
 }
@@ -33,6 +38,7 @@ async function findById(id) {
   const { rows } = await pool.query(
     `SELECT id,
             full_name AS "fullName",
+            username,
             email,
             password_hash AS "passwordHash",
             role
@@ -67,4 +73,4 @@ async function updatePassword(userId, passwordHash) {
   return result.rowCount === 1;
 }
 
-module.exports = { findByEmail, findById, updatePassword };
+module.exports = { findByUsername, findById, updatePassword };

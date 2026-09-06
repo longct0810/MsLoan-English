@@ -61,7 +61,7 @@ function normalizeInvoice(invoice) {
   if (!invoice) return null;
   const payment = invoice.paymentSnapshot || {};
   const remainingAmount = Math.max(0, Number(invoice.finalAmount || 0) - Number(invoice.amountPaid || 0));
-  const transferContent = invoice.publicCode || '';
+  const transferContent = invoice.transferCode || invoice.publicCode || '';
   const qrImageUrl = ['UNPAID', 'PARTIAL'].includes(invoice.status)
     ? buildVietQrImageUrl({
         bankBin: payment.bankBin,

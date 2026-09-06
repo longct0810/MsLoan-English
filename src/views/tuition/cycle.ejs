@@ -24,9 +24,9 @@
 </div>
 <div class="card app-card">
   <div class="card-header"><strong>Chi tiết học phí theo học viên</strong><div class="small text-secondary">Số buổi được tính từ điểm danh của kỳ và được snapshot khi tạo.</div></div>
-  <div class="table-responsive"><table class="table align-middle mb-0"><thead><tr><th>Học viên</th><th>Có mặt</th><th>Muộn</th><th>Online</th><th>Vắng</th><th>Buổi tính phí</th><th>Đơn giá</th><th>Học phí</th><th>TT</th><th></th></tr></thead><tbody>
+  <div class="table-responsive"><table class="table align-middle mb-0"><thead><tr><th>Học viên</th><th>Mã HS / Nội dung CK</th><th>Có mặt</th><th>Muộn</th><th>Online</th><th>Vắng</th><th>Buổi tính phí</th><th>Đơn giá</th><th>Học phí</th><th>TT</th><th></th></tr></thead><tbody>
     <% cycle.invoices.forEach(i => { %><tr>
-      <td class="fw-semibold"><%= i.studentName %></td><td><%= i.presentCount %></td><td><%= i.lateCount %></td><td><%= i.onlineCount %></td><td><%= i.absentCount + i.excusedCount %></td>
+      <td class="fw-semibold"><%= i.studentName %></td><td><div class="fw-semibold"><%= i.studentCode || '—' %></div><div class="small text-secondary"><%= i.transferCode || '—' %></div></td><td><%= i.presentCount %></td><td><%= i.lateCount %></td><td><%= i.onlineCount %></td><td><%= i.absentCount + i.excusedCount %></td>
       <td><strong><%= i.billableSessions %></strong></td><td><%= money(i.unitPrice) %></td><td class="fw-semibold"><%= money(i.finalAmount) %></td>
       <td><span class="badge <%= i.status === 'PAID' ? 'text-bg-success' : i.status === 'PARTIAL' ? 'text-bg-info' : i.status === 'UNPAID' ? 'text-bg-danger' : 'text-bg-warning' %>"><%= i.status %></span></td>
       <td><a class="btn btn-sm btn-light" href="/teacher/tuition/invoices/<%= i.id %>">Xem</a></td>

@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.24.0 - Username Authentication + Student Code + Tuition Transfer Code
+
+- Đăng nhập bằng username thay email cho mọi role.
+- Form Student/Parent account bỏ validate email, dùng username.
+- Thêm student code `Y{6|7|8|9}_HS{id}`.
+- Tuition transfer code dùng `HP YYYYMM {student_code}` và VietQR addInfo.
+- Bắt buộc migration `db/neon_upgrade_v0.24.0.sql` khi nâng từ v0.23.1.
+
 ## v0.23.1 - Compact Navigation & Account Menu
 
 - Chuyển thông tin đăng nhập, Đổi mật khẩu và Đăng xuất từ cuối sidebar lên menu tài khoản góc trên bên phải.

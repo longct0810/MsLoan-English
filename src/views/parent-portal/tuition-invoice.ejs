@@ -1,6 +1,6 @@
 <%- include('../partials/app-start', { title }) %>
 <% const money = (v) => new Intl.NumberFormat('vi-VN').format(Number(v || 0)) + 'đ'; %>
-<div class="mb-4"><a href="/parent/tuition?childId=<%= invoice.studentId %>" class="small text-decoration-none">← Học phí</a><h1 class="h3 mt-2 mb-1">Thông báo học phí</h1><div class="text-secondary"><%= invoice.studentName %> • <%= invoice.className %> • <%= invoice.publicCode %></div></div>
+<div class="mb-4"><a href="/parent/tuition?childId=<%= invoice.studentId %>" class="small text-decoration-none">← Học phí</a><h1 class="h3 mt-2 mb-1">Thông báo học phí</h1><div class="text-secondary"><%= invoice.studentName %> • <%= invoice.studentCode || '—' %> • <%= invoice.className %></div></div>
 <div class="row g-4">
   <div class="col-xl-6">
     <div class="card app-card mb-4"><div class="card-header"><strong>Thông tin kỳ học</strong></div><div class="card-body">

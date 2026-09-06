@@ -1,5 +1,6 @@
 const env = require('../../config/env');
 const pool = require('../../config/db');
+const { buildTransferCode } = require('../../shared/account-identifiers');
 
 function num(value) {
   const n = Number(value);
@@ -157,7 +158,7 @@ async function generateCycle({ teacherId, classId, periodMonth, fromDate, toDate
     }
 
     const students = await client.query(`
-      SELECT s.id,s.full_name AS "fullName"
+      SELECT s.id,s.full_name AS "fullName",s.student_code AS "studentCode"
         FROM class_students cs
         JOIN students s ON s.id=cs.student_id
        WHERE cs.class_id=$1
@@ -218,7 +219,9 @@ async function generateCycle({ teacherId, classId, periodMonth, fromDate, toDate
       ]);
       const invoiceId = inserted.rows[0].id;
       const publicCode = `HP-${String(periodMonth).slice(0, 7).replace('-', '')}-${String(invoiceId).padStart(6, '0')}`;
-      await client.query(`UPDATE tuition_invoices SET public_code=$1 WHERE id=$2`, [publicCode, invoiceId]);
+      const transferCode = buildTransferCode(periodMonth, student.studentCode);
+      if (!transferCode) throw new Error('STUDENT_CODE_REQUIRED');
+      await client.query(`UPDATE tuition_invoices SET public_code=$1,transfer_code=$2 WHERE id=$3`, [publicCode, transferCode, invoiceId]);
       await client.query(`
         INSERT INTO tuition_invoice_items(invoice_id,item_type,description,quantity,unit_price,amount,meta)
         VALUES($1,'TUITION',$2,$3,$4,$5,$6::jsonb)
@@ -251,7 +254,7 @@ async function getCycle(teacherId, cycleId) {
   if (!cycleResult.rows[0]) return null;
 
   const invoiceResult = await pool.query(`
-    SELECT i.id,i.public_code AS "publicCode",i.student_id AS "studentId",s.full_name AS "studentName",
+    SELECT i.id,i.public_code AS "publicCode",i.transfer_code AS "transferCode",i.student_id AS "studentId",s.student_code AS "studentCode",s.full_name AS "studentName",
            i.status,i.due_date AS "dueDate",i.attendance_present AS "presentCount",i.attendance_late AS "lateCount",
            i.attendance_online AS "onlineCount",i.attendance_absent AS "absentCount",i.attendance_excused AS "excusedCount",
            i.billable_sessions AS "billableSessions",i.unit_price::float AS "unitPrice",
@@ -279,6 +282,19 @@ async function sendCycle(teacherId, cycleId) {
     const cycle = cycleResult.rows[0];
     if (!cycle) throw new Error('CYCLE_NOT_FOUND');
     if (cycle.status !== 'DRAFT') throw new Error('CYCLE_ALREADY_SENT');
+
+    await client.query(`
+      UPDATE tuition_invoices i
+         SET transfer_code = 'HP ' || TO_CHAR(cy.period_month, 'YYYYMM') || ' ' || s.student_code,
+             updated_at = NOW()
+        FROM tuition_cycles cy, students s
+       WHERE i.cycle_id = cy.id
+         AND i.student_id = s.id
+         AND i.cycle_id = $1
+         AND i.teacher_id = $2
+         AND (i.transfer_code IS NULL OR BTRIM(i.transfer_code) = '')
+         AND s.student_code IS NOT NULL
+    `, [cycleId, teacherId]);
 
     const paymentSnapshot = {
       bankName: settings.bank_name,
@@ -336,8 +352,8 @@ async function updateInvoiceAdjustments(teacherId, invoiceId, data) {
 
 async function getTeacherInvoice(teacherId, invoiceId) {
   const { rows } = await pool.query(`
-    SELECT i.id,i.public_code AS "publicCode",i.status,i.due_date AS "dueDate",i.student_id AS "studentId",
-           s.full_name AS "studentName",c.name AS "className",cy.period_month AS "periodMonth",
+    SELECT i.id,i.public_code AS "publicCode",i.transfer_code AS "transferCode",i.status,i.due_date AS "dueDate",i.student_id AS "studentId",
+           s.student_code AS "studentCode",s.full_name AS "studentName",c.name AS "className",cy.period_month AS "periodMonth",
            cy.from_date AS "fromDate",cy.to_date AS "toDate",i.attendance_present AS "presentCount",
            i.attendance_late AS "lateCount",i.attendance_online AS "onlineCount",i.attendance_absent AS "absentCount",
            i.attendance_excused AS "excusedCount",i.billable_sessions AS "billableSessions",
@@ -408,7 +424,7 @@ async function getChildren(parentUserId) {
 async function getParentInvoices(parentUserId, studentId) {
   if (env.demo.enabled) return [];
   const { rows } = await pool.query(`
-    SELECT i.id,i.public_code AS "publicCode",i.status,i.due_date AS "dueDate",i.final_amount::float AS "finalAmount",
+    SELECT i.id,i.public_code AS "publicCode",i.transfer_code AS "transferCode",i.status,i.due_date AS "dueDate",i.final_amount::float AS "finalAmount",
            i.amount_paid::float AS "amountPaid",cy.period_month AS "periodMonth",c.name AS "className",i.sent_at AS "sentAt"
       FROM tuition_invoices i
       JOIN tuition_cycles cy ON cy.id=i.cycle_id
@@ -423,8 +439,8 @@ async function getParentInvoices(parentUserId, studentId) {
 async function getParentInvoice(parentUserId, invoiceId) {
   if (env.demo.enabled) return null;
   const { rows } = await pool.query(`
-    SELECT i.id,i.public_code AS "publicCode",i.status,i.due_date AS "dueDate",i.student_id AS "studentId",
-           s.full_name AS "studentName",c.name AS "className",cy.period_month AS "periodMonth",
+    SELECT i.id,i.public_code AS "publicCode",i.transfer_code AS "transferCode",i.status,i.due_date AS "dueDate",i.student_id AS "studentId",
+           s.student_code AS "studentCode",s.full_name AS "studentName",c.name AS "className",cy.period_month AS "periodMonth",
            cy.from_date AS "fromDate",cy.to_date AS "toDate",i.attendance_present AS "presentCount",
            i.attendance_late AS "lateCount",i.attendance_online AS "onlineCount",i.attendance_absent AS "absentCount",
            i.attendance_excused AS "excusedCount",i.billable_sessions AS "billableSessions",i.unit_price::float AS "unitPrice",

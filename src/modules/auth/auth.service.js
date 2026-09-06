@@ -1,12 +1,14 @@
 const bcrypt = require('bcryptjs');
 const env = require('../../config/env');
 const repo = require('./auth.repository');
+const { normalizeUsername } = require('../../shared/account-identifiers');
 
 const MIN_PASSWORD_LENGTH = 8;
 const MAX_PASSWORD_LENGTH = 128;
 
-async function login(email, password) {
-  const user = await repo.findByEmail(email);
+async function login(username, password) {
+  const normalized = normalizeUsername(username);
+  const user = await repo.findByUsername(normalized);
   if (!user) return null;
 
   const ok = await bcrypt.compare(password, user.passwordHash);
@@ -15,7 +17,7 @@ async function login(email, password) {
   return {
     id: user.id,
     fullName: user.fullName,
-    email: user.email,
+    username: user.username,
     role: user.role,
   };
 }
