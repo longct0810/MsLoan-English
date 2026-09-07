@@ -51,8 +51,9 @@ test('v0.24.2 service refuses auto-match for missing-name rows but preserves man
   assert.match(service, /existingLink\?\.match_method === 'MANUAL'/);
 });
 
-test('v0.24.2 is the active application version', () => {
-  const pkg = JSON.parse(read('package.json'));
-  assert.equal(pkg.version, '0.24.2');
-  assert.equal(read('VERSION').trim(), '0.24.2');
+test('v0.24.2 row-retention regression remains covered after later upgrades', () => {
+  const parser = read('src/modules/data-sources/google-sheet-csv.js');
+  const service = read('src/modules/data-sources/google-sheet.service.js');
+  assert.match(parser, /missingName/);
+  assert.match(service, /MISSING_NAME/);
 });

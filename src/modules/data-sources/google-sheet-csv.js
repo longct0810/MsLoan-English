@@ -250,6 +250,23 @@ function classifyObservation(fieldName, rawValue) {
   };
 }
 
+function looksLikeStudentDataRow(row, sttIndex, nameIndex) {
+  const rawName = String(row?.[nameIndex] ?? '').trim();
+  const normalizedName = normalizeName(rawName);
+
+  if (!normalizedName || ['ho va ten', 'ho ten'].includes(normalizedName)) return false;
+
+  if (sttIndex >= 0) {
+    const rawStt = String(row?.[sttIndex] ?? '').trim();
+    if (/^\d+$/.test(rawStt)) return true;
+  }
+
+  // Một số sheet không dùng STT hoặc để trống STT ở học viên mới.
+  // Nếu cột tên đã có tên hợp lệ thì ưu tiên coi đây là dòng dữ liệu thay vì
+  // âm thầm nuốt dòng đầu tiên làm "field header".
+  return true;
+}
+
 function findStudentHeaderRow(rows) {
   const max = Math.min(rows.length, 80);
   for (let i = 0; i < max; i += 1) {
@@ -258,13 +275,46 @@ function findStudentHeaderRow(rows) {
     const name = normalized.findIndex((v) => v === 'ho va ten' || v === 'ho ten' || v.includes('ho va ten'));
     if (name >= 0 && (stt >= 0 || normalized.length > 2)) {
       const hasDatesOnAnchor = rows[i].some((value, index) => index > name && Boolean(extractDate(value)));
+
+      if (hasDatesOnAnchor) {
+        const nextRow = rows[i + 1] || [];
+        const nextRowIsStudent = looksLikeStudentDataRow(nextRow, stt, name);
+
+        // Có hai layout thực tế:
+        // A) date/header row -> field row -> student rows
+        // B) single header row (date + field) -> student rows
+        // v0.24.2 luôn giả định A nên layout B bị bỏ mất học viên đầu tiên.
+        if (nextRowIsStudent) {
+          return {
+            rowIndex: i,
+            sttIndex: stt,
+            nameIndex: name,
+            dateRowIndex: i,
+            fieldRowIndex: i,
+            dataStartIndex: i + 1,
+            headerLayout: 'SINGLE_ROW',
+          };
+        }
+
+        return {
+          rowIndex: i,
+          sttIndex: stt,
+          nameIndex: name,
+          dateRowIndex: i,
+          fieldRowIndex: Math.min(i + 1, rows.length - 1),
+          dataStartIndex: i + 2,
+          headerLayout: 'DATE_THEN_FIELD',
+        };
+      }
+
       return {
         rowIndex: i,
         sttIndex: stt,
         nameIndex: name,
-        dateRowIndex: hasDatesOnAnchor ? i : Math.max(0, i - 1),
-        fieldRowIndex: hasDatesOnAnchor ? Math.min(i + 1, rows.length - 1) : i,
-        dataStartIndex: hasDatesOnAnchor ? i + 2 : i + 1,
+        dateRowIndex: Math.max(0, i - 1),
+        fieldRowIndex: i,
+        dataStartIndex: i + 1,
+        headerLayout: 'FIELD_WITH_DATE_ABOVE',
       };
     }
   }
@@ -314,8 +364,12 @@ function buildColumnMeta(rows, headerInfo) {
     const rawFieldName = String(fieldRow[i] ?? '').trim();
     const dateHeader = String(dateRow[i] ?? '').trim();
     let explicitFieldName = rawFieldName;
-    if (!explicitFieldName && headerInfo.fieldRowIndex === headerInfo.dateRowIndex) {
-      explicitFieldName = dateHeader.replace(/\b\d{1,2}[./-]\d{1,2}[./-]\d{4}\b/g, '').trim();
+    if (headerInfo.fieldRowIndex === headerInfo.dateRowIndex) {
+      // Single-row header: ví dụ "07.09.2026 Điểm danh". Bỏ phần ngày
+      // khỏi tên field để classification/assessment title không bị nhiễu.
+      explicitFieldName = rawFieldName
+        .replace(/\b\d{1,2}[./-]\d{1,2}[./-]\d{4}\b/g, '')
+        .trim();
     }
 
     if (explicitFieldName) {

@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.24.3 - Google Sheets First Student Row Hotfix
+
+- Sửa parser có thể nuốt học viên đầu tiên khi Google Sheet dùng header một dòng chứa đồng thời `STT`, `Họ và Tên`, ngày và tên trường dữ liệu.
+- Parser tự phân biệt 3 layout header: một dòng; date row rồi field row; date row phía trên field row.
+- Với single-row header, bỏ phần ngày khỏi tên field trước khi phân loại, ví dụ `07.09.2026 Điểm danh` -> `Điểm danh`.
+- Regression xác nhận `Vũ Văn Đăng Khánh` ở dòng dữ liệu đầu tiên không còn bị bỏ qua, đồng thời không làm hỏng layout hai dòng đang dùng ở các lớp khác.
+- Không cần migration DB từ v0.24.2.
+
 ## v0.24.2 - Google Sheets Student Row Retention
 
 - Không còn bỏ qua học viên chỉ vì dòng Google Sheet chưa có STT/điểm. Nếu cột Họ và Tên có giá trị hợp lệ, hệ thống luôn tạo `external_student_links` và thử auto-match.
@@ -146,6 +154,14 @@ Chạy `db/neon_upgrade_v0.21.0.sql` sau khi đã ở v0.20.0+.
 - No database schema changes are required from v0.19.0.
 
 # Changelog
+
+## v0.24.3 - Google Sheets First Student Row Hotfix
+
+- Sửa parser có thể nuốt học viên đầu tiên khi Google Sheet dùng header một dòng chứa đồng thời `STT`, `Họ và Tên`, ngày và tên trường dữ liệu.
+- Parser tự phân biệt 3 layout header: một dòng; date row rồi field row; date row phía trên field row.
+- Với single-row header, bỏ phần ngày khỏi tên field trước khi phân loại, ví dụ `07.09.2026 Điểm danh` -> `Điểm danh`.
+- Regression xác nhận `Vũ Văn Đăng Khánh` ở dòng dữ liệu đầu tiên không còn bị bỏ qua, đồng thời không làm hỏng layout hai dòng đang dùng ở các lớp khác.
+- Không cần migration DB từ v0.24.2.
 
 ## v0.19.0
 - Exam 2.0 với Question Pool, rule theo skill/difficulty/question type.

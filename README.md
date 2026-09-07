@@ -2,7 +2,7 @@
 
 # English Classroom
 
-Current version: **v0.24.2** v0.24.1
+Current version: **v0.24.3**
 
 Ứng dụng quản lý lớp học tiếng Anh cho giáo viên, học sinh và phụ huynh.
 
