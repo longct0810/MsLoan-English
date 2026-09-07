@@ -2,7 +2,9 @@
 
 const crypto = require('node:crypto');
 const {
+  parseCsv,
   normalizeName,
+  normalizeSheetProfile,
   parseTeacherTrackingSheet,
 } = require('./google-sheet-csv');
 
@@ -54,7 +56,7 @@ async function fetchText(url, { timeoutMs = 15000, retries = 2, maxBytes = 10 * 
         redirect: 'follow',
         signal: controller.signal,
         headers: {
-          'user-agent': 'English-Classroom/0.24.2 Google-Sheets-Sync',
+          'user-agent': 'English-Classroom/0.25.0 Google-Sheets-Sync',
           accept: 'text/csv,text/plain;q=0.9,*/*;q=0.1',
         },
       });
@@ -145,6 +147,112 @@ function buildStudentMatcher(classStudents) {
   };
 }
 
+function getSheetProfile(source) {
+  return normalizeSheetProfile(source?.settings?.sheet_profile || {});
+}
+
+function summarizeParsedSheet(parsed, source, classStudents = []) {
+  const matcher = buildStudentMatcher(classStudents);
+  const typeCounts = {};
+  const columnStats = new Map();
+  const dateSet = new Set();
+  const issues = [];
+  let matchedStudents = 0;
+  let missingNameStudents = 0;
+  let futureDateObservations = 0;
+  let missingDateObservations = 0;
+
+  for (const student of parsed.students || []) {
+    if (student.missingName) missingNameStudents += 1;
+    else if (matcher(student.externalStudentName).studentId) matchedStudents += 1;
+
+    for (const obs of student.observations || []) {
+      typeCounts[obs.observationType] = (typeCounts[obs.observationType] || 0) + 1;
+      if (obs.observedOn) dateSet.add(obs.observedOn);
+      else missingDateObservations += 1;
+      if (obs.observedOn && obs.observedOn > vietnamToday()) futureDateObservations += 1;
+
+      if (!columnStats.has(obs.sourceColumnIndex)) {
+        columnStats.set(obs.sourceColumnIndex, {
+          counts: {},
+          samples: [],
+        });
+      }
+      const stat = columnStats.get(obs.sourceColumnIndex);
+      stat.counts[obs.observationType] = (stat.counts[obs.observationType] || 0) + 1;
+      if (stat.samples.length < 4 && obs.rawValue !== '') stat.samples.push(obs.rawValue);
+    }
+  }
+
+  const columns = (parsed.columns || []).map((column) => {
+    const stat = columnStats.get(column.index) || { counts: {}, samples: [] };
+    const dominantEntry = Object.entries(stat.counts).sort((a, b) => b[1] - a[1])[0] || null;
+    return {
+      index: column.index,
+      observedOn: column.observedOn,
+      fieldName: column.fieldName,
+      rawFieldName: column.rawFieldName,
+      rawDateHeader: column.rawDateHeader,
+      fieldGroupTitle: column.fieldGroupTitle,
+      dateConfidence: column.dateConfidence,
+      observationTypeOverride: column.observationTypeOverride,
+      dominantType: dominantEntry?.[0] || null,
+      typeCounts: stat.counts,
+      sampleValues: stat.samples,
+    };
+  });
+
+  if ((typeCounts.ATTENDANCE || 0) === 0) {
+    issues.push('Không nhận diện được dữ liệu điểm danh. Hãy kiểm tra header hoặc gán cột Điểm danh trong Schema Profile.');
+  }
+  if ((parsed.students || []).length === 0) {
+    issues.push('Không nhận diện được học viên nào từ nguồn dữ liệu.');
+  }
+  if (missingNameStudents > 0) {
+    issues.push(`${missingNameStudents} dòng có dữ liệu nhưng thiếu Họ và Tên.`);
+  }
+  if (missingDateObservations > 0) {
+    issues.push(`${missingDateObservations} ô dữ liệu chưa xác định được ngày.`);
+  }
+  if (futureDateObservations > 0) {
+    issues.push(`${futureDateObservations} ô thuộc ngày tương lai và sẽ chỉ được staging.`);
+  }
+
+  const sortedDates = [...dateSet].sort();
+  return {
+    header: parsed.headerInfo || null,
+    profile: parsed.profileApplied || {},
+    summary: {
+      rowsRead: parsed.rowsRead || 0,
+      studentsSeen: (parsed.students || []).length,
+      studentsMatchedByName: matchedStudents,
+      observationsSeen: Object.values(typeCounts).reduce((sum, value) => sum + value, 0),
+      attendanceObservations: typeCounts.ATTENDANCE || 0,
+      scoreObservations: typeCounts.SCORE || 0,
+      noteObservations: typeCounts.NOTE || 0,
+      homeworkObservations: typeCounts.HOMEWORK_STATUS || 0,
+      levelObservations: typeCounts.LEVEL || 0,
+      textObservations: typeCounts.TEXT || 0,
+      assessmentsSeen: (parsed.assessments || []).length,
+      firstDate: sortedDates[0] || null,
+      lastDate: sortedDates[sortedDates.length - 1] || null,
+      futureDateObservations,
+      missingDateObservations,
+      missingNameStudents,
+    },
+    typeCounts,
+    columns,
+    issues,
+    sampleStudents: (parsed.students || []).slice(0, 12).map((student) => ({
+      name: student.externalStudentName,
+      key: student.externalStudentKey,
+      rowHint: student.externalRowHint,
+      observationCount: student.observations.length,
+      missingName: student.missingName,
+    })),
+  };
+}
+
 function getSettings(source) {
   const settings = source.settings || {};
   return {
@@ -173,6 +281,64 @@ function createGoogleSheetService({ pool, repository, logger = console }) {
       intervalMinutes: Math.min(Math.max(Number(intervalMinutes) || 15, 5), 1440),
       importFromDate: importFromDate || null,
     });
+  }
+
+  async function inspectSource(sourceId, { teacherId = null, profileOverride = null } = {}) {
+    const source = await repository.getSource(sourceId, teacherId);
+    if (!source) throw new Error('Không tìm thấy nguồn dữ liệu hoặc bạn không có quyền truy cập.');
+
+    const csvUrl = buildCsvUrl(source.spreadsheet_id, source.sheet_gid);
+    const csvText = await fetchText(csvUrl, {
+      timeoutMs: Number(process.env.GOOGLE_SHEET_FETCH_TIMEOUT_MS || 15000),
+      retries: Number(process.env.GOOGLE_SHEET_FETCH_RETRIES || 2),
+    });
+    const rawRows = parseCsv(csvText);
+    const profile = normalizeSheetProfile(profileOverride || getSheetProfile(source));
+    const classStudents = await repository.getClassStudents(source.class_id);
+
+    try {
+      const parsed = parseTeacherTrackingSheet(csvText, { sourceId: source.id, profile });
+      return {
+        ok: true,
+        source,
+        contentHash: sha256(csvText),
+        rawPreview: rawRows.slice(0, 8).map((row, index) => ({ index, cells: row.slice(0, 30) })),
+        ...summarizeParsedSheet(parsed, source, classStudents),
+      };
+    } catch (error) {
+      return {
+        ok: false,
+        source,
+        contentHash: sha256(csvText),
+        profile,
+        parseError: error.message,
+        rawPreview: rawRows.slice(0, 12).map((row, index) => ({ index, cells: row.slice(0, 30) })),
+        summary: null,
+        columns: [],
+        issues: [error.message],
+        sampleStudents: [],
+      };
+    }
+  }
+
+  async function saveSheetProfile(sourceId, { teacherId, profile }) {
+    const normalizedProfile = normalizeSheetProfile(profile);
+    const analysis = await inspectSource(sourceId, { teacherId, profileOverride: normalizedProfile });
+    if (!analysis.ok) {
+      throw new Error(`Cấu hình chưa hợp lệ: ${analysis.parseError}`);
+    }
+    if (analysis.summary.studentsSeen <= 0) {
+      throw new Error('Cấu hình không nhận diện được học viên nào.');
+    }
+    if (
+      normalizedProfile.confirmed &&
+      analysis.source.settings?.materialize_attendance !== false &&
+      analysis.summary.attendanceObservations <= 0
+    ) {
+      throw new Error('Không thể xác nhận: chưa nhận diện được ô Điểm danh nào. Hãy override đúng cột Điểm danh trước.');
+    }
+    await repository.updateSheetProfile({ sourceId, teacherId, profile: normalizedProfile });
+    return analysis;
   }
 
   async function syncSource(sourceId, { triggerType = 'SCHEDULED', teacherId = null, force = false } = {}) {
@@ -236,9 +402,28 @@ function createGoogleSheetService({ pool, repository, logger = console }) {
           return stats;
         }
 
-        const parsed = parseTeacherTrackingSheet(csvText, { sourceId: source.id });
+        const sheetProfile = getSheetProfile(source);
+        const parsed = parseTeacherTrackingSheet(csvText, { sourceId: source.id, profile: sheetProfile });
+        const profileGuardEnabled = source.settings?.require_confirmed_sheet_profile === true;
+        const materializationAllowedByProfile = !profileGuardEnabled || sheetProfile.confirmed === true;
+        if (!materializationAllowedByProfile) {
+          stats.details.warnings.push({
+            field: 'Schema Profile',
+            warning: 'Nguồn chưa xác nhận cấu trúc Sheet; dữ liệu chỉ staging, chưa cập nhật điểm/điểm danh/nhận xét.',
+          });
+        }
         stats.rowsRead = parsed.rowsRead;
         stats.studentsSeen = parsed.students.length;
+        stats.details.sheetProfile = {
+          mode: sheetProfile.mode,
+          confirmed: sheetProfile.confirmed,
+          detectedLayout: parsed.headerInfo?.headerLayout || null,
+          headerRow: parsed.headerInfo?.rowIndex ?? null,
+          dateRow: parsed.headerInfo?.dateRowIndex ?? null,
+          fieldRow: parsed.headerInfo?.fieldRowIndex ?? null,
+          dataStartRow: parsed.headerInfo?.dataStartIndex ?? null,
+          nameColumn: parsed.headerInfo?.nameIndex ?? null,
+        };
         const classStudents = await repository.getClassStudents(source.class_id, client);
         const matchStudent = buildStudentMatcher(classStudents);
         const settings = getSettings(source);
@@ -359,6 +544,7 @@ function createGoogleSheetService({ pool, repository, logger = console }) {
             const sourceForMaterialization = { ...source, materializeSkillEvents: settings.materializeSkillEvents };
 
             if (
+              materializationAllowedByProfile &&
               settings.materializeScores &&
               !item.assessmentKey &&
               observation.observation_type === 'SCORE' &&
@@ -373,6 +559,7 @@ function createGoogleSheetService({ pool, repository, logger = console }) {
             }
 
             if (
+              materializationAllowedByProfile &&
               settings.materializeAttendance &&
               observation.observation_type === 'ATTENDANCE' &&
               observation.normalized_status
@@ -409,7 +596,7 @@ function createGoogleSheetService({ pool, repository, logger = console }) {
               continue;
             }
 
-            if (settings.materializeNotes && observation.observation_type === 'NOTE') {
+            if (materializationAllowedByProfile && settings.materializeNotes && observation.observation_type === 'NOTE') {
               let sessionId = null;
               if (observation.observed_on && sessionCache.has(observation.observed_on)) {
                 sessionId = sessionCache.get(observation.observed_on)?.session?.id || null;
@@ -483,7 +670,7 @@ function createGoogleSheetService({ pool, repository, logger = console }) {
               (assessmentResult.raw_score != null && assessmentResult.raw_max_score != null && Number(assessmentResult.raw_max_score) > 0) ||
               (assessmentResult.normalized_score != null && Number(assessmentResult.normalized_max_score) > 0)
             );
-            if (!settings.materializeScores || !settings.materializeAssessments || !link.student_id || !dateCheck.allowed || warning || !hasScore) {
+            if (!materializationAllowedByProfile || !settings.materializeScores || !settings.materializeAssessments || !link.student_id || !dateCheck.allowed || warning || !hasScore) {
               stats.skipped += 1;
               continue;
             }
@@ -564,6 +751,8 @@ function createGoogleSheetService({ pool, repository, logger = console }) {
 
   return {
     createSource,
+    inspectSource,
+    saveSheetProfile,
     syncSource,
     syncDueSources,
     parseGoogleSheetUrl,
@@ -580,4 +769,6 @@ module.exports = {
   isDateAllowed,
   normalizeDateOnly,
   buildStudentMatcher,
+  getSheetProfile,
+  summarizeParsedSheet,
 };

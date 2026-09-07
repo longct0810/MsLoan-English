@@ -1,0 +1,151 @@
+<%- include('../../partials/app-start', { title }) %>
+<div class="container-fluid py-3">
+  <div class="d-flex justify-content-between align-items-start mb-3 gap-3 flex-wrap">
+    <div>
+      <a href="/teacher/data-sources/<%= source.id %>" class="text-decoration-none">← <%= source.name %></a>
+      <h3 class="mb-1 mt-2">Cấu trúc Google Sheet</h3>
+      <div class="text-muted"><%= source.class_name %> · <%= source.school_year %></div>
+    </div>
+    <a href="/teacher/data-sources/<%= source.id %>/schema" class="btn btn-outline-primary">Phân tích lại</a>
+  </div>
+
+  <% if (flashMessage) { %><div class="alert alert-<%= flashType %>"><%= flashMessage %></div><% } %>
+
+  <% if (!analysis.ok) { %>
+    <div class="alert alert-danger">
+      <strong>Chưa parse được Sheet:</strong> <%= analysis.parseError %>
+      <div class="small mt-1">Bạn vẫn có thể nhập cấu hình thủ công bên dưới dựa trên preview dữ liệu gốc.</div>
+    </div>
+  <% } %>
+
+  <% if (analysis.ok) { %>
+    <div class="row g-3 mb-4">
+      <div class="col-md-2"><div class="card app-card h-100"><div class="card-body"><div class="text-muted small">Học viên</div><div class="fs-4 fw-bold"><%= analysis.summary.studentsSeen %></div><small><%= analysis.summary.studentsMatchedByName %> khớp tên</small></div></div></div>
+      <div class="col-md-2"><div class="card app-card h-100"><div class="card-body"><div class="text-muted small">Điểm danh</div><div class="fs-4 fw-bold"><%= analysis.summary.attendanceObservations %></div></div></div></div>
+      <div class="col-md-2"><div class="card app-card h-100"><div class="card-body"><div class="text-muted small">Điểm số</div><div class="fs-4 fw-bold"><%= analysis.summary.scoreObservations %></div></div></div></div>
+      <div class="col-md-2"><div class="card app-card h-100"><div class="card-body"><div class="text-muted small">Bài test</div><div class="fs-4 fw-bold"><%= analysis.summary.assessmentsSeen %></div></div></div></div>
+      <div class="col-md-2"><div class="card app-card h-100"><div class="card-body"><div class="text-muted small">Ngày đầu</div><div class="fw-bold"><%= analysis.summary.firstDate || '—' %></div></div></div></div>
+      <div class="col-md-2"><div class="card app-card h-100"><div class="card-body"><div class="text-muted small">Ngày cuối</div><div class="fw-bold"><%= analysis.summary.lastDate || '—' %></div></div></div></div>
+    </div>
+
+    <% if (analysis.issues && analysis.issues.length) { %>
+      <div class="alert alert-warning">
+        <strong>Dry-run còn cảnh báo:</strong>
+        <ul class="mb-0 mt-1">
+          <% analysis.issues.forEach(function(issue) { %><li><%= issue %></li><% }) %>
+        </ul>
+      </div>
+    <% } else { %>
+      <div class="alert alert-success">Dry-run không phát hiện vấn đề cấu trúc rõ ràng.</div>
+    <% } %>
+  <% } %>
+
+  <form method="post" action="/teacher/data-sources/<%= source.id %>/schema">
+    <% if (typeof csrfToken !== 'undefined' && csrfToken) { %><input type="hidden" name="_csrf" value="<%= csrfToken %>"><% } %>
+
+    <div class="card app-card mb-4">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <strong>Schema Profile</strong>
+        <span class="badge <%= profile.confirmed ? 'bg-success' : 'bg-warning text-dark' %>"><%= profile.confirmed ? 'ĐÃ XÁC NHẬN' : 'CHƯA XÁC NHẬN' %></span>
+      </div>
+      <div class="card-body">
+        <div class="row g-3">
+          <div class="col-md-4">
+            <label class="form-label">Kiểu header</label>
+            <select class="form-select" name="mode">
+              <% ['AUTO','SINGLE_ROW','DATE_THEN_FIELD','FIELD_WITH_DATE_ABOVE','CUSTOM'].forEach(function(mode) { %>
+                <option value="<%= mode %>" <%= String(profile.mode || 'AUTO') === mode ? 'selected' : '' %>><%= mode %></option>
+              <% }) %>
+            </select>
+            <div class="form-text">AUTO tự nhận diện. CUSTOM dùng các chỉ số dòng/cột phía dưới.</div>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Alias điểm danh bổ sung</label>
+            <input class="form-control" name="attendance_aliases" value="<%= (profile.attendance_aliases || []).join(', ') %>" placeholder="CC, Chuyên cần, Có mặt">
+            <div class="form-text">Hệ thống luôn nhận diện sẵn Điểm danh / Attendance / Chuyên cần.</div>
+          </div>
+          <div class="col-md-4 d-flex align-items-end">
+            <div class="form-check mb-2">
+              <input class="form-check-input" type="checkbox" name="confirmed" value="1" id="confirmed" <%= profile.confirmed ? 'checked' : '' %>>
+              <label class="form-check-label fw-semibold" for="confirmed">Xác nhận cấu trúc để cho phép ghi DB</label>
+              <div class="form-text">Nếu chưa xác nhận, sync chỉ staging và không cập nhật điểm/điểm danh.</div>
+            </div>
+          </div>
+        </div>
+
+        <% const h = analysis.header || {}; %>
+        <div class="row g-3 mt-1">
+          <div class="col-6 col-md-2"><label class="form-label">Header row</label><input type="number" min="1" class="form-control" name="header_row" value="<%= profile.header_row_index != null ? profile.header_row_index + 1 : (h.rowIndex != null ? h.rowIndex + 1 : '') %>"></div>
+          <div class="col-6 col-md-2"><label class="form-label">Date row</label><input type="number" min="1" class="form-control" name="date_row" value="<%= profile.date_row_index != null ? profile.date_row_index + 1 : (h.dateRowIndex != null ? h.dateRowIndex + 1 : '') %>"></div>
+          <div class="col-6 col-md-2"><label class="form-label">Field row</label><input type="number" min="1" class="form-control" name="field_row" value="<%= profile.field_row_index != null ? profile.field_row_index + 1 : (h.fieldRowIndex != null ? h.fieldRowIndex + 1 : '') %>"></div>
+          <div class="col-6 col-md-2"><label class="form-label">Data bắt đầu</label><input type="number" min="1" class="form-control" name="data_start_row" value="<%= profile.data_start_index != null ? profile.data_start_index + 1 : (h.dataStartIndex != null ? h.dataStartIndex + 1 : '') %>"></div>
+          <div class="col-6 col-md-2"><label class="form-label">Cột STT</label><input type="number" min="1" class="form-control" name="stt_column" value="<%= profile.stt_column_index != null ? profile.stt_column_index + 1 : (h.sttIndex != null && h.sttIndex >= 0 ? h.sttIndex + 1 : '') %>"></div>
+          <div class="col-6 col-md-2"><label class="form-label">Cột Họ tên</label><input type="number" min="1" class="form-control" name="student_name_column" value="<%= profile.student_name_column_index != null ? profile.student_name_column_index + 1 : (h.nameIndex != null && h.nameIndex >= 0 ? h.nameIndex + 1 : '') %>"></div>
+        </div>
+      </div>
+    </div>
+
+    <% if (analysis.ok && analysis.columns.length) { %>
+      <div class="card app-card mb-4">
+        <div class="card-header"><strong>Mapping theo cột</strong></div>
+        <div class="px-3 pt-3 small text-secondary">Chỉ override các cột mà AUTO nhận sai. Số cột bên dưới là số hiển thị trong Sheet (bắt đầu từ 1).</div>
+        <div class="table-responsive">
+          <table class="table table-sm align-middle mb-0">
+            <thead><tr><th>Cột</th><th>Header</th><th>Ngày</th><th>Nhận diện</th><th>Ví dụ</th><th>Override type</th><th>Tên field override</th><th>Ngày override</th></tr></thead>
+            <tbody>
+              <% analysis.columns.forEach(function(col) { const ov = (profile.column_overrides || {})[String(col.index)] || {}; %>
+                <tr>
+                  <td class="fw-bold"><%= col.index + 1 %></td>
+                  <td style="min-width:220px"><strong><%= col.fieldName || '—' %></strong><br><small class="text-muted"><%= col.rawDateHeader || '' %></small></td>
+                  <td class="text-nowrap"><%= col.observedOn || '—' %><br><small class="text-muted"><%= col.dateConfidence || '' %></small></td>
+                  <td><span class="badge bg-light text-dark border"><%= col.dominantType || '—' %></span></td>
+                  <td><small><%= (col.sampleValues || []).join(' · ') || '—' %></small></td>
+                  <td style="min-width:160px">
+                    <select class="form-select form-select-sm" name="column_overrides[<%= col.index %>][type]">
+                      <% ['', 'ATTENDANCE','SCORE','NOTE','HOMEWORK_STATUS','LEVEL','TEXT','IGNORE'].forEach(function(type) { %>
+                        <option value="<%= type %>" <%= String(ov.type || '') === type ? 'selected' : '' %>><%= type || 'AUTO' %></option>
+                      <% }) %>
+                    </select>
+                  </td>
+                  <td style="min-width:190px"><input class="form-control form-control-sm" name="column_overrides[<%= col.index %>][field_name]" value="<%= ov.field_name || '' %>" placeholder="Giữ AUTO"></td>
+                  <td style="min-width:150px"><input type="date" class="form-control form-control-sm" name="column_overrides[<%= col.index %>][observed_on]" value="<%= ov.observed_on || '' %>"></td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    <% } %>
+
+    <div class="d-flex justify-content-end gap-2 mb-4">
+      <a href="/teacher/data-sources/<%= source.id %>" class="btn btn-outline-secondary">Quay lại</a>
+      <button class="btn btn-primary" type="submit">Lưu cấu hình & Dry-run</button>
+    </div>
+  </form>
+
+  <div class="card app-card mb-4">
+    <div class="card-header"><strong>Preview dữ liệu gốc</strong></div>
+    <div class="table-responsive">
+      <table class="table table-sm table-bordered mb-0">
+        <tbody>
+          <% (analysis.rawPreview || []).forEach(function(row) { %>
+            <tr>
+              <th class="text-nowrap">Row <%= row.index + 1 %></th>
+              <% row.cells.forEach(function(cell, ci) { %><td><small><strong>C<%= ci + 1 %>:</strong> <%= cell %></small></td><% }) %>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <% if (analysis.ok && analysis.sampleStudents.length) { %>
+    <div class="card app-card">
+      <div class="card-header"><strong>Học viên nhận diện mẫu</strong></div>
+      <div class="table-responsive"><table class="table table-sm mb-0"><thead><tr><th>Row/STT</th><th>Tên</th><th>External key</th><th>Ô dữ liệu</th></tr></thead><tbody>
+        <% analysis.sampleStudents.forEach(function(student) { %><tr><td><%= student.rowHint %></td><td><%= student.name %></td><td><code><%= student.key %></code></td><td><%= student.observationCount %></td></tr><% }) %>
+      </tbody></table></div>
+    </div>
+  <% } %>
+</div>
+<%- include('../../partials/app-end') %>

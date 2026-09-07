@@ -7,8 +7,8 @@ const root = path.join(__dirname, '..');
 const read = (name) => fs.readFileSync(path.join(root, name), 'utf8');
 
 test('current application version is v0.24.3', () => {
-  assert.equal(JSON.parse(read('package.json')).version, '0.24.3');
-  assert.equal(read('VERSION').trim(), '0.24.3');
+  assert.equal(JSON.parse(read('package.json')).version, '0.25.0');
+  assert.equal(read('VERSION').trim(), '0.25.0');
 });
 
 test('manual Google Sheets sync forces re-processing', () => {

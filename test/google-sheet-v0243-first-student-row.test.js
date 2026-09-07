@@ -46,8 +46,8 @@ test('v0.24.3 still supports two-row date + field headers', () => {
   assert.equal(parsed.students[1].externalStudentName, 'Vũ Văn Đăng Khoa');
 });
 
-test('v0.24.3 is the active application version', () => {
+test('v0.25.0 is the active application version', () => {
   const pkg = JSON.parse(read('package.json'));
-  assert.equal(pkg.version, '0.24.3');
-  assert.equal(read('VERSION').trim(), '0.24.3');
+  assert.equal(pkg.version, '0.25.0');
+  assert.equal(read('VERSION').trim(), '0.25.0');
 });

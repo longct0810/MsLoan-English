@@ -1085,3 +1085,31 @@ UPDATE tuition_invoices i
 CREATE INDEX IF NOT EXISTS idx_tuition_invoices_transfer_code ON tuition_invoices(transfer_code);
 
 COMMIT;
+
+-- v0.25.0 - Google Sheets Schema Profiles & Dry-run Validation.
+-- No physical schema additions. The profile is stored under:
+-- external_data_sources.settings.sheet_profile
+-- and materialization is guarded by settings.require_confirmed_sheet_profile.
+UPDATE external_data_sources
+   SET settings = jsonb_set(
+         jsonb_set(
+           COALESCE(settings, '{}'::jsonb),
+           '{sheet_profile}',
+           CASE
+             WHEN jsonb_typeof(COALESCE(settings, '{}'::jsonb)->'sheet_profile') = 'object'
+               THEN COALESCE(settings, '{}'::jsonb)->'sheet_profile'
+             ELSE jsonb_build_object(
+               'version', 1,
+               'mode', 'AUTO',
+               'confirmed', FALSE,
+               'attendance_aliases', jsonb_build_array(),
+               'column_overrides', '{}'::jsonb
+             )
+           END,
+           TRUE
+         ),
+         '{require_confirmed_sheet_profile}',
+         'true'::jsonb,
+         TRUE
+       )
+ WHERE provider = 'GOOGLE_SHEETS';

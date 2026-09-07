@@ -4,6 +4,51 @@ function currentUser(req) {
   return req.user || req.session?.user || req.session?.authUser || null;
 }
 
+
+function toZeroBasedIndex(value) {
+  if (value === null || value === undefined || String(value).trim() === '') return null;
+  const n = Number(value);
+  return Number.isInteger(n) && n >= 1 ? n - 1 : null;
+}
+
+function parseSheetProfileForm(body = {}) {
+  const overrides = {};
+  const rawOverrides = body.column_overrides && typeof body.column_overrides === 'object'
+    ? body.column_overrides
+    : {};
+
+  for (const [indexRaw, item] of Object.entries(rawOverrides)) {
+    const index = Number(indexRaw);
+    if (!Number.isInteger(index) || index < 0 || !item || typeof item !== 'object') continue;
+    const type = String(item.type || '').trim().toUpperCase();
+    const fieldName = String(item.field_name || '').trim();
+    const observedOn = String(item.observed_on || '').trim();
+    if (!type && !fieldName && !observedOn) continue;
+    overrides[String(index)] = {
+      type: type || null,
+      field_name: fieldName || null,
+      observed_on: observedOn || null,
+    };
+  }
+
+  return {
+    version: 1,
+    mode: String(body.mode || 'AUTO').trim().toUpperCase(),
+    confirmed: body.confirmed === '1' || body.confirmed === 'true' || body.confirmed === 'on',
+    header_row_index: toZeroBasedIndex(body.header_row),
+    date_row_index: toZeroBasedIndex(body.date_row),
+    field_row_index: toZeroBasedIndex(body.field_row),
+    data_start_index: toZeroBasedIndex(body.data_start_row),
+    stt_column_index: toZeroBasedIndex(body.stt_column),
+    student_name_column_index: toZeroBasedIndex(body.student_name_column),
+    attendance_aliases: String(body.attendance_aliases || '')
+      .split(/[\n,;]/)
+      .map((x) => x.trim())
+      .filter(Boolean),
+    column_overrides: overrides,
+  };
+}
+
 function createGoogleSheetController({ repository, service }) {
   return {
     async index(req, res, next) {
@@ -84,6 +129,44 @@ function createGoogleSheetController({ repository, service }) {
         });
       } catch (error) {
         return next(error);
+      }
+    },
+
+    async schemaProfile(req, res, next) {
+      try {
+        const user = currentUser(req);
+        if (!user?.id) return res.status(401).send('Unauthorized');
+        const sourceId = Number(req.params.id);
+        const source = await repository.getSource(sourceId, user.id);
+        if (!source) return res.status(404).send('Không tìm thấy nguồn dữ liệu.');
+        const analysis = await service.inspectSource(sourceId, { teacherId: user.id });
+        return res.render('teacher/data-sources/schema', {
+          title: `Cấu trúc Sheet - ${source.name}`,
+          source,
+          analysis,
+          profile: analysis.profile || source.settings?.sheet_profile || { mode: 'AUTO' },
+          flashMessage: req.query.message || null,
+          flashType: req.query.type || 'info',
+        });
+      } catch (error) {
+        return next(error);
+      }
+    },
+
+    async updateSchemaProfile(req, res, next) {
+      try {
+        const user = currentUser(req);
+        if (!user?.id) return res.status(401).send('Unauthorized');
+        const sourceId = Number(req.params.id);
+        const profile = parseSheetProfileForm(req.body || {});
+        const analysis = await service.saveSheetProfile(sourceId, { teacherId: user.id, profile });
+        const message = profile.confirmed
+          ? `Đã lưu và xác nhận cấu trúc Sheet: ${analysis.summary.studentsSeen} học viên, ${analysis.summary.attendanceObservations} ô điểm danh, ${analysis.summary.scoreObservations} ô điểm.`
+          : 'Đã lưu cấu trúc Sheet ở chế độ chưa xác nhận. Dữ liệu sẽ chỉ staging cho đến khi xác nhận.';
+        return res.redirect(`/teacher/data-sources/${sourceId}/schema?message=${encodeURIComponent(message)}&type=success`);
+      } catch (error) {
+        const sourceId = Number(req.params.id);
+        return res.redirect(`/teacher/data-sources/${sourceId}/schema?message=${encodeURIComponent(error.message || 'Không thể lưu cấu trúc Sheet.')}&type=danger`);
       }
     },
 

@@ -79,7 +79,15 @@ function createGoogleSheetRepository(pool) {
             'materialize_notes',TRUE,
             'materialize_skill_events',TRUE,
             'auto_create_session',TRUE,
-            'skip_future_dates',TRUE
+            'skip_future_dates',TRUE,
+            'require_confirmed_sheet_profile',TRUE,
+            'sheet_profile',jsonb_build_object(
+              'version',1,
+              'mode','AUTO',
+              'confirmed',FALSE,
+              'attendance_aliases',jsonb_build_array(),
+              'column_overrides','{}'::jsonb
+            )
           )
         )
         ON CONFLICT(teacher_id,class_id,provider,spreadsheet_id,sheet_gid)
@@ -93,6 +101,29 @@ function createGoogleSheetRepository(pool) {
         RETURNING *
       `, [teacherId, classId, name, spreadsheetId, String(sheetGid || '0'), sourceUrl, intervalMinutes || 15, effectiveImportFromDate]);
       return rows[0];
+    },
+
+    async updateSheetProfile({ sourceId, teacherId, profile }) {
+      const { rowCount } = await pool.query(`
+        UPDATE external_data_sources
+           SET settings = jsonb_set(
+                 jsonb_set(
+                   COALESCE(settings, '{}'::jsonb),
+                   '{sheet_profile}',
+                   $3::jsonb,
+                   TRUE
+                 ),
+                 '{require_confirmed_sheet_profile}',
+                 'true'::jsonb,
+                 TRUE
+               ),
+               last_content_hash = NULL,
+               last_error = NULL,
+               updated_at = NOW()
+         WHERE id=$1
+           AND teacher_id=$2
+      `, [sourceId, teacherId, JSON.stringify(profile || {})]);
+      if (!rowCount) throw new Error('Không tìm thấy nguồn dữ liệu hoặc bạn không có quyền cập nhật.');
     },
 
     async updateSourceState(sourceId, fields, db = null) {

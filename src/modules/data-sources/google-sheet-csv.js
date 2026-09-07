@@ -154,7 +154,7 @@ function normalizeHomework(value) {
   return null;
 }
 
-function classifyObservation(fieldName, rawValue) {
+function classifyObservation(fieldName, rawValue, profile = {}) {
   const field = normalizeText(fieldName);
   const raw = String(rawValue ?? '').trim();
   const rawNorm = normalizeText(raw);
@@ -163,7 +163,16 @@ function classifyObservation(fieldName, rawValue) {
   const headerMax = extractHeaderMax(fieldName);
   const numeric = parseNumber(raw);
 
-  if (field.includes('diem danh') || field.includes('attendance')) {
+  const configuredAttendanceAliases = Array.isArray(profile?.attendance_aliases)
+    ? profile.attendance_aliases.map(normalizeText).filter(Boolean)
+    : [];
+  const attendanceAliases = ['diem danh', 'attendance', 'chuyen can', ...configuredAttendanceAliases];
+  const isAttendanceField = attendanceAliases.some((alias) => {
+    if (!alias) return false;
+    return alias.length <= 3 ? field === alias : field.includes(alias);
+  });
+
+  if (isAttendanceField) {
     return {
       type: 'ATTENDANCE',
       normalizedStatus: normalizeAttendance(raw),
@@ -250,6 +259,129 @@ function classifyObservation(fieldName, rawValue) {
   };
 }
 
+const SHEET_PROFILE_MODES = new Set([
+  'AUTO',
+  'SINGLE_ROW',
+  'DATE_THEN_FIELD',
+  'FIELD_WITH_DATE_ABOVE',
+  'CUSTOM',
+]);
+
+const OBSERVATION_OVERRIDE_TYPES = new Set([
+  'ATTENDANCE',
+  'SCORE',
+  'NOTE',
+  'HOMEWORK_STATUS',
+  'LEVEL',
+  'TEXT',
+  'IGNORE',
+]);
+
+function nullableIndex(value) {
+  if (value === null || value === undefined || value === '') return null;
+  const n = Number(value);
+  return Number.isInteger(n) && n >= 0 ? n : null;
+}
+
+function normalizeSheetProfile(profile = {}) {
+  const raw = profile && typeof profile === 'object' ? profile : {};
+  const mode = SHEET_PROFILE_MODES.has(String(raw.mode || '').toUpperCase())
+    ? String(raw.mode).toUpperCase()
+    : 'AUTO';
+  const overrides = {};
+  const sourceOverrides = raw.column_overrides && typeof raw.column_overrides === 'object'
+    ? raw.column_overrides
+    : {};
+  for (const [key, value] of Object.entries(sourceOverrides)) {
+    const index = nullableIndex(key);
+    if (index === null || !value || typeof value !== 'object') continue;
+    const type = String(value.type || '').toUpperCase();
+    const observedOn = extractDate(value.observed_on) || (/^\d{4}-\d{2}-\d{2}$/.test(String(value.observed_on || '')) ? String(value.observed_on) : null);
+    overrides[String(index)] = {
+      type: OBSERVATION_OVERRIDE_TYPES.has(type) ? type : null,
+      field_name: String(value.field_name || '').trim().slice(0, 300) || null,
+      observed_on: observedOn,
+    };
+  }
+
+  return {
+    version: 1,
+    mode,
+    confirmed: raw.confirmed === true || raw.confirmed === 'true' || raw.confirmed === 1 || raw.confirmed === '1',
+    header_row_index: nullableIndex(raw.header_row_index),
+    date_row_index: nullableIndex(raw.date_row_index),
+    field_row_index: nullableIndex(raw.field_row_index),
+    data_start_index: nullableIndex(raw.data_start_index),
+    stt_column_index: nullableIndex(raw.stt_column_index),
+    student_name_column_index: nullableIndex(raw.student_name_column_index),
+    attendance_aliases: Array.isArray(raw.attendance_aliases)
+      ? raw.attendance_aliases.map((x) => String(x || '').trim()).filter(Boolean).slice(0, 30)
+      : String(raw.attendance_aliases || '')
+          .split(/[\n,;]/)
+          .map((x) => x.trim())
+          .filter(Boolean)
+          .slice(0, 30),
+    column_overrides: overrides,
+  };
+}
+
+function forceObservationType(type, fieldName, rawValue, profile = {}) {
+  const normalizedType = String(type || '').toUpperCase();
+  const base = classifyObservation(fieldName, rawValue, profile);
+  if (!OBSERVATION_OVERRIDE_TYPES.has(normalizedType) || normalizedType === 'IGNORE') return base;
+
+  const raw = String(rawValue ?? '').trim();
+  const numeric = parseNumber(raw);
+  const fraction = parseFraction(raw);
+  const headerMax = extractHeaderMax(fieldName);
+
+  if (normalizedType === 'ATTENDANCE') {
+    return {
+      type: 'ATTENDANCE',
+      normalizedStatus: normalizeAttendance(raw),
+      skillCode: null,
+      numericValue: numeric,
+      maxValue: 1,
+    };
+  }
+
+  if (normalizedType === 'SCORE') {
+    return {
+      type: 'SCORE',
+      normalizedStatus: null,
+      skillCode: detectSkill(fieldName),
+      numericValue: fraction ? fraction.score : numeric,
+      maxValue: fraction ? fraction.max : headerMax,
+    };
+  }
+
+  if (normalizedType === 'HOMEWORK_STATUS') {
+    return {
+      type: 'HOMEWORK_STATUS',
+      normalizedStatus: normalizeHomework(raw),
+      skillCode: detectSkill(fieldName),
+      numericValue: null,
+      maxValue: null,
+    };
+  }
+
+  if (normalizedType === 'LEVEL') {
+    return {
+      type: 'LEVEL',
+      normalizedStatus: raw.toUpperCase(),
+      skillCode: null,
+      numericValue: null,
+      maxValue: null,
+    };
+  }
+
+  return {
+    ...base,
+    type: normalizedType,
+    normalizedStatus: normalizedType === 'TEXT' || normalizedType === 'NOTE' ? null : base.normalizedStatus,
+  };
+}
+
 function looksLikeStudentDataRow(row, sttIndex, nameIndex) {
   const rawName = String(row?.[nameIndex] ?? '').trim();
   const normalizedName = normalizeName(rawName);
@@ -267,7 +399,7 @@ function looksLikeStudentDataRow(row, sttIndex, nameIndex) {
   return true;
 }
 
-function findStudentHeaderRow(rows) {
+function autoFindStudentHeaderRow(rows) {
   const max = Math.min(rows.length, 80);
   for (let i = 0; i < max; i += 1) {
     const normalized = rows[i].map(normalizeText);
@@ -321,7 +453,78 @@ function findStudentHeaderRow(rows) {
   throw new Error('Không tìm thấy dòng tiêu đề có cột "Họ và Tên" trong Google Sheet.');
 }
 
-function buildColumnMeta(rows, headerInfo) {
+
+function findStudentHeaderRow(rows, profile = {}) {
+  const normalizedProfile = normalizeSheetProfile(profile);
+  if (normalizedProfile.mode === 'AUTO') return autoFindStudentHeaderRow(rows);
+
+  const fallback = (() => {
+    try { return autoFindStudentHeaderRow(rows); } catch { return null; }
+  })();
+
+  const rowIndex = normalizedProfile.header_row_index ?? fallback?.rowIndex ?? 0;
+  const headerRow = rows[rowIndex] || [];
+  const normalizedHeader = headerRow.map(normalizeText);
+  const inferredStt = normalizedHeader.findIndex((v) => v === 'stt' || v === 'tt');
+  const inferredName = normalizedHeader.findIndex((v) => v === 'ho va ten' || v === 'ho ten' || v.includes('ho va ten'));
+  const sttIndex = normalizedProfile.stt_column_index ?? (inferredStt >= 0 ? inferredStt : fallback?.sttIndex ?? -1);
+  const nameIndex = normalizedProfile.student_name_column_index ?? (inferredName >= 0 ? inferredName : fallback?.nameIndex ?? -1);
+
+  if (nameIndex < 0) {
+    throw new Error('Schema profile chưa xác định được cột Họ và Tên.');
+  }
+
+  let dateRowIndex;
+  let fieldRowIndex;
+  let dataStartIndex;
+
+  if (normalizedProfile.mode === 'SINGLE_ROW') {
+    dateRowIndex = normalizedProfile.date_row_index ?? rowIndex;
+    fieldRowIndex = normalizedProfile.field_row_index ?? rowIndex;
+    dataStartIndex = normalizedProfile.data_start_index ?? (Math.max(rowIndex, dateRowIndex, fieldRowIndex) + 1);
+  } else if (normalizedProfile.mode === 'DATE_THEN_FIELD') {
+    dateRowIndex = normalizedProfile.date_row_index ?? rowIndex;
+    fieldRowIndex = normalizedProfile.field_row_index ?? (rowIndex + 1);
+    dataStartIndex = normalizedProfile.data_start_index ?? (Math.max(dateRowIndex, fieldRowIndex) + 1);
+  } else if (normalizedProfile.mode === 'FIELD_WITH_DATE_ABOVE') {
+    fieldRowIndex = normalizedProfile.field_row_index ?? rowIndex;
+    dateRowIndex = normalizedProfile.date_row_index ?? Math.max(0, fieldRowIndex - 1);
+    dataStartIndex = normalizedProfile.data_start_index ?? (fieldRowIndex + 1);
+  } else {
+    dateRowIndex = normalizedProfile.date_row_index ?? fallback?.dateRowIndex ?? rowIndex;
+    fieldRowIndex = normalizedProfile.field_row_index ?? fallback?.fieldRowIndex ?? rowIndex;
+    dataStartIndex = normalizedProfile.data_start_index ?? fallback?.dataStartIndex ?? (Math.max(dateRowIndex, fieldRowIndex) + 1);
+  }
+
+  const maxRow = Math.max(0, rows.length - 1);
+  for (const [label, value] of [
+    ['header_row_index', rowIndex],
+    ['date_row_index', dateRowIndex],
+    ['field_row_index', fieldRowIndex],
+    ['data_start_index', dataStartIndex],
+  ]) {
+    if (!Number.isInteger(value) || value < 0 || value > rows.length) {
+      throw new Error(`Schema profile có ${label} không hợp lệ.`);
+    }
+  }
+  if (rowIndex > maxRow || dateRowIndex > maxRow || fieldRowIndex > maxRow) {
+    throw new Error('Schema profile tham chiếu dòng tiêu đề vượt quá dữ liệu Google Sheet.');
+  }
+
+  return {
+    rowIndex,
+    sttIndex,
+    nameIndex,
+    dateRowIndex,
+    fieldRowIndex,
+    dataStartIndex,
+    headerLayout: normalizedProfile.mode,
+    profileMode: normalizedProfile.mode,
+  };
+}
+
+function buildColumnMeta(rows, headerInfo, profile = {}) {
+  const normalizedProfile = normalizeSheetProfile(profile);
   const fieldRow = rows[headerInfo.fieldRowIndex] || [];
   const dateRow = rows[headerInfo.dateRowIndex] || [];
   const maxColumns = Math.max(fieldRow.length, dateRow.length);
@@ -361,6 +564,9 @@ function buildColumnMeta(rows, headerInfo) {
 
     if (i === headerInfo.sttIndex || i === headerInfo.nameIndex) continue;
 
+    const columnOverride = normalizedProfile.column_overrides[String(i)] || null;
+    if (columnOverride?.type === 'IGNORE') continue;
+
     const rawFieldName = String(fieldRow[i] ?? '').trim();
     const dateHeader = String(dateRow[i] ?? '').trim();
     let explicitFieldName = rawFieldName;
@@ -385,10 +591,12 @@ function buildColumnMeta(rows, headerInfo) {
 
     if (!explicitFieldName && !currentDate && !currentFieldGroupTitle) continue;
 
-    const fieldName = explicitFieldName || `Cột ${i + 1}`;
+    const fieldName = columnOverride?.field_name || explicitFieldName || currentFieldGroupTitle || `Cột ${i + 1}`;
     const hasNextExplicitDate = explicitDates.some((entry) => entry.index > currentDateIndex);
+    const effectiveDate = columnOverride?.observed_on || currentDate;
     let dateConfidence = null;
-    if (currentDate) {
+    if (columnOverride?.observed_on) dateConfidence = 'PROFILE_OVERRIDE';
+    else if (currentDate) {
       if (i === currentDateIndex) dateConfidence = 'EXPLICIT';
       else if (hasNextExplicitDate) dateConfidence = 'BOUNDED_FORWARD_FILL';
       else dateConfidence = 'UNBOUNDED_LAST_GROUP';
@@ -396,13 +604,14 @@ function buildColumnMeta(rows, headerInfo) {
 
     columns.push({
       index: i,
-      observedOn: currentDate,
+      observedOn: effectiveDate,
       fieldName,
       rawFieldName: explicitFieldName,
       fieldGroupTitle: currentFieldGroupTitle || fieldName,
       fieldGroupStartIndex: currentFieldGroupStart >= 0 ? currentFieldGroupStart : i,
       rawDateHeader: dateHeader,
       dateConfidence,
+      observationTypeOverride: columnOverride?.type || null,
     });
   }
 
@@ -447,7 +656,8 @@ function buildAssessmentGroups(columns, sourceId = 0) {
   const grouped = new Map();
   for (const col of columns) {
     const title = col.fieldGroupTitle || col.fieldName;
-    if (!isAssessmentField(title)) continue;
+    if (col.observationTypeOverride && col.observationTypeOverride !== 'SCORE') continue;
+    if (col.observationTypeOverride !== 'SCORE' && !isAssessmentField(title)) continue;
     const mapKey = `${col.observedOn || ''}|${col.fieldGroupStartIndex}|${normalizeText(title)}`;
     if (!grouped.has(mapKey)) {
       grouped.set(mapKey, {
@@ -645,10 +855,11 @@ function makeObservationKey(sourceId, externalStudentKey, observedOn, columnInde
   return crypto.createHash('sha256').update(input).digest('hex');
 }
 
-function parseTeacherTrackingSheet(csvText, { sourceId = 0 } = {}) {
+function parseTeacherTrackingSheet(csvText, { sourceId = 0, profile = {} } = {}) {
   const rows = parseCsv(csvText);
-  const headerInfo = findStudentHeaderRow(rows);
-  const columns = buildColumnMeta(rows, headerInfo);
+  const normalizedProfile = normalizeSheetProfile(profile);
+  const headerInfo = findStudentHeaderRow(rows, normalizedProfile);
+  const columns = buildColumnMeta(rows, headerInfo, normalizedProfile);
   const assessments = buildAssessmentGroups(columns, sourceId);
   const assessmentByColumn = new Map();
   for (const assessment of assessments) {
@@ -687,7 +898,9 @@ function parseTeacherTrackingSheet(csvText, { sourceId = 0 } = {}) {
       if (!rawValue) continue;
 
       const assessment = assessmentByColumn.get(col.index) || null;
-      const classification = classifyObservation(assessment?.title || col.fieldName, rawValue);
+      const classification = col.observationTypeOverride
+        ? forceObservationType(col.observationTypeOverride, assessment?.title || col.fieldName, rawValue, normalizedProfile)
+        : classifyObservation(assessment?.title || col.fieldName, rawValue, normalizedProfile);
       observations.push({
         externalStudentKey,
         observedOn: col.observedOn,
@@ -760,6 +973,8 @@ function parseTeacherTrackingSheet(csvText, { sourceId = 0 } = {}) {
   return {
     rowsRead: rows.length,
     headerRowIndex: headerInfo.rowIndex,
+    headerInfo: { ...headerInfo },
+    profileApplied: normalizedProfile,
     columns,
     assessments: assessments.map(({ columns: assessmentColumns, ...assessment }) => ({
       ...assessment,
@@ -781,6 +996,9 @@ module.exports = {
   normalizeAttendance,
   normalizeHomework,
   classifyObservation,
+  forceObservationType,
+  normalizeSheetProfile,
+  autoFindStudentHeaderRow,
   findStudentHeaderRow,
   buildColumnMeta,
   isAssessmentField,
