@@ -1,18 +1,26 @@
-> Phiên bản hiện tại: **v0.24.0** – Username Authentication + Student Code + Tuition Transfer Code.
+> Phiên bản hiện tại: **v0.24.1** – Shared Parent Account Integrity.
 
-# English Classroom v0.24.0
+# English Classroom v0.24.1
 
 Ứng dụng quản lý lớp học tiếng Anh cho giáo viên, học sinh và phụ huynh.
 
-## Điểm mới v0.24.0
+## Điểm mới v0.24.1
 
-- Đăng nhập bằng **tên tài khoản** thay cho email cho mọi vai trò.
-- Tạo/sửa học viên dùng username học viên/phụ huynh, không validate email đăng nhập.
-- Mã học sinh ổn định: `Y{grade}_HS{student_id}` với grade 6/7/8/9.
-- Nội dung chuyển khoản học phí: `HP YYYYMM {student_code}` và được đưa vào VietQR.
+- Một tài khoản `PARENT` dùng an toàn cho nhiều học viên qua `parent_students`.
+- Thêm học viên mới với `parentUsername` đã tồn tại sẽ tái sử dụng đúng tài khoản phụ huynh, không tạo duplicate.
+- Khi chỉnh sửa một học viên, hệ thống không rename nhầm tài khoản phụ huynh đang dùng chung cho anh/chị/em khác.
+- Đồng bộ họ tên/số điện thoại phụ huynh về các cột legacy của tất cả học viên đang liên kết.
+- Danh sách/form học viên hiển thị rõ khi tài khoản phụ huynh đang được dùng chung.
+- Parent Portal, Tuition và Google Sheets tiếp tục scope dữ liệu theo từng `student_id`, không gộp dữ liệu học tập của các anh/chị/em.
 
-## Nâng từ v0.23.1
+## Kế thừa từ v0.24.0
 
-Chạy `db/neon_upgrade_v0.24.0.sql` **trước khi deploy source**, sau đó `npm ci` và restart PM2.
+- Đăng nhập bằng username thay email cho mọi vai trò.
+- Student code: `Y{grade}_HS{student_id}`.
+- Tuition transfer code: `HP YYYYMM {student_code}`.
 
-Xem `DEPLOY_v0.24.0.md` và `RELEASE_v0.24.0.md`.
+## Nâng từ v0.24.0
+
+Không cần migration schema. Deploy source và restart PM2.
+
+Xem `DEPLOY_v0.24.1.md` và `RELEASE_v0.24.1.md`.

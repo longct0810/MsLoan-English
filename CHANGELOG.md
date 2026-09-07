@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.24.1 - Shared Parent Account Integrity
+
+- Hỗ trợ an toàn một PARENT account liên kết nhiều học viên.
+- Không rename/reset nhầm tài khoản phụ huynh dùng chung khi chỉnh sửa một học viên.
+- Đồng bộ parent profile legacy cho tất cả anh/chị/em cùng tài khoản.
+- UI đánh dấu tài khoản phụ huynh dùng chung và cảnh báo khi chỉnh sửa.
+- Không cần migration DB từ v0.24.0.
+
 ## v0.24.0 - Username Authentication + Student Code + Tuition Transfer Code
 
 - Đăng nhập bằng username thay email cho mọi role.

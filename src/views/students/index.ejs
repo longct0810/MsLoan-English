@@ -34,7 +34,7 @@
             <td><%= (s.classes || []).join(', ') || '—' %></td>
             <td><%= s.school || '—' %><div class="small text-secondary"><%= s.schoolClass || '' %></div></td>
             <td><div class="small fw-semibold"><%= s.studentUsername || '—' %></div></td>
-            <td><strong><%= s.parentName || '—' %></strong><div class="small text-secondary"><%= s.parentPhone || '' %></div><div class="small text-secondary"><%= s.parentUsername ? '@' + s.parentUsername : '' %></div></td>
+            <td><strong><%= s.parentName || '—' %></strong><div class="small text-secondary"><%= s.parentPhone || '' %></div><div class="small text-secondary"><%= s.parentUsername ? '@' + s.parentUsername : '' %></div><% if (Number(s.parentStudentCount || 0) > 1) { %><span class="badge text-bg-light border mt-1">Tài khoản chung · <%= s.parentStudentCount %> học viên</span><% } %></td>
             <td><span class="score-badge <%= s.averageScore >= 8 ? 'good' : s.averageScore < 7 ? 'warn' : '' %>"><%= s.averageScore %></span><div class="small text-secondary mt-1"><%= s.attendanceRate %>% chuyên cần</div></td>
             <td class="text-end">
               <div class="d-flex justify-content-end gap-1 flex-wrap">

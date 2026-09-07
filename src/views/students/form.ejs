@@ -38,13 +38,19 @@
 
       <div class="card app-card"><div class="card-body p-4">
         <h2 class="h5 mb-1">3. Phụ huynh & tài khoản Parent Portal</h2>
-        <p class="text-secondary small">Nếu tên tài khoản phụ huynh đã tồn tại, hệ thống sẽ dùng lại tài khoản đó và gắn thêm học viên này.</p>
+        <p class="text-secondary small">Nếu tên tài khoản phụ huynh đã tồn tại, hệ thống sẽ dùng lại đúng một tài khoản đó và gắn thêm học viên này.</p>
+        <% if (editing && Number(student.parentStudentCount || 0) > 1) { %>
+          <div class="alert alert-info py-2 small">
+            <strong>Tài khoản phụ huynh dùng chung:</strong> hiện đang liên kết <%= student.parentStudentCount %> học viên.
+            Đổi họ tên/điện thoại/mật khẩu sẽ áp dụng cho cùng tài khoản Parent Portal. Nếu đổi sang một tên tài khoản mới, hệ thống sẽ tách riêng học viên này thay vì đổi tài khoản của anh/chị/em còn lại.
+          </div>
+        <% } %>
         <div class="row g-3">
           <div class="col-md-6"><label class="form-label">Họ tên phụ huynh <span class="text-danger">*</span></label><input class="form-control" name="parentName" required value="<%= value('parentName') %>"></div>
           <div class="col-md-3"><label class="form-label">Quan hệ</label><select class="form-select" name="relationship"><% ['Bố/Mẹ','Bố','Mẹ','Người giám hộ'].forEach(r => { %><option <%= value('relationship','Bố/Mẹ')===r ? 'selected' : '' %>><%= r %></option><% }) %></select></div>
           <div class="col-md-3"><label class="form-label">Điện thoại</label><input class="form-control" name="parentPhone" value="<%= value('parentPhone') %>"></div>
           <div class="col-md-7"><label class="form-label">Tên tài khoản phụ huynh <span class="text-danger">*</span></label><input type="text" class="form-control" name="parentUsername" required minlength="3" maxlength="50" autocomplete="username" value="<%= value('parentUsername') %>"><div class="form-text">Có thể dùng tên ngắn hoặc số điện thoại; không yêu cầu định dạng email.</div></div>
-          <div class="col-md-5"><label class="form-label">Mật khẩu phụ huynh</label><input type="password" minlength="8" class="form-control" name="parentPassword" autocomplete="new-password"><div class="form-text"><%= editing ? 'Để trống để giữ nguyên.' : 'Bắt buộc nếu tên tài khoản phụ huynh chưa tồn tại; có thể để trống nếu tài khoản đã có.' %></div></div>
+          <div class="col-md-5"><label class="form-label">Mật khẩu phụ huynh</label><input type="password" minlength="8" class="form-control" name="parentPassword" autocomplete="new-password"><div class="form-text"><%= editing ? (Number(student.parentStudentCount || 0) > 1 ? 'Để trống để giữ nguyên. Nếu nhập mới, mật khẩu của tài khoản phụ huynh dùng chung sẽ đổi cho tất cả học viên liên kết.' : 'Để trống để giữ nguyên.') : 'Bắt buộc nếu tên tài khoản phụ huynh chưa tồn tại; có thể để trống nếu tài khoản đã có.' %></div></div>
         </div>
       </div></div>
     </div>

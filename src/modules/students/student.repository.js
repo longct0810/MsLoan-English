@@ -36,6 +36,8 @@ function publicStudentDemo(student, actorUserId = null, isAdmin = false) {
     parentUsername: parentUser?.username || '',
     parentEmail: parentUser?.email || '',
     parentPhone: parentUser?.phone || student.parentPhone || '',
+    parentStudentCount: parentUser ? demoStore.parentStudents.filter((item) => item.parentUserId === parentUser.id)
+      .filter((item) => demoStore.students.some((candidate) => candidate.id === item.studentId && candidate.status !== 'DELETED')).length : 0,
     relationship: parentLink?.relationship || 'Bố/Mẹ',
   };
 }
@@ -99,10 +101,19 @@ async function findAll({ classId } = {}, actorUserId = null, isAdmin = false) {
            ARRAY_REMOVE(ARRAY_AGG(DISTINCT c.id), NULL) AS "classIds",
            su.username AS "studentUsername",
            su.email AS "studentEmail",
+           pu.id AS "parentUserId",
            pu.full_name AS "parentName",
            pu.username AS "parentUsername",
            pu.email AS "parentEmail",
            COALESCE(pu.phone, s.parent_phone) AS "parentPhone",
+           COALESCE((
+             SELECT COUNT(*)::int
+               FROM parent_students ps2
+               JOIN students s2 ON s2.id=ps2.student_id
+              WHERE ps2.parent_user_id=pu.id
+                AND s2.deleted_at IS NULL
+                AND s2.status='ACTIVE'
+           ),0) AS "parentStudentCount",
            ps.relationship
       FROM students s
       LEFT JOIN class_students cs ON cs.student_id = s.id AND cs.status = 'ACTIVE'
@@ -139,7 +150,7 @@ async function findAll({ classId } = {}, actorUserId = null, isAdmin = false) {
          )
        )
      GROUP BY s.id, sp.average_score, sp.attendance_rate, su.username, su.email,
-              pu.full_name, pu.username, pu.email, pu.phone, ps.relationship
+              pu.id, pu.full_name, pu.username, pu.email, pu.phone, ps.relationship
      ORDER BY s.full_name
   `, [actorUserId, isAdmin, selectedClassId]);
   return rows;
@@ -171,6 +182,14 @@ async function findById(id, actorUserId = null, isAdmin = false) {
            pu.username AS "parentUsername",
            pu.email AS "parentEmail",
            COALESCE(pu.phone, s.parent_phone) AS "parentPhone",
+           COALESCE((
+             SELECT COUNT(*)::int
+               FROM parent_students ps2
+               JOIN students s2 ON s2.id=ps2.student_id
+              WHERE ps2.parent_user_id=pu.id
+                AND s2.deleted_at IS NULL
+                AND s2.status='ACTIVE'
+           ),0) AS "parentStudentCount",
            ps.relationship
       FROM students s
       LEFT JOIN class_students cs ON cs.student_id = s.id AND cs.status = 'ACTIVE'
@@ -214,6 +233,38 @@ async function usernameInUse(username, exceptUserId = null, client = pool) {
   return rows[0] || null;
 }
 
+async function countOtherActiveChildrenForParent(parentUserId, studentId, client = pool) {
+  if (!parentUserId) return 0;
+  const { rows } = await client.query(`
+    SELECT COUNT(*)::int AS count
+      FROM parent_students ps
+      JOIN students s ON s.id=ps.student_id
+     WHERE ps.parent_user_id=$1
+       AND ps.student_id<>$2
+       AND s.deleted_at IS NULL
+       AND s.status='ACTIVE'
+  `, [parentUserId, studentId]);
+  return Number(rows[0]?.count || 0);
+}
+
+async function syncLegacyParentProfile(parentUserId, client = pool) {
+  if (!parentUserId) return;
+  await client.query(`
+    UPDATE students s
+       SET parent_name=u.full_name,
+           parent_phone=COALESCE(u.phone, s.parent_phone),
+           updated_at=NOW()
+      FROM users u
+     WHERE u.id=$1
+       AND EXISTS (
+         SELECT 1
+           FROM parent_students ps
+          WHERE ps.parent_user_id=u.id
+            AND ps.student_id=s.id
+       )
+  `, [parentUserId]);
+}
+
 async function resolveStudentGrade(classIds, client = pool) {
   const ids = normalizeIds(classIds);
   if (!ids.length) throw new Error('STUDENT_CODE_GRADE_REQUIRED');
@@ -251,6 +302,8 @@ async function create(data, actorUserId, isAdmin = false) {
         status: 'ACTIVE',
       };
       demoStore.users.push(parentUser);
+    } else {
+      Object.assign(parentUser, { fullName: data.parentName, phone: data.parentPhone, status: 'ACTIVE' });
     }
 
     const studentUser = {
@@ -342,6 +395,7 @@ async function create(data, actorUserId, isAdmin = false) {
       'INSERT INTO parent_students(parent_user_id,student_id,relationship) VALUES($1,$2,$3)',
       [parentUserId, studentId, data.relationship || 'Bố/Mẹ'],
     );
+    await syncLegacyParentProfile(parentUserId, client);
     await client.query(
       `INSERT INTO student_progress_summary(student_id,average_score,attendance_rate) VALUES($1,0,0)
        ON CONFLICT(student_id) DO NOTHING`,
@@ -387,8 +441,26 @@ async function update(id, data, actorUserId = null, isAdmin = false) {
       }
     }
     if (!targetParent && parentUser) {
-      // Rename the currently linked parent account when the new username is still free.
-      parentUser.username = data.parentUsername;
+      const hasOtherChildren = demoStore.parentStudents.some((item) => item.parentUserId === parentUser.id
+        && item.studentId !== student.id
+        && demoStore.students.some((candidate) => candidate.id === item.studentId && candidate.status !== 'DELETED'));
+      if (hasOtherChildren) {
+        if (!data.parentPassword) throw new Error('Phụ huynh hiện tại đang dùng chung tài khoản cho nhiều học viên. Khi đổi sang tên tài khoản mới, hãy nhập mật khẩu để tạo tài khoản phụ huynh riêng cho học viên này.');
+        parentUser = {
+          id: nextId(demoStore.users), fullName: data.parentName, username: data.parentUsername, email: '',
+          phone: data.parentPhone, passwordHash: bcrypt.hashSync(data.parentPassword, env.security.bcryptRounds),
+          role: 'PARENT', status: 'ACTIVE',
+        };
+        demoStore.users.push(parentUser);
+        if (parentLink) parentLink.parentUserId = parentUser.id;
+        else {
+          parentLink = { parentUserId: parentUser.id, studentId: student.id, relationship: data.relationship };
+          demoStore.parentStudents.push(parentLink);
+        }
+      } else {
+        // Chỉ một học viên dùng tài khoản này nên rename an toàn.
+        parentUser.username = data.parentUsername;
+      }
     }
     if (!parentUser) {
       if (!data.parentPassword) throw new Error('Cần nhập mật khẩu khi tạo tài khoản phụ huynh mới.');
@@ -404,6 +476,13 @@ async function update(id, data, actorUserId = null, isAdmin = false) {
     Object.assign(parentUser, { fullName: data.parentName, username: data.parentUsername, phone: data.parentPhone, status: 'ACTIVE' });
     if (data.parentPassword) parentUser.passwordHash = bcrypt.hashSync(data.parentPassword, env.security.bcryptRounds);
     parentLink.relationship = data.relationship;
+    demoStore.parentStudents.filter((item) => item.parentUserId === parentUser.id).forEach((item) => {
+      const linkedStudent = demoStore.students.find((candidate) => candidate.id === item.studentId);
+      if (linkedStudent && linkedStudent.status !== 'DELETED') {
+        linkedStudent.parentName = parentUser.fullName;
+        linkedStudent.parentPhone = parentUser.phone || '';
+      }
+    });
 
     if (studentUser) {
       Object.assign(studentUser, { fullName: data.fullName, username: data.studentUsername, phone: data.phone, status: 'ACTIVE' });
@@ -473,39 +552,66 @@ async function update(id, data, actorUserId = null, isAdmin = false) {
     }
     if (await usernameInUse(data.studentUsername, row.student_user_id, client)) throw new Error('Tên tài khoản học viên đã được sử dụng.');
 
-    let targetParent = await client.query('SELECT id,role FROM users WHERE LOWER(username)=LOWER($1) LIMIT 1', [data.parentUsername]);
+    let targetParent = await client.query('SELECT id,role,username FROM users WHERE LOWER(username)=LOWER($1) LIMIT 1', [data.parentUsername]);
     let parentUserId;
+    let createdParentUser = false;
+    let switchedToExistingParent = false;
+
     if (targetParent.rows[0]) {
       if (targetParent.rows[0].role !== 'PARENT') throw new Error('Tên tài khoản phụ huynh đang thuộc một tài khoản không phải phụ huynh.');
       parentUserId = targetParent.rows[0].id;
+      switchedToExistingParent = Number(parentUserId) !== Number(row.parent_user_id || 0);
     } else if (row.parent_user_id) {
-      // Username mới chưa ai dùng: đổi username ngay trên tài khoản phụ huynh đang liên kết.
-      parentUserId = row.parent_user_id;
+      const otherChildren = await countOtherActiveChildrenForParent(row.parent_user_id, Number(id), client);
+      if (otherChildren > 0) {
+        // Tài khoản hiện tại đang dùng chung cho anh/chị/em khác. Không được rename tài khoản dùng chung.
+        // Tách riêng học viên hiện tại sang một PARENT account mới.
+        if (!data.parentPassword) {
+          throw new Error('Phụ huynh hiện tại đang dùng chung tài khoản cho nhiều học viên. Khi đổi sang tên tài khoản mới, hãy nhập mật khẩu để tạo tài khoản phụ huynh riêng cho học viên này.');
+        }
+        const hash = await bcrypt.hash(data.parentPassword, env.security.bcryptRounds);
+        const created = await client.query(
+          `INSERT INTO users(full_name,username,email,password_hash,role,status,phone)
+           VALUES($1,$2,NULL,$3,'PARENT','ACTIVE',$4) RETURNING id`,
+          [data.parentName, data.parentUsername, hash, data.parentPhone || null],
+        );
+        parentUserId = created.rows[0].id;
+        createdParentUser = true;
+      } else {
+        // Chỉ liên kết với học viên hiện tại: có thể rename tài khoản cũ an toàn.
+        parentUserId = row.parent_user_id;
+      }
     } else {
       if (!data.parentPassword) throw new Error('Cần nhập mật khẩu khi tạo tài khoản phụ huynh mới.');
       const hash = await bcrypt.hash(data.parentPassword, env.security.bcryptRounds);
-      targetParent = await client.query(
+      const created = await client.query(
         `INSERT INTO users(full_name,username,email,password_hash,role,status,phone)
          VALUES($1,$2,NULL,$3,'PARENT','ACTIVE',$4) RETURNING id`,
         [data.parentName, data.parentUsername, hash, data.parentPhone || null],
       );
-      parentUserId = targetParent.rows[0].id;
+      parentUserId = created.rows[0].id;
+      createdParentUser = true;
     }
 
     await client.query(
       `UPDATE users SET full_name=$1,username=$2,phone=$3,status='ACTIVE',updated_at=NOW() WHERE id=$4`,
       [data.parentName, data.parentUsername, data.parentPhone || null, parentUserId],
     );
-    if (data.parentPassword && Number(parentUserId) === Number(row.parent_user_id)) {
+    // Chỉ đổi mật khẩu khi đang sửa chính tài khoản hiện tại hoặc vừa tạo tài khoản mới.
+    // Không reset mật khẩu của một tài khoản PARENT đã tồn tại chỉ vì đang liên kết thêm học viên.
+    if (data.parentPassword && !createdParentUser && !switchedToExistingParent) {
       const hash = await bcrypt.hash(data.parentPassword, env.security.bcryptRounds);
       await client.query('UPDATE users SET password_hash=$1,updated_at=NOW() WHERE id=$2', [hash, parentUserId]);
     }
 
     await client.query('DELETE FROM parent_students WHERE student_id=$1', [id]);
     await client.query(
-      'INSERT INTO parent_students(parent_user_id,student_id,relationship) VALUES($1,$2,$3)',
+      `INSERT INTO parent_students(parent_user_id,student_id,relationship)
+       VALUES($1,$2,$3)
+       ON CONFLICT(parent_user_id,student_id) DO UPDATE SET relationship=EXCLUDED.relationship`,
       [parentUserId, id, data.relationship || 'Bố/Mẹ'],
     );
+    await syncLegacyParentProfile(parentUserId, client);
 
     let studentUserId = row.student_user_id;
     if (studentUserId) {
