@@ -54,7 +54,7 @@ async function fetchText(url, { timeoutMs = 15000, retries = 2, maxBytes = 10 * 
         redirect: 'follow',
         signal: controller.signal,
         headers: {
-          'user-agent': 'English-Classroom/0.23.0 Google-Sheets-Sync',
+          'user-agent': 'English-Classroom/0.24.2 Google-Sheets-Sync',
           accept: 'text/csv,text/plain;q=0.9,*/*;q=0.1',
         },
       });
@@ -273,6 +273,8 @@ function createGoogleSheetService({ pool, repository, logger = console }) {
           let match;
           if (existingLink?.match_method === 'MANUAL' && existingLink.student_id) {
             match = { studentId: existingLink.student_id, status: 'MATCHED', method: 'MANUAL', confidence: 100 };
+          } else if (extStudent.missingName) {
+            match = { studentId: null, status: 'UNMATCHED', method: 'MISSING_NAME', confidence: 0 };
           } else {
             match = matchStudent(extStudent.externalStudentName);
           }

@@ -1,6 +1,8 @@
 > Phiên bản hiện tại: **v0.24.1** – Shared Parent Account Integrity.
 
-# English Classroom v0.24.1
+# English Classroom
+
+Current version: **v0.24.2** v0.24.1
 
 Ứng dụng quản lý lớp học tiếng Anh cho giáo viên, học sinh và phụ huynh.
 

@@ -606,16 +606,26 @@ function parseTeacherTrackingSheet(csvText, { sourceId = 0 } = {}) {
 
   for (let r = headerInfo.dataStartIndex; r < rows.length; r += 1) {
     const row = rows[r] || [];
-    const name = String(row[headerInfo.nameIndex] ?? '').trim();
-    if (!name) continue;
-
-    const normalized = normalizeName(name);
-    if (!normalized || ['ho va ten', 'ho ten'].includes(normalized)) continue;
-
+    const rawName = String(row[headerInfo.nameIndex] ?? '').trim();
+    const normalized = normalizeName(rawName);
     const stt = headerInfo.sttIndex >= 0 ? String(row[headerInfo.sttIndex] ?? '').trim() : '';
-    const occurrence = (occurrences.get(normalized) || 0) + 1;
-    occurrences.set(normalized, occurrence);
-    const externalStudentKey = buildExternalStudentKey(name, stt, occurrence);
+    const hasValidName = Boolean(normalized) && !['ho va ten', 'ho ten'].includes(normalized);
+
+    let externalStudentKey;
+    let externalStudentName;
+
+    if (hasValidName) {
+      const occurrence = (occurrences.get(normalized) || 0) + 1;
+      occurrences.set(normalized, occurrence);
+      externalStudentKey = buildExternalStudentKey(rawName, stt, occurrence);
+      externalStudentName = rawName;
+    } else {
+      // Không được âm thầm bỏ một hàng có dữ liệu chỉ vì ô Họ và Tên trống
+      // (thường xảy ra khi giáo viên merge cell hoặc mới thêm học viên nhưng chưa điền STT).
+      // Dùng row-key staging-only để giáo viên có thể nhìn thấy và mapping thủ công.
+      externalStudentKey = `row:${r + 1}`;
+      externalStudentName = `Dòng ${r + 1} (chưa có Họ và Tên)`;
+    }
 
     const observations = [];
     for (const col of columns) {
@@ -676,12 +686,18 @@ function parseTeacherTrackingSheet(csvText, { sourceId = 0 } = {}) {
       });
     }
 
-    if (observations.length === 0 && !stt) continue;
+    // v0.24.2: nếu có Họ và Tên hợp lệ thì luôn giữ học viên trong danh sách
+    // dù chưa có STT/điểm. Điều này cho phép tạo external_student_links và auto-match.
+    // Với hàng thiếu tên, chỉ giữ khi có STT hoặc có dữ liệu thực tế để tránh biến
+    // các dòng trang trí/trống thành "học viên" giả.
+    if (!hasValidName && observations.length === 0 && assessmentResults.length === 0 && !stt) continue;
+
     students.push({
       externalStudentKey,
-      externalStudentName: name,
+      externalStudentName,
       externalRowHint: stt || String(r + 1),
       sourceRowIndex: r,
+      missingName: !hasValidName,
       observations,
       assessmentResults,
     });
