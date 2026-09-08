@@ -394,3 +394,6 @@ Chạy `db/neon_upgrade_v0.21.0.sql` sau khi đã ở v0.20.0+.
 
 ### Version
 - Nâng version ứng dụng lên `0.7.0` và tiếp tục hiển thị tự động trên giao diện từ `package.json`.
+
+## v0.25.1
+- Tuition Historical Attendance Hotfix.

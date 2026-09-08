@@ -157,15 +157,23 @@ async function generateCycle({ teacherId, classId, periodMonth, fromDate, toDate
       cycleId = inserted.rows[0].id;
     }
 
+    // v0.25.1: Với gói PER_SESSION, nguồn xác định người phải lập hóa đơn là
+    // session_attendance trong chính kỳ tính phí, không phải joined_at/left_at của
+    // class_students. Membership có thể được tạo sau khi import dữ liệu lịch sử
+    // Google Sheets (joined_at=CURRENT_DATE), nên dùng membership để lọc sẽ làm
+    // mất các học viên đã có điểm danh hợp lệ trong tháng quá khứ.
     const students = await client.query(`
-      SELECT s.id,s.full_name AS "fullName",s.student_code AS "studentCode"
-        FROM class_students cs
-        JOIN students s ON s.id=cs.student_id
-       WHERE cs.class_id=$1
-         AND cs.joined_at <= $3
-         AND (cs.left_at IS NULL OR cs.left_at >= $2)
-         AND s.deleted_at IS NULL
-         AND s.status='ACTIVE'
+      SELECT DISTINCT
+             s.id,
+             s.full_name AS "fullName",
+             s.student_code AS "studentCode"
+        FROM class_sessions sess
+        JOIN session_attendance a ON a.session_id=sess.id
+        JOIN students s ON s.id=a.student_id
+       WHERE sess.class_id=$1
+         AND sess.session_date BETWEEN $2 AND $3
+         AND sess.status<>'CANCELLED'
+         AND s.student_code IS NOT NULL
        ORDER BY s.full_name
     `, [classId, fromDate, toDate]);
 
