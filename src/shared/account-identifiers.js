@@ -30,7 +30,7 @@ function buildTransferCode(periodMonth, studentCode) {
   const match = String(periodMonth || '').match(/^(\d{4})-(\d{2})/);
   const code = String(studentCode || '').trim().toUpperCase();
   if (!match || !/^Y(?:6|7|8|9)_HS\d+$/.test(code)) return '';
-  return `HP ${match[1]}${match[2]} ${code}`;
+  return `${match[2]}${match[1]}${code}`;
 }
 
 module.exports = {

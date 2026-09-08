@@ -293,14 +293,13 @@ async function sendCycle(teacherId, cycleId) {
 
     await client.query(`
       UPDATE tuition_invoices i
-         SET transfer_code = 'HP ' || TO_CHAR(cy.period_month, 'YYYYMM') || ' ' || s.student_code,
+         SET transfer_code = TO_CHAR(cy.period_month, 'MMYYYY') || s.student_code,
              updated_at = NOW()
         FROM tuition_cycles cy, students s
        WHERE i.cycle_id = cy.id
          AND i.student_id = s.id
          AND i.cycle_id = $1
          AND i.teacher_id = $2
-         AND (i.transfer_code IS NULL OR BTRIM(i.transfer_code) = '')
          AND s.student_code IS NOT NULL
     `, [cycleId, teacherId]);
 

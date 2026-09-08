@@ -1,3 +1,7 @@
+# English Classroom v0.25.2
+
+Nội dung chuyển khoản học phí: `MMYYYY{student_code}` (ví dụ `092026Y6_HS9`).
+
 > Phiên bản hiện tại: **v0.25.0** – Google Sheets Schema Profiles & Dry-run Validation.
 
 # English Classroom

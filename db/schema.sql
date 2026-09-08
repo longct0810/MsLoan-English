@@ -1076,7 +1076,7 @@ END $$;
 
 ALTER TABLE tuition_invoices ADD COLUMN IF NOT EXISTS transfer_code VARCHAR(100);
 UPDATE tuition_invoices i
-   SET transfer_code = 'HP ' || TO_CHAR(cy.period_month, 'YYYYMM') || ' ' || s.student_code
+   SET transfer_code = TO_CHAR(cy.period_month, 'MMYYYY') || s.student_code
   FROM tuition_cycles cy, students s
  WHERE i.cycle_id = cy.id
    AND i.student_id = s.id

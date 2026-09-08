@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.25.2 - Tuition Transfer Content Format
+
+- Nội dung chuyển khoản/VietQR mới: `MMYYYY{student_code}`; ví dụ `092026Y6_HS9`.
+- Không còn tiền tố `HP` hoặc dấu cách.
+- `DRAFT` và `UNPAID` chưa thu tiền được backfill bằng migration v0.25.2.
+
+
 ## v0.25.0 - Google Sheets Schema Profiles & Dry-run Validation
 
 ## Added
@@ -178,6 +185,13 @@ Chạy `db/neon_upgrade_v0.21.0.sql` sau khi đã ở v0.20.0+.
 - No database schema changes are required from v0.19.0.
 
 # Changelog
+
+## v0.25.2 - Tuition Transfer Content Format
+
+- Nội dung chuyển khoản/VietQR mới: `MMYYYY{student_code}`; ví dụ `092026Y6_HS9`.
+- Không còn tiền tố `HP` hoặc dấu cách.
+- `DRAFT` và `UNPAID` chưa thu tiền được backfill bằng migration v0.25.2.
+
 
 ## v0.24.3 - Google Sheets First Student Row Hotfix
 

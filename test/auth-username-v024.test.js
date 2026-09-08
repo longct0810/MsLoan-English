@@ -32,8 +32,8 @@ test('v0.24 student form uses account names, not required email login fields', (
 test('v0.24 student and tuition identifiers follow required format', () => {
   assert.equal(buildStudentCode(6, 9), 'Y6_HS9');
   assert.equal(buildStudentCode(9, 123), 'Y9_HS123');
-  assert.equal(buildTransferCode('2026-09-01', 'Y6_HS9'), 'HP 202609 Y6_HS9');
-  assert.equal(buildTransferCode('2026-09', 'Y9_HS123'), 'HP 202609 Y9_HS123');
+  assert.equal(buildTransferCode('2026-09-01', 'Y6_HS9'), '092026Y6_HS9');
+  assert.equal(buildTransferCode('2026-09', 'Y9_HS123'), '092026Y9_HS123');
 });
 
 test('username validation is not email validation', () => {
