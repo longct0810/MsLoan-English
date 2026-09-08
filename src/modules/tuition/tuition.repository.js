@@ -405,10 +405,19 @@ async function recordPayment(teacherId, invoiceId, data, createdBy) {
     const paidResult = await client.query(`SELECT COALESCE(SUM(amount),0)::numeric AS paid FROM tuition_payments WHERE invoice_id=$1`, [invoiceId]);
     const paid = num(paidResult.rows[0].paid);
     const status = paid >= num(invoice.final_amount) ? 'PAID' : 'PARTIAL';
+    // Do not reuse the same PostgreSQL bind parameter for both a varchar column
+    // assignment and a text comparison. PostgreSQL can infer conflicting types
+    // for $2 and raise: "inconsistent types deduced for parameter $2".
+    // Passing paidAt as its own typed value avoids ambiguous parameter inference.
+    const paidAt = status === 'PAID' ? new Date() : null;
     await client.query(`
-      UPDATE tuition_invoices SET amount_paid=$1,status=$2,paid_at=CASE WHEN $2='PAID' THEN NOW() ELSE NULL END,updated_at=NOW()
-       WHERE id=$3
-    `, [paid, status, invoiceId]);
+      UPDATE tuition_invoices
+         SET amount_paid=$1,
+             status=$2,
+             paid_at=$3,
+             updated_at=NOW()
+       WHERE id=$4
+    `, [paid, status, paidAt, invoiceId]);
     await client.query('COMMIT');
     return status;
   } catch (error) {

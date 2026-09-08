@@ -1,3 +1,8 @@
+# v0.25.3 - Tuition Payment Confirmation Hotfix
+
+- Sửa PostgreSQL bind parameter type conflict khi ghi nhận thanh toán học phí.
+- Không cần migration mới từ v0.25.2.
+
 # Changelog
 
 ## v0.25.2 - Tuition Transfer Content Format

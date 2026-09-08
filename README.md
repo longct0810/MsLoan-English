@@ -1,4 +1,4 @@
-# English Classroom v0.25.2
+# English Classroom v0.25.3
 
 Nội dung chuyển khoản học phí: `MMYYYY{student_code}` (ví dụ `092026Y6_HS9`).
 
