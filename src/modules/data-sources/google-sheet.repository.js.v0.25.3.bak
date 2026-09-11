@@ -560,10 +560,9 @@ function createGoogleSheetRepository(pool) {
 
       // Reuse the observation reference whenever possible. This upgrades v0.20.x
       // derived scores in place instead of creating a duplicate row for the same Sheet cell.
-      // v0.25.4 score-dedup: canonical assessment ref.
-    // external_assessment_key is deterministic for the same Google-Sheet assessment,
-    // while observation/result ids are surrogate DB ids and may be recreated.
-    const ref = `google-sheet-assessment:${assessment.external_assessment_key}`;
+      const ref = result.primary_observation_id
+        ? `external-observation:${result.primary_observation_id}`
+        : `external-assessment-result:${result.id}`;
       const category = assessment.skill_code || assessment.assessment_type || 'GOOGLE_SHEETS';
       const { rows } = await query(db, `
         INSERT INTO student_scores(
@@ -598,119 +597,6 @@ function createGoogleSheetRepository(pool) {
           confidence: result.confidence,
         }),
       ]);
-
-      // v0.25.4: remove legacy/semantic duplicates for this materialized assessment.
-
-
-      // The new canonical row is kept; old external-observation/external-assessment-result
-
-
-      // refs and prior rows with the same visible Sheet identity are removed in the same transaction.
-
-
-      const keepScoreId = rows[0]?.id || null;
-
-
-      if (keepScoreId) {
-
-
-        const legacyRefs = [
-
-
-          result.primary_observation_id ? `external-observation:${result.primary_observation_id}` : null,
-
-
-          `external-assessment-result:${result.id}`,
-
-
-        ].filter(Boolean);
-
-
-
-        await query(db, `
-
-
-          DELETE FROM student_scores
-
-
-          WHERE student_id=$1
-
-
-            AND source_type='GOOGLE_SHEETS'
-
-
-            AND id<>$2
-
-
-            AND (
-
-
-              source_ref = ANY($3::text[])
-
-
-              OR (
-
-
-                source_payload->>'sourceId'=$4::text
-
-
-                AND class_id IS NOT DISTINCT FROM $5::bigint
-
-
-                AND recorded_at::date IS NOT DISTINCT FROM $6::date
-
-
-                AND title=$7
-
-
-                AND category=$8
-
-
-                AND max_score IS NOT DISTINCT FROM $9::numeric
-
-
-              )
-
-
-            )
-
-
-        `, [
-
-
-          result.student_id,
-
-
-          keepScoreId,
-
-
-          legacyRefs,
-
-
-          source.id,
-
-
-          source.class_id,
-
-
-          assessment.observed_on,
-
-
-          String(assessment.title || 'Google Sheets').slice(0, 250),
-
-
-          category,
-
-
-          maxScore,
-
-
-        ]);
-
-
-      }
-
-
 
       if (source.materializeSkillEvents !== false && assessment.skill_code) {
         await query(db, `
@@ -1081,9 +967,7 @@ function createGoogleSheetRepository(pool) {
     },
 
     async materializeScore({ observation, source }, db) {
-      // v0.25.4 score-dedup: canonical observation ref.
-    // observation_key is deterministic for the same Sheet cell.
-    const ref = `google-sheet-observation:${observation.observation_key}`;
+      const ref = `external-observation:${observation.id}`;
       const title = String(observation.field_name || 'Google Sheets').slice(0, 250);
       const category = observation.skill_code || 'GOOGLE_SHEETS';
       const { rows } = await query(db, `
@@ -1108,106 +992,6 @@ function createGoogleSheetRepository(pool) {
         ref,
         JSON.stringify({ observationId: observation.id, sourceId: source.id }),
       ]);
-
-      // v0.25.4: remove legacy/semantic duplicates for this direct score cell.
-
-
-      const keepScoreId = rows[0]?.id || null;
-
-
-      if (keepScoreId) {
-
-
-        await query(db, `
-
-
-          DELETE FROM student_scores
-
-
-          WHERE student_id=$1
-
-
-            AND source_type='GOOGLE_SHEETS'
-
-
-            AND id<>$2
-
-
-            AND (
-
-
-              source_ref=$3
-
-
-              OR source_payload->>'observationId'=$4::text
-
-
-              OR (
-
-
-                source_payload->>'sourceId'=$5::text
-
-
-                AND class_id IS NOT DISTINCT FROM $6::bigint
-
-
-                AND recorded_at::date IS NOT DISTINCT FROM $7::date
-
-
-                AND title=$8
-
-
-                AND category=$9
-
-
-                AND max_score IS NOT DISTINCT FROM $10::numeric
-
-
-              )
-
-
-            )
-
-
-        `, [
-
-
-          observation.student_id,
-
-
-          keepScoreId,
-
-
-          `external-observation:${observation.id}`,
-
-
-          observation.id,
-
-
-          source.id,
-
-
-          source.class_id,
-
-
-          observation.observed_on,
-
-
-          title,
-
-
-          category,
-
-
-          observation.max_value || 10,
-
-
-        ]);
-
-
-      }
-
-
 
       if (source.materializeSkillEvents !== false && observation.skill_code && observation.max_value > 0) {
         await query(db, `
