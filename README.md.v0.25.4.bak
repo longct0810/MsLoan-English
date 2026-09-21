@@ -1,6 +1,6 @@
 # MsLoan-English v0.25.5 patch
 
-Patch nâng từ **v0.25.5 -> v0.25.5**.
+Patch nâng từ **v0.25.4 -> v0.25.5**.
 
 Mục tiêu: đổi **Google Sheets automatic sync** thành **3 ngày/lần (4320 phút)**, giữ nguyên chức năng **Đồng bộ ngay**.
 
