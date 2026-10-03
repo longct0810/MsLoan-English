@@ -1,9 +1,18 @@
-# v0.25.3 - Tuition Payment Confirmation Hotfix
+# Changelog
+
+## v0.26.0 - Assignment Submission, Score Statuses & Teacher Contacts
+
+- Hoàn thiện nộp bài bằng văn bản, tệp, audio hoặc kết hợp; mở rộng các định dạng tài liệu và ảnh được phép đính kèm.
+- Ưu tiên bài chưa làm/nộp trễ ở đầu danh sách bài cần theo dõi.
+- Hiển thị điểm `-1` là “Quên phiếu bài”, `-2` là “Chưa hoàn thành”; trung bình chỉ tính điểm lớn hơn 0.
+- Thêm cấu hình Facebook, Messenger, Zalo theo tài khoản giáo viên và hiển thị trong header phụ huynh.
+- Tăng cỡ chữ cơ sở một nấc.
+- Chạy migration `sql/upgrade_v0.26.0.sql` để tạo bảng liên hệ và tính lại điểm trung bình đã lưu.
+
+## v0.25.3 - Tuition Payment Confirmation Hotfix
 
 - Sửa PostgreSQL bind parameter type conflict khi ghi nhận thanh toán học phí.
 - Không cần migration mới từ v0.25.2.
-
-# Changelog
 
 ## v0.25.2 - Tuition Transfer Content Format
 

@@ -1,4 +1,5 @@
 const service = require('./tuition.service');
+const portalService = require('../portal/portal.service');
 
 function messageForError(error) {
   const map = {
@@ -109,6 +110,7 @@ async function recordPayment(req, res) {
 async function parentIndex(req, res, next) {
   try {
     const tuition = await service.getParentTuition(req.session.user.id, req.query.childId);
+    if (tuition.selected) tuition.socialLinks = await portalService.getParentSocialLinks(tuition.selected.id);
     res.render('parent-portal/tuition', { title: 'Học phí', tuition });
   } catch (error) { next(error); }
 }
@@ -117,6 +119,7 @@ async function parentInvoice(req, res, next) {
   try {
     const invoice = await service.getParentInvoice(req.session.user.id, req.params.id);
     if (!invoice) return res.status(404).render('errors/404', { title: 'Không tìm thấy thông báo học phí' });
+    invoice.socialLinks = await portalService.getParentSocialLinks(invoice.studentId);
     res.render('parent-portal/tuition-invoice', { title: 'Thông báo học phí', invoice });
   } catch (error) { next(error); }
 }

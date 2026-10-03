@@ -2,6 +2,7 @@ const env = require('../../config/env');
 const pool = require('../../config/db');
 const demoStore = require('../../shared/demo-store');
 const skillRepo = require('../skills/skill.repository');
+const { averagePositiveScores } = require('../../shared/score-display');
 
 function classForStudent(student) {
   return demoStore.classes.find((c) => student.classIds.includes(c.id)) || null;
@@ -20,7 +21,7 @@ function buildStudentSnapshot(studentId) {
       );
       return { ...a, submission: submission || { status: 'NOT_STARTED', score: null, submittedAt: null, submissionText: '', teacherFeedback: '' } };
     })
-    .sort((a, b) => new Date(a.dueAt) - new Date(b.dueAt));
+    .sort((a, b) => new Date(a.dueAt || '2999-12-31') - new Date(b.dueAt || '2999-12-31'));
 
   const scores = demoStore.studentScores
     .filter((s) => s.studentId === student.id)
@@ -189,6 +190,27 @@ async function getChildrenByParentUserId(parentUserId) {
   return rows;
 }
 
+async function getParentSocialLinks(studentId) {
+  if (env.demo.enabled) {
+    const student = demoStore.students.find((item) => Number(item.id) === Number(studentId));
+    const classInfo = student && classForStudent(student);
+    const links = (demoStore.teacherSocialLinks || []).find((item) => Number(item.teacherId) === Number(classInfo?.teacherId));
+    return { facebookUrl: links?.facebookUrl || '', messengerUrl: links?.messengerUrl || '', zaloUrl: links?.zaloUrl || '' };
+  }
+  const { rows } = await pool.query(`
+    SELECT tsl.facebook_url AS "facebookUrl",
+           tsl.messenger_url AS "messengerUrl",
+           tsl.zalo_url AS "zaloUrl"
+      FROM class_students cs
+      JOIN classes c ON c.id=cs.class_id AND c.status='ACTIVE' AND c.deleted_at IS NULL
+      LEFT JOIN teacher_social_links tsl ON tsl.teacher_id=c.teacher_id
+     WHERE cs.student_id=$1 AND cs.status='ACTIVE' AND c.teacher_id IS NOT NULL
+     ORDER BY cs.class_id
+     LIMIT 1
+  `, [studentId]);
+  return rows[0] || { facebookUrl: '', messengerUrl: '', zaloUrl: '' };
+}
+
 function monthRange(value) {
   const match = /^\d{4}-\d{2}$/.test(String(value || '')) ? String(value) : new Date().toISOString().slice(0, 7);
   const [year, month] = match.split('-').map(Number);
@@ -202,13 +224,13 @@ async function getParentReport(studentId, monthValue) {
     if (!snapshot) return null;
     const inMonth = (value) => String(value || '').slice(0, 7) === range.month;
     const monthScores = snapshot.scores.filter((item) => inMonth(item.recordedAt));
-    const graded = monthScores.filter((item) => Number.isFinite(Number(item.score)));
+    const graded = monthScores;
     const monthAssignments = snapshot.assignments.filter((item) => inMonth(item.dueAt) || inMonth(item.submission?.submittedAt));
     const monthAttendance = snapshot.attendance.filter((item) => inMonth(item.date));
     const attended = monthAttendance.filter((item) => ['PRESENT', 'LATE', 'ONLINE'].includes(item.status)).length;
     const previousScores = snapshot.scores.filter((item) => String(item.recordedAt || '').slice(0, 7) < range.month).slice(0, 5);
-    const average = graded.length ? graded.reduce((sum, item) => sum + Number(item.score) / Number(item.maxScore || 10) * 10, 0) / graded.length : null;
-    const previousAverage = previousScores.length ? previousScores.reduce((sum, item) => sum + Number(item.score) / Number(item.maxScore || 10) * 10, 0) / previousScores.length : null;
+    const average = averagePositiveScores(graded);
+    const previousAverage = averagePositiveScores(previousScores);
     return { month: range.month, student: snapshot.student, classInfo: snapshot.classInfo, scores: graded, assignments: monthAssignments, attendance: monthAttendance, skills: snapshot.skills, notes: snapshot.notes.filter((note) => inMonth(note.createdAt)), trend: snapshot.scores.slice(0, 6).reverse(), metrics: { average: average === null ? null : Number(average.toFixed(2)), change: average !== null && previousAverage !== null ? Number((average - previousAverage).toFixed(2)) : null, attendanceRate: monthAttendance.length ? Math.round(attended * 100 / monthAttendance.length) : null, attended, totalAttendance: monthAttendance.length, submitted: monthAssignments.filter((item) => ['SUBMITTED', 'LATE', 'GRADED'].includes(item.submission.status)).length, totalAssignments: monthAssignments.length, late: monthAssignments.filter((item) => item.submission.status === 'LATE').length } };
   }
 
@@ -224,7 +246,7 @@ async function getParentReport(studentId, monthValue) {
   ]);
   const scores = scoreResult.rows; const attendance = attendanceResult.rows; const assignments = assignmentResult.rows.map((item) => ({ ...item, submission: { status: item.status, score: item.score, submittedAt: item.submittedAt } }));
   const skills = [...skillResult].sort((a,b)=>Number(a.score)-Number(b.score));
-  const average = scores.length ? scores.reduce((sum, item) => sum + Number(item.score) / Number(item.maxScore || 10) * 10, 0) / scores.length : null;
+  const average = averagePositiveScores(scores);
   const attended = attendance.filter((item) => ['PRESENT', 'LATE', 'ONLINE'].includes(item.status)).length;
   return { month: range.month, student: studentResult.rows[0], classInfo: classResult.rows[0] || null, scores, attendance, assignments, skills, notes: noteResult.rows, trend: trendResult.rows.reverse(), metrics: { average: average === null ? null : Number(average.toFixed(2)), change: null, attendanceRate: attendance.length ? Math.round(attended * 100 / attendance.length) : null, attended, totalAttendance: attendance.length, submitted: assignments.filter((item) => ['SUBMITTED', 'LATE', 'GRADED'].includes(item.submission.status)).length, totalAssignments: assignments.length, late: assignments.filter((item) => item.submission.status === 'LATE').length } };
 }
@@ -259,4 +281,4 @@ async function markParentNotificationsRead(parentUserId, notificationKeys) {
   return true;
 }
 
-module.exports = { getStudentIdByUserId, getStudentSnapshot, getChildrenByParentUserId, getParentReport, getParentNotificationReads, markParentNotificationRead, markParentNotificationsRead };
+module.exports = { getStudentIdByUserId, getStudentSnapshot, getChildrenByParentUserId, getParentSocialLinks, getParentReport, getParentNotificationReads, markParentNotificationRead, markParentNotificationsRead };

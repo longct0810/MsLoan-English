@@ -1,5 +1,7 @@
 const repo = require('./portal.repository');
 const tuitionService = require('../tuition/tuition.service');
+const { scoreStatusLabel, formatScore } = require('../../shared/score-display');
+const { prioritizeAssignments } = require('../../shared/assignment-priority');
 
 function statusMeta(status) {
   const map = {
@@ -24,12 +26,14 @@ function attendanceMeta(status) {
 
 function enrich(snapshot) {
   if (!snapshot) return null;
+  snapshot.scores = snapshot.scores.map((score) => ({ ...score, scoreStatusLabel: scoreStatusLabel(score.score) }));
   snapshot.assignments = snapshot.assignments.map((a) => ({
     ...a,
     statusMeta: statusMeta(a.submission.status),
   }));
+  snapshot.assignments = prioritizeAssignments(snapshot.assignments);
   snapshot.attendance = snapshot.attendance.map((a) => ({ ...a, statusMeta: attendanceMeta(a.status) }));
-  snapshot.pendingAssignments = snapshot.assignments.filter((a) => !['SUBMITTED', 'GRADED'].includes(a.submission.status));
+  snapshot.pendingAssignments = snapshot.assignments.filter((a) => ['NOT_STARTED', 'LATE'].includes(a.submission.status));
   snapshot.latestScores = snapshot.scores.slice(0, 5);
   snapshot.latestNote = snapshot.notes[0] || null;
   return snapshot;
@@ -55,6 +59,7 @@ async function getParentPortal(parentUserId, requestedStudentId) {
   const selectedId = allowedIds.has(Number(requestedStudentId)) ? Number(requestedStudentId) : Number(children[0].id);
   const snapshot = enrich(await repo.getStudentSnapshot(selectedId));
   if (snapshot) {
+    snapshot.socialLinks = await repo.getParentSocialLinks(selectedId);
     snapshot.notes = snapshot.notes.filter((note) => note.isParentVisible !== false);
     snapshot.latestNote = snapshot.notes[0] || null;
     snapshot.tuition = await tuitionService.getParentStudentOutstanding(parentUserId, selectedId);
@@ -67,7 +72,15 @@ async function getParentReport(parentUserId, requestedStudentId, month) {
   if (!children.length) return { children: [], selected: null, report: null };
   const allowedIds = new Set(children.map((child) => Number(child.id)));
   const selectedId = allowedIds.has(Number(requestedStudentId)) ? Number(requestedStudentId) : Number(children[0].id);
-  return { children, selected: children.find((child) => Number(child.id) === selectedId), report: await repo.getParentReport(selectedId, month) };
+  const [report, socialLinks] = await Promise.all([
+    repo.getParentReport(selectedId, month),
+    repo.getParentSocialLinks(selectedId),
+  ]);
+  if (report) {
+    report.scores = report.scores.map((score) => ({ ...score, scoreStatusLabel: scoreStatusLabel(score.score) }));
+    report.trend = report.trend.map((score) => ({ ...score, scoreStatusLabel: scoreStatusLabel(score.score) }));
+  }
+  return { children, selected: children.find((child) => Number(child.id) === selectedId), report, socialLinks };
 }
 
 async function getParentNotifications(parentUserId, requestedStudentId) {
@@ -76,7 +89,8 @@ async function getParentNotifications(parentUserId, requestedStudentId) {
   const allowedIds = new Set(children.map((child) => Number(child.id)));
   const selectedId = allowedIds.has(Number(requestedStudentId)) ? Number(requestedStudentId) : Number(children[0].id);
   const snapshot = enrich(await repo.getStudentSnapshot(selectedId));
-  if (!snapshot) return { children, selected: children.find((child) => Number(child.id) === selectedId), notifications: [] };
+  if (!snapshot) return { children, selected: children.find((child) => Number(child.id) === selectedId), notifications: [], socialLinks: await repo.getParentSocialLinks(selectedId) };
+  snapshot.socialLinks = await repo.getParentSocialLinks(selectedId);
   snapshot.notes = snapshot.notes.filter((note) => note.isParentVisible !== false);
   const tuition = await tuitionService.getParentStudentOutstanding(parentUserId, selectedId);
   const now = Date.now();
@@ -90,14 +104,14 @@ async function getParentNotifications(parentUserId, requestedStudentId) {
   }));
   snapshot.assignments.filter((item) => item.submission.status === 'LATE').forEach((item) => notifications.push({ type: 'warning', title: 'Bài tập được nộp trễ', body: `${item.title} của ${snapshot.student.fullName} đã được nộp trễ.`, date: item.submission.submittedAt || item.dueAt, href: '/parent/reports' }));
   snapshot.assignments.filter((item) => item.submission.status === 'NOT_STARTED' && item.dueAt && new Date(item.dueAt).getTime() >= now && new Date(item.dueAt).getTime() - now <= 7 * 86400000).forEach((item) => notifications.push({ type: 'info', title: 'Bài tập sắp đến hạn', body: `${item.title} còn hạn đến ${new Date(item.dueAt).toLocaleDateString('vi-VN')}.`, date: item.dueAt, href: '/parent/reports' }));
-  snapshot.scores.slice(0, 5).forEach((item) => notifications.push({ type: 'success', title: 'Có điểm mới', body: `${item.title}: ${item.score}/${item.maxScore || 10}.`, date: item.recordedAt, href: '/parent/progress' }));
+  snapshot.scores.slice(0, 5).forEach((item) => notifications.push({ type: 'success', title: 'Có điểm mới', body: `${item.title}: ${formatScore(item.score, item.maxScore)}.`, date: item.recordedAt, href: '/parent/progress' }));
   snapshot.notes.slice(0, 5).forEach((item) => notifications.push({ type: 'note', title: 'Nhận xét mới từ giáo viên', body: item.note, date: item.createdAt, href: '/parent/progress' }));
   snapshot.attendance.filter((item) => ['ABSENT', 'ABSENT_EXCUSED', 'LATE'].includes(item.status)).slice(0, 5).forEach((item) => notifications.push({ type: 'warning', title: 'Cập nhật chuyên cần', body: `${snapshot.student.fullName}: ${attendanceMeta(item.status).label} ngày ${new Date(item.date).toLocaleDateString('vi-VN')}.`, date: item.date, href: '/parent/progress' }));
   notifications.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
   const reads = await repo.getParentNotificationReads(parentUserId);
   const visible = notifications.slice(0, 20).map((item) => ({ ...item, key: `${item.type}:${item.date}:${item.title}:${item.body}`.slice(0, 500) }));
   visible.forEach((item) => { item.isRead = reads.has(item.key); });
-  return { children, selected: children.find((child) => Number(child.id) === selectedId), notifications: visible, unreadCount: visible.filter((item) => !item.isRead).length };
+  return { children, selected: children.find((child) => Number(child.id) === selectedId), notifications: visible, unreadCount: visible.filter((item) => !item.isRead).length, socialLinks: snapshot.socialLinks };
 }
 
 async function markParentNotificationRead(parentUserId, notificationKey) {
@@ -111,4 +125,8 @@ async function markAllParentNotificationsRead(parentUserId, requestedStudentId) 
   return repo.markParentNotificationsRead(parentUserId, portal.notifications.map((item) => item.key));
 }
 
-module.exports = { getStudentPortal, getParentPortal, getParentReport, getParentNotifications, markParentNotificationRead, markAllParentNotificationsRead };
+async function getParentSocialLinks(studentId) {
+  return repo.getParentSocialLinks(studentId);
+}
+
+module.exports = { getStudentPortal, getParentPortal, getParentReport, getParentNotifications, getParentSocialLinks, markParentNotificationRead, markAllParentNotificationsRead };

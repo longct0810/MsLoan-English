@@ -64,7 +64,7 @@
           <thead><tr><th>Nội dung</th><th>Kỹ năng</th><th>Ngày</th><th>Điểm</th></tr></thead>
           <tbody>
           <% portal.latestScores.forEach(s => { %>
-            <tr><td class="fw-semibold"><%= s.title %></td><td><%= s.category %></td><td><%= new Date(s.recordedAt).toLocaleDateString('vi-VN') %></td><td><% const normalizedScore = s.maxScore ? (s.score / s.maxScore) * 10 : s.score; %><span class="score-badge <%= normalizedScore >= 8 ? 'good' : (normalizedScore < 7 ? 'warn' : '') %>"><%= s.score %><%= s.maxScore && s.maxScore !== 10 ? '/' + s.maxScore : '' %></span></td></tr>
+            <tr><td class="fw-semibold"><%= s.title %></td><td><%= s.category %></td><td><%= new Date(s.recordedAt).toLocaleDateString('vi-VN') %></td><td><% const normalizedScore = Number(s.score) > 0 ? (s.maxScore ? (s.score / s.maxScore) * 10 : s.score) : null; %><span class="score-badge <%= normalizedScore === null ? '' : (normalizedScore >= 8 ? 'good' : (normalizedScore < 7 ? 'warn' : '')) %>"><%= formatScore(s.score, s.maxScore) %></span></td></tr>
           <% }) %>
           </tbody>
         </table>

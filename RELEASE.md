@@ -1,13 +1,17 @@
-# English Classroom v0.25.3
+# English Classroom v0.26.0
 
-Hotfix cho chức năng ghi nhận thanh toán học phí.
+## Features
 
-## Fixed
-
-- Nút **Xác nhận đã thu** không còn lỗi `inconsistent types deduced for parameter $2`.
-- Khi thu đủ: invoice chuyển `PAID`, `paid_at` được ghi.
-- Khi thu một phần: invoice chuyển `PARTIAL`, `paid_at` vẫn `NULL`.
+- Students can submit text, files, audio, or mixed work, with common classroom document formats supported.
+- Parent and student assignment lists put unsubmitted and late work first.
+- Synced scores `-1` and `-2` are displayed as “Quên phiếu bài” and “Chưa hoàn thành”; averages include positive scores only.
+- Teachers can configure Facebook, Messenger, and Zalo links for the parent portal header.
+- Base interface font size is increased by one step.
 
 ## Database
 
-Không có migration mới so với v0.25.2. Nếu nâng trực tiếp từ v0.25.0/v0.25.1, vẫn cần chạy migration `db/neon_upgrade_v0.25.2.sql`.
+Run `sql/upgrade_v0.26.0.sql` before deploying. It creates `teacher_social_links` and recomputes stored averages without zero/negative scores.
+
+## Validation
+
+Run `npm test` before deployment.

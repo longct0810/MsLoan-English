@@ -1,0 +1,28 @@
+<%- include('../partials/app-start', { title }) %>
+<div class="mb-4">
+  <h1 class="h3 mb-1">Liên hệ mạng xã hội</h1>
+  <p class="text-secondary mb-0">Các liên kết được hiển thị trong thanh đầu trang của phụ huynh học sinh thuộc lớp bạn.</p>
+</div>
+<% if (saved) { %><div class="alert alert-success">Đã lưu thông tin liên hệ.</div><% } %>
+<% if (error) { %><div class="alert alert-danger"><%= error %></div><% } %>
+<div class="card app-card">
+  <div class="card-body p-4">
+    <form method="post" action="/teacher/social-links" class="row g-3">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <div class="col-12">
+        <label class="form-label" for="facebookUrl">Facebook</label>
+        <input class="form-control" id="facebookUrl" name="facebookUrl" type="url" maxlength="500" value="<%= links.facebookUrl %>" placeholder="https://facebook.com/ten-tai-khoan">
+      </div>
+      <div class="col-12">
+        <label class="form-label" for="messengerUrl">Messenger</label>
+        <input class="form-control" id="messengerUrl" name="messengerUrl" type="url" maxlength="500" value="<%= links.messengerUrl %>" placeholder="https://m.me/ten-tai-khoan">
+      </div>
+      <div class="col-12">
+        <label class="form-label" for="zaloUrl">Zalo</label>
+        <input class="form-control" id="zaloUrl" name="zaloUrl" type="url" maxlength="500" value="<%= links.zaloUrl %>" placeholder="https://zalo.me/so-dien-thoai">
+      </div>
+      <div class="col-12"><button class="btn btn-primary" type="submit">Lưu liên kết</button></div>
+    </form>
+  </div>
+</div>
+<%- include('../partials/app-end') %>

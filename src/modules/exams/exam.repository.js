@@ -464,7 +464,7 @@ async function saveAnswer(attemptIdValue, userId, data) {
 
 async function updateProgress(client, studentId) {
   await client.query(`INSERT INTO student_progress_summary(student_id,average_score,attendance_rate) VALUES($1,0,0) ON CONFLICT(student_id) DO NOTHING`, [studentId]);
-  await client.query(`UPDATE student_progress_summary sp SET average_score=COALESCE(src.avg_score,0),updated_at=NOW() FROM (SELECT student_id,ROUND(AVG((score/NULLIF(max_score,0))*10)::numeric,2) AS avg_score FROM student_scores WHERE student_id=$1 GROUP BY student_id) src WHERE sp.student_id=src.student_id`, [studentId]);
+  await client.query(`UPDATE student_progress_summary sp SET average_score=COALESCE(src.avg_score,0),updated_at=NOW() FROM (SELECT student_id,COALESCE(ROUND((AVG((score/NULLIF(max_score,0))*10) FILTER (WHERE score > 0))::numeric,2),0) AS avg_score FROM student_scores WHERE student_id=$1 GROUP BY student_id) src WHERE sp.student_id=src.student_id`, [studentId]);
 }
 
 async function gradeAttempt(attemptIdValue, userId, autoSubmitted = false) {

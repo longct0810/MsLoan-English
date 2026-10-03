@@ -1,4 +1,5 @@
 const env = require('../config/env');
+const { formatScore } = require('../shared/score-display');
 
 function injectViewData(req, res, next) {
   res.locals.currentUser = req.session?.user || null;
@@ -14,6 +15,7 @@ function injectViewData(req, res, next) {
   res.locals.examConfig = env.exam;
   res.locals.questionConfig = env.question;
   res.locals.assignmentConfig = env.assignment;
+  res.locals.formatScore = formatScore;
   next();
 }
 

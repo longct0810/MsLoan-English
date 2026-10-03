@@ -8,6 +8,9 @@
   const homeUrl = isStudent ? '/student' : (isParent ? '/parent' : '/dashboard');
   const workspaceLabel = isStudent ? 'Student portal' : (isParent ? 'Parent portal' : 'Teacher workspace');
   const avatarClass = isStudent ? 'student-avatar' : (isParent ? 'parent-avatar' : 'teacher-avatar');
+  const parentSocialLinks = typeof portal !== 'undefined'
+    ? (portal.socialLinks || portal.snapshot?.socialLinks || {})
+    : (typeof tuition !== 'undefined' ? (tuition.socialLinks || {}) : (typeof invoice !== 'undefined' ? (invoice.socialLinks || {}) : {}));
 %>
 <div class="app-shell">
   <aside class="sidebar d-none d-lg-flex flex-column">
@@ -29,6 +32,7 @@
         <% if (canManageDataSources) { %><a class="nav-link <%= currentPath.startsWith('/teacher/data-sources') ? 'active' : '' %>" href="/teacher/data-sources">Nguồn dữ liệu</a><% } %>
         <% if (role === 'TEACHER') { %><a class="nav-link <%= currentPath.startsWith('/teacher/tuition') ? 'active' : '' %>" href="/teacher/tuition">Học phí & QR</a><% } %>
         <div class="nav-section-label mt-3">Nội dung & đánh giá</div>
+        <% if (role === 'TEACHER') { %><a class="nav-link <%= currentPath.startsWith('/teacher/social-links') ? 'active' : '' %>" href="/teacher/social-links">Liên hệ phụ huynh</a><% } %>
         <a class="nav-link <%= currentPath.startsWith('/lessons') ? 'active' : '' %>" href="/lessons">Bài học & tài liệu</a>
         <a class="nav-link <%= currentPath.startsWith('/assignments') ? 'active' : '' %>" href="/assignments">Bài tập & chấm bài</a>
         <a class="nav-link <%= currentPath.startsWith('/questions') ? 'active' : '' %>" href="/questions">Ngân hàng câu hỏi</a>
@@ -63,6 +67,13 @@
         <div class="text-secondary small"><%= appName %></div>
         <strong><%= title %></strong>
       </div>
+      <% if (isParent) { %>
+        <div class="parent-social-links d-flex align-items-center gap-2 ms-auto me-2">
+          <% if (parentSocialLinks.facebookUrl) { %><a class="btn btn-sm btn-outline-primary" href="<%= parentSocialLinks.facebookUrl %>" target="_blank" rel="noopener noreferrer">Facebook</a><% } %>
+          <% if (parentSocialLinks.messengerUrl) { %><a class="btn btn-sm btn-outline-primary" href="<%= parentSocialLinks.messengerUrl %>" target="_blank" rel="noopener noreferrer">Messenger</a><% } %>
+          <% if (parentSocialLinks.zaloUrl) { %><a class="btn btn-sm btn-outline-success" href="<%= parentSocialLinks.zaloUrl %>" target="_blank" rel="noopener noreferrer">Zalo</a><% } %>
+        </div>
+      <% } %>
       <div class="ms-auto dropdown account-menu">
         <button
           class="btn account-menu-toggle d-flex align-items-center gap-2"
@@ -122,6 +133,7 @@
             <a class="nav-link <%= currentPath.startsWith('/sessions') ? 'active' : '' %>" href="/sessions">Buổi học & điểm danh</a>
             <% if (canManageDataSources) { %><a class="nav-link <%= currentPath.startsWith('/teacher/data-sources') ? 'active' : '' %>" href="/teacher/data-sources">Nguồn dữ liệu</a><% } %>
             <% if (role === 'TEACHER') { %><a class="nav-link <%= currentPath.startsWith('/teacher/tuition') ? 'active' : '' %>" href="/teacher/tuition">Học phí & QR</a><% } %>
+            <% if (role === 'TEACHER') { %><a class="nav-link <%= currentPath.startsWith('/teacher/social-links') ? 'active' : '' %>" href="/teacher/social-links">Liên hệ phụ huynh</a><% } %>
             <div class="nav-section-label mt-3">Nội dung & đánh giá</div>
             <a class="nav-link <%= currentPath.startsWith('/lessons') ? 'active' : '' %>" href="/lessons">Bài học & tài liệu</a>
             <a class="nav-link <%= currentPath.startsWith('/assignments') ? 'active' : '' %>" href="/assignments">Bài tập & chấm bài</a>

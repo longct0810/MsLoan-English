@@ -1032,7 +1032,7 @@ function createGoogleSheetRepository(pool) {
                    0
                  ) AS average_score
             FROM target t
-            LEFT JOIN student_scores ss ON ss.student_id=t.student_id
+            LEFT JOIN student_scores ss ON ss.student_id=t.student_id AND ss.score > 0
            GROUP BY t.student_id
         ), session_rows AS (
           SELECT a.student_id, cs.session_date AS attendance_date, a.status

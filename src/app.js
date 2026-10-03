@@ -21,6 +21,7 @@ const examRoutes = require('./modules/exams/exam.routes');
 const reportRoutes = require('./modules/reports/report.routes');
 const skillRoutes = require('./modules/skills/skill.routes');
 const tuitionRoutes = require('./modules/tuition/tuition.routes');
+const teacherSocialRoutes = require('./modules/teacher-social/teacher-social.routes');
 const { requireAuth, requireRole } = require('./middleware/auth.middleware');
 const { createGoogleSheetModule } = require('./modules/data-sources');
 
@@ -93,6 +94,7 @@ app.use(examRoutes.web);
 app.use(reportRoutes);
 app.use(skillRoutes);
 app.use(tuitionRoutes);
+app.use(teacherSocialRoutes);
 app.use('/teacher/data-sources', googleSheetModule.router);
 app.use(portalRoutes);
 app.use(env.app.apiPrefix, classRoutes.api);

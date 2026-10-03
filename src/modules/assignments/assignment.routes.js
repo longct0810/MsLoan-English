@@ -4,7 +4,25 @@ const { requireParsedCsrfToken } = require('../../middleware/security.middleware
 const express = require('express');
 const controller = require('./assignment.controller');
 const { requireRole, requireApiRole } = require('../../middleware/auth.middleware');
-const allowedMime = new Set(['application/pdf','image/jpeg','image/png','application/vnd.openxmlformats-officedocument.wordprocessingml.document','audio/mpeg','audio/wav','audio/webm','audio/mp4','audio/x-m4a']);
+const allowedMime = new Set([
+	'application/pdf',
+	'application/msword',
+	'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+	'application/vnd.ms-excel',
+	'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+	'application/vnd.ms-powerpoint',
+	'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+	'text/plain',
+	'text/csv',
+	'image/jpeg',
+	'image/png',
+	'image/webp',
+	'audio/mpeg',
+	'audio/wav',
+	'audio/webm',
+	'audio/mp4',
+	'audio/x-m4a',
+]);
 const upload = multer({ storage: multer.memoryStorage(), limits:{ fileSize: env.assignment.uploadMaxFileMb*1024*1024, files: env.assignment.uploadMaxFiles }, fileFilter:(req,file,cb)=>cb(allowedMime.has(file.mimetype)?null:new Error('INVALID_FILE_TYPE'),allowedMime.has(file.mimetype)) });
 
 const web = express.Router();

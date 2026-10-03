@@ -1,12 +1,18 @@
-# MsLoan-English v0.25.5 patch
+# MsLoan-English v0.26.0
 
-Patch nâng từ **v0.25.5 -> v0.25.5**.
+## Nâng cấp
 
-Mục tiêu: đổi **Google Sheets automatic sync** thành **3 ngày/lần (4320 phút)**, giữ nguyên chức năng **Đồng bộ ngay**.
+1. Chạy `sql/upgrade_v0.26.0.sql` trên PostgreSQL/Neon.
+2. Cài dependencies bằng `npm ci`.
+3. Chạy kiểm thử bằng `npm test`.
+4. Khởi động ứng dụng bằng `npm start`.
 
-Thứ tự áp dụng:
+Migration tạo bảng liên kết Facebook/Messenger/Zalo theo giáo viên và tính lại điểm trung bình đã lưu theo quy tắc chỉ lấy điểm lớn hơn 0.
 
-1. Copy `apply_v0.25.5.js` và `sql/upgrade_v0.25.5.sql` vào repo.
-2. Chạy `node apply_v0.25.5.js`.
-3. Chạy `sql/upgrade_v0.25.5.sql` trên Neon.
-4. Chạy test, commit và deploy.
+## Thay đổi
+
+- Hỗ trợ nộp bài bằng văn bản, tệp, audio hoặc kết hợp; mở rộng định dạng tệp học tập được chấp nhận.
+- Bài chưa làm hoặc nộp trễ được ưu tiên ở đầu danh sách cần theo dõi.
+- Điểm `-1` hiển thị là “Quên phiếu bài”, `-2` là “Chưa hoàn thành”; cả hai và điểm 0 không tham gia trung bình.
+- Giáo viên cấu hình liên kết mạng xã hội; phụ huynh thấy liên kết trong header.
+- Tăng cỡ chữ cơ sở của giao diện thêm một nấc.

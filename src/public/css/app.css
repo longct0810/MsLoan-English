@@ -1,4 +1,5 @@
 :root {
+  --bs-body-font-size: 1.0625rem;
   --sidebar-width: 260px;
   --app-primary: #4059d8;
   --app-primary-soft: #eef1ff;
@@ -23,12 +24,14 @@ body { color: #252a34; }
 .app-main { min-height: 100vh; }
 @media (min-width: 992px) { .app-main { margin-left: var(--sidebar-width); } }
 .navbar { min-height: 70px; }
+.parent-social-links { margin-left: auto !important; }
 .page-content { max-width: 1500px; }
 .teacher-avatar, .student-avatar { width: 38px; height: 38px; display: inline-grid; place-items: center; border-radius: 50%; background: var(--app-primary-soft); color: var(--app-primary); font-weight: 800; flex: 0 0 auto; }
 .student-avatar.small { width: 32px; height: 32px; font-size: 12px; }
 .metric-card { height: 100%; padding: 20px; background: #fff; border: 1px solid var(--app-border); border-radius: 16px; }
 .metric-label { color: #7f8696; font-size: 13px; font-weight: 600; }
 .metric-value { font-size: clamp(27px, 4vw, 36px); font-weight: 800; letter-spacing: -1px; margin: 5px 0; }
+.metric-value.score-status-value { font-size: 1rem; line-height: 1.3; overflow-wrap: anywhere; }
 .metric-meta { color: #9aa0ad; font-size: 12px; }
 .app-card, .class-card { border: 1px solid var(--app-border); border-radius: 16px; overflow: hidden; box-shadow: 0 2px 12px rgba(31, 38, 62, .03); }
 .app-card .card-header { background: #fff; border-bottom: 1px solid var(--app-border); padding: 16px 20px; }
@@ -51,6 +54,8 @@ body { color: #252a34; }
 .demo-hint { background: #f8f9fc; border: 1px solid var(--app-border); }
 .btn-primary { --bs-btn-bg: var(--app-primary); --bs-btn-border-color: var(--app-primary); --bs-btn-hover-bg: #3348bd; --bs-btn-hover-border-color: #3348bd; }
 @media (max-width: 767.98px) {
+  .parent-social-links { gap: 4px !important; }
+  .parent-social-links .btn { padding: 4px 6px; font-size: 12px; }
   .metric-card { padding: 16px; }
   .table-search { max-width: 180px; }
   .login-intro { min-height: auto; }

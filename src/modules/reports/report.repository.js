@@ -30,7 +30,7 @@ function inMonth(value, month) {
 function normalizeScore(score, maxScore) {
   const scoreNo = Number(score);
   const maxNo = Number(maxScore);
-  if (!Number.isFinite(scoreNo) || !Number.isFinite(maxNo) || maxNo <= 0) return null;
+  if (!Number.isFinite(scoreNo) || scoreNo <= 0 || !Number.isFinite(maxNo) || maxNo <= 0) return null;
   return (scoreNo / maxNo) * 10;
 }
 

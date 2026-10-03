@@ -845,6 +845,14 @@ CREATE TABLE IF NOT EXISTS teacher_payment_settings (
     CHECK (qr_provider IN ('VIETQR_IMAGE'))
 );
 
+CREATE TABLE IF NOT EXISTS teacher_social_links (
+  teacher_id BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  facebook_url TEXT,
+  messenger_url TEXT,
+  zalo_url TEXT,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 CREATE TABLE IF NOT EXISTS tuition_plans (
   id BIGSERIAL PRIMARY KEY,
   teacher_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,

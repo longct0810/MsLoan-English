@@ -364,8 +364,10 @@ async function grade(assignmentIdValue, studentIdValue, data) {
       const id = Math.max(0, ...demoStore.studentScores.map((item) => item.id)) + 1;
       demoStore.studentScores.push({ id, studentId, assignmentId, classId: Number(assignment.classId), title: assignment.title, category: assignment.type, score: Number(data.score), maxScore: Number(assignment.maxScore || 10), recordedAt: new Date().toISOString().slice(0, 10) });
     }
-    const scoreRows = demoStore.studentScores.filter((item) => item.studentId === studentId);
-    if (scoreRows.length) student.averageScore = Number((scoreRows.reduce((sum, item) => sum + (Number(item.score) / Number(item.maxScore || 10)) * 10, 0) / scoreRows.length).toFixed(2));
+    const scoreRows = demoStore.studentScores.filter((item) => item.studentId === studentId && Number(item.score) > 0);
+    student.averageScore = scoreRows.length
+      ? Number((scoreRows.reduce((sum, item) => sum + (Number(item.score) / Number(item.maxScore || 10)) * 10, 0) / scoreRows.length).toFixed(2))
+      : 0;
     return submission;
   }
 
@@ -425,9 +427,9 @@ async function grade(assignmentIdValue, studentIdValue, data) {
              updated_at = NOW()
         FROM (
           SELECT student_id,
-                 ROUND(AVG((score / NULLIF(max_score,0)) * 10)::numeric, 2) AS avg_score
+                     COALESCE(ROUND((AVG((score / NULLIF(max_score,0)) * 10) FILTER (WHERE score > 0))::numeric, 2), 0) AS avg_score
             FROM student_scores
-           WHERE student_id=$1
+                   WHERE student_id=$1
            GROUP BY student_id
         ) q
        WHERE sp.student_id=q.student_id

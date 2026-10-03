@@ -1,4 +1,5 @@
 const service = require('./portal.service');
+const { formatScore } = require('../../shared/score-display');
 
 async function studentDashboard(req, res, next) {
   try {
@@ -66,10 +67,10 @@ async function parentReportCsv(req, res, next) {
       ['Bài nộp trễ', report.metrics.late],
       [],
       ['Điểm số', 'Danh mục', 'Điểm', 'Điểm tối đa', 'Ngày'],
-      ...report.scores.map((score) => [score.title, score.category, score.score, score.maxScore, score.recordedAt]),
+      ...report.scores.map((score) => [score.title, score.category, formatScore(score.score, score.maxScore), score.maxScore, score.recordedAt]),
       [],
       ['Bài tập', 'Trạng thái', 'Điểm', 'Hạn nộp'],
-      ...report.assignments.map((assignment) => [assignment.title, assignment.submission.status, assignment.submission.score ?? '', assignment.dueAt || '']),
+      ...report.assignments.map((assignment) => [assignment.title, assignment.submission.status, formatScore(assignment.submission.score), assignment.dueAt || '']),
       [],
       ['Chuyên cần', 'Trạng thái', 'Ghi chú'],
       ...report.attendance.map((item) => [item.date, item.status, item.note]),

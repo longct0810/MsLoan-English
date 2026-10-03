@@ -28,11 +28,18 @@
   <div class="col-xl-7">
     <div class="card app-card mb-4">
       <div class="card-header"><strong>Xu hướng kết quả</strong><div class="small text-secondary">Các đánh giá gần nhất trong hệ thống</div></div>
-      <div class="card-body"><div class="report-chart" aria-label="Biểu đồ xu hướng điểm"><% r.trend.forEach((item, index) => { const value = item.maxScore ? (item.score / item.maxScore) * 10 : item.score; %><div class="report-bar-item"><div class="report-bar" style="height:<%= Math.max(8, value * 10) %>%"><span><%= value.toFixed(1) %></span></div><div class="report-bar-label"><%= index + 1 %></div></div><% }) %></div></div>
+      <div class="card-body"><div class="report-chart" aria-label="Biểu đồ xu hướng điểm"><% r.trend.filter(item => Number(item.score) > 0).forEach((item, index) => { const value = item.maxScore ? (item.score / item.maxScore) * 10 : item.score; %><div class="report-bar-item"><div class="report-bar" style="height:<%= Math.max(8, value * 10) %>%"><span><%= value.toFixed(1) %></span></div><div class="report-bar-label"><%= index + 1 %></div></div><% }) %></div></div>
+    </div>
+    <div class="card app-card mb-4">
+      <div class="card-header"><strong>Điểm ghi nhận trong tháng</strong></div>
+      <div class="table-responsive"><table class="table align-middle mb-0"><thead><tr><th>Ngày</th><th>Nội dung</th><th>Kỹ năng</th><th>Điểm</th></tr></thead><tbody>
+        <% if (!r.scores.length) { %><tr><td colspan="4" class="text-secondary">Chưa có điểm ghi nhận trong tháng.</td></tr><% } %>
+        <% r.scores.forEach(score => { %><tr><td><%= new Date(score.recordedAt).toLocaleDateString('vi-VN') %></td><td class="fw-semibold"><%= score.title %></td><td><%= score.category || '-' %></td><td><%= formatScore(score.score, score.maxScore) %></td></tr><% }) %>
+      </tbody></table></div>
     </div>
     <div class="card app-card mb-4">
       <div class="card-header"><strong>Bài tập trong tháng</strong></div>
-      <div class="table-responsive"><table class="table align-middle mb-0"><thead><tr><th>Bài tập</th><th>Hạn nộp</th><th>Trạng thái</th><th>Điểm</th></tr></thead><tbody><% if (!r.assignments.length) { %><tr><td colspan="4" class="text-secondary">Chưa có bài tập trong tháng này.</td></tr><% } %><% r.assignments.forEach(a => { %><tr><td class="fw-semibold"><%= a.title %></td><td><%= a.dueAt ? new Date(a.dueAt).toLocaleDateString('vi-VN') : '-' %></td><td><span class="badge <%= ['SUBMITTED','GRADED'].includes(a.submission.status) ? 'text-bg-success' : (a.submission.status === 'LATE' ? 'text-bg-danger' : 'text-bg-warning') %>"><%= a.submission.status === 'GRADED' ? 'Đã chấm' : a.submission.status === 'SUBMITTED' ? 'Đã nộp' : a.submission.status === 'LATE' ? 'Nộp trễ' : 'Chưa làm' %></span></td><td><%= a.submission.score ?? '-' %></td></tr><% }) %></tbody></table></div>
+      <div class="table-responsive"><table class="table align-middle mb-0"><thead><tr><th>Bài tập</th><th>Hạn nộp</th><th>Trạng thái</th><th>Điểm</th></tr></thead><tbody><% if (!r.assignments.length) { %><tr><td colspan="4" class="text-secondary">Chưa có bài tập trong tháng này.</td></tr><% } %><% r.assignments.forEach(a => { %><tr><td class="fw-semibold"><%= a.title %></td><td><%= a.dueAt ? new Date(a.dueAt).toLocaleDateString('vi-VN') : '-' %></td><td><span class="badge <%= ['SUBMITTED','GRADED'].includes(a.submission.status) ? 'text-bg-success' : (a.submission.status === 'LATE' ? 'text-bg-danger' : 'text-bg-warning') %>"><%= a.submission.status === 'GRADED' ? 'Đã chấm' : a.submission.status === 'SUBMITTED' ? 'Đã nộp' : a.submission.status === 'LATE' ? 'Nộp trễ' : 'Chưa làm' %></span></td><td><%= formatScore(a.submission.score) %></td></tr><% }) %></tbody></table></div>
     </div>
   </div>
   <div class="col-xl-5">
