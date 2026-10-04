@@ -141,6 +141,10 @@ test('HTTP upload, ownership, CSRF and parent contact header work end to end', a
     assert.ok(result.body.indexOf('parent-social-links') < result.body.indexOf('dropdown account-menu'), 'contacts precede the account menu');
     assert.match(result.body, /class="ms-2 dropdown account-menu"/);
   }
+  const studentChatPage = await student('/student');
+  assert.match(studentChatPage.body, /href="zalo:\/\/conversation\?phone=0900000000"/);
+  assert.match(studentChatPage.body, /data-zalo-fallback/);
+  assert.match((await parent('/parent')).body, /href="zalo:\/\/conversation\?phone=0900000000"/);
   const formPage = await teacher('/teacher/social-links');
   const savedToken = csrf(formPage.body);
   const badSave = await teacher('/teacher/social-links', {

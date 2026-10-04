@@ -1,4 +1,5 @@
 const env = require('../config/env');
+const { zaloChatTarget } = require('../shared/social-links');
 const { formatScore } = require('../shared/score-display');
 
 async function injectViewData(req, res, next) {
@@ -16,6 +17,7 @@ async function injectViewData(req, res, next) {
   res.locals.questionConfig = env.question;
   res.locals.assignmentConfig = env.assignment;
   res.locals.formatScore = formatScore;
+  res.locals.zaloChatTarget = zaloChatTarget;
   res.locals.parentHeaderSocialLinks = {};
   res.locals.studentHeaderSocialLinks = {};
   // Account pages share the parent header but have no portal snapshot.

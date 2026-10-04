@@ -75,7 +75,12 @@
         <div class="parent-social-links d-flex align-items-center gap-2 ms-auto me-2" role="group" aria-label="Liên hệ giáo viên">
           <% if (parentSocialLinks.facebookUrl) { %><a class="btn btn-sm btn-outline-primary" href="<%= parentSocialLinks.facebookUrl %>" target="_blank" rel="noopener noreferrer">Facebook</a><% } %>
           <% if (parentSocialLinks.messengerUrl) { %><a class="btn btn-sm btn-outline-primary" href="<%= parentSocialLinks.messengerUrl %>" target="_blank" rel="noopener noreferrer">Messenger</a><% } %>
-          <% if (parentSocialLinks.zaloUrl) { %><a class="btn btn-sm btn-outline-success" href="<%= parentSocialLinks.zaloUrl %>" target="_blank" rel="noopener noreferrer">Zalo</a><% } %>
+          <% if (parentSocialLinks.zaloUrl) { const zalo = zaloChatTarget(parentSocialLinks.zaloUrl); %>
+            <% if (zalo.webUrl) { %>
+              <a class="btn btn-sm btn-outline-success" href="<%= zalo.appUrl || zalo.webUrl %>" data-zalo-chat title="Mở Zalo để chat với giáo viên">Zalo</a>
+              <% if (zalo.appUrl) { %><a class="small d-none" href="<%= zalo.webUrl %>" data-zalo-fallback target="_blank" rel="noopener noreferrer">Zalo chưa mở?</a><% } %>
+            <% } %>
+          <% } %>
         </div>
       <% } %>
       <div class="<%= hasContactLinks ? 'ms-2' : 'ms-auto' %> dropdown account-menu">

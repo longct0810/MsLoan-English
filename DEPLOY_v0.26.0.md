@@ -13,3 +13,9 @@ Giới hạn file dùng `ASSIGNMENT_UPLOAD_MAX_FILES` (mặc định 3) và `ASS
 ## Kiểm thử
 
 Copy `.env.example` thành `.env` cho môi trường kiểm thử riêng, rồi chạy `DEMO_MODE=true npm test`. Bộ kiểm thử bao gồm HTTP đăng nhập, nộp multipart, giới hạn file, quyền truy cập, CSRF, liên hệ phụ huynh, mã điểm đặc biệt và trung bình. Kiểm thử khóa khi chấm/nộp đồng thời dùng PostgreSQL client giả lập; chưa chạy migration hoặc kiểm thử trên database production.
+
+## Nút chat Zalo
+
+Giáo viên nhập số điện thoại Zalo (ví dụ `0901234567`) hoặc `https://zalo.me/0901234567`. Nút Zalo trên header phụ huynh/học viên sử dụng `zalo://conversation?phone=...` để yêu cầu thiết bị mở ứng dụng. Khi bấm, liên kết **Zalo chưa mở?** xuất hiện để mở trang Zalo dự phòng; không tự chuyển hướng khi người dùng đang xác nhận mở app. Không cần migration mới.
+
+Kiểm thử tự động xác nhận URL, chuẩn hóa số điện thoại, hiển thị và xử lý nút dự phòng. Chưa kiểm tra việc mở đúng cuộc trò chuyện trên Zalo Android/iOS/PC thật; hỗ trợ deep link phụ thuộc phiên bản ứng dụng và trình duyệt.
