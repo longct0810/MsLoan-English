@@ -60,7 +60,7 @@ function buildStudentSnapshot(studentId) {
     .filter((m) => student.classIds.includes(m.classId) && m.status !== 'DRAFT')
     .sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt));
 
-  return { student, classInfo, assignments, scores, skills, notes, attendance, materials };
+  return { student: { ...student, averageScore: averagePositiveScores(scores) ?? 0 }, classInfo, assignments, scores, skills, notes, attendance, materials };
 }
 
 async function getStudentIdByUserId(userId) {

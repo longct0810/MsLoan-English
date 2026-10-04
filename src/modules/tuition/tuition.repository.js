@@ -1,5 +1,6 @@
 const env = require('../../config/env');
 const pool = require('../../config/db');
+const demoStore = require('../../shared/demo-store');
 const { buildTransferCode } = require('../../shared/account-identifiers');
 
 function num(value) {
@@ -427,7 +428,12 @@ async function recordPayment(teacherId, invoiceId, data, createdBy) {
 }
 
 async function getChildren(parentUserId) {
-  if (env.demo.enabled) return [];
+  if (env.demo.enabled) {
+    const studentIds = new Set(demoStore.parentStudents
+      .filter(item => Number(item.parentUserId) === Number(parentUserId))
+      .map(item => Number(item.studentId)));
+    return demoStore.students.filter(item => studentIds.has(Number(item.id)) && item.status === 'ACTIVE' && !item.deletedAt);
+  }
   const { rows } = await pool.query(`
     SELECT s.id,s.full_name AS "fullName",s.school,s.school_class AS "schoolClass"
       FROM parent_students ps JOIN students s ON s.id=ps.student_id

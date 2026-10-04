@@ -1,4 +1,5 @@
 const repo = require('./assignment.repository');
+const { prioritizeTeacherAssignments } = require('../../shared/assignment-priority');
 const classService = require('../classes/class.service');
 const skillRepo = require('../skills/skill.repository');
 
@@ -49,7 +50,7 @@ async function list(filters, userId, isAdmin = false) {
   const classes = isAdmin ? await repo.findClasses() : await classService.getClasses(userId, false);
   const allowed = new Set(classes.map((item) => Number(item.id)));
   const assignments = (await repo.findAll(filters)).filter((item) => isAdmin || allowed.has(Number(item.classId)));
-  return { assignments, classes };
+  return { assignments: prioritizeTeacherAssignments(assignments), classes };
 }
 
 async function newForm(query = {}, userId, isAdmin = false) {

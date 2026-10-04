@@ -22,6 +22,11 @@ const allowedMime = new Set([
 	'audio/webm',
 	'audio/mp4',
 	'audio/x-m4a',
+	'audio/ogg',
+	'audio/x-wav',
+	'video/mp4',
+	'video/webm',
+	'video/quicktime',
 ]);
 const upload = multer({ storage: multer.memoryStorage(), limits:{ fileSize: env.assignment.uploadMaxFileMb*1024*1024, files: env.assignment.uploadMaxFiles }, fileFilter:(req,file,cb)=>cb(allowedMime.has(file.mimetype)?null:new Error('INVALID_FILE_TYPE'),allowedMime.has(file.mimetype)) });
 
@@ -36,7 +41,7 @@ web.post('/assignments/:id/publish', requireRole('TEACHER', 'ADMIN'), controller
 web.post('/assignments/:id/submissions/:studentId/grade', requireRole('TEACHER', 'ADMIN'), controller.grade);
 
 web.get('/student/assignments/:id', requireRole('STUDENT'), controller.studentDetail);
-web.post('/student/assignments/:id/submit', requireRole('STUDENT'), upload.array('attachments', env.assignment.uploadMaxFiles), requireParsedCsrfToken, controller.studentSubmit);
+web.post('/student/assignments/:id/submit', requireRole('STUDENT'), upload.array('attachments', env.assignment.uploadMaxFiles), requireParsedCsrfToken, controller.studentSubmit, controller.uploadError);
 web.get('/student/assignments/:id/assets/:assetId', requireRole('STUDENT'), controller.asset);
 web.get('/assignments/:id/assets/:assetId', requireRole('TEACHER','ADMIN'), controller.asset);
 

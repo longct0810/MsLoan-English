@@ -530,7 +530,7 @@ async function submitStudentAssignment(assignmentIdValue, userIdValue, payload =
   const mode = assignment.submissionMode || 'TEXT';
   if (mode === 'TEXT' && !text) throw new Error('SUBMISSION_REQUIRED');
   if (mode === 'FILE' && !hasFiles) throw new Error('FILE_REQUIRED');
-  if (mode === 'AUDIO' && ![...files, ...existingAssets].some((file) => String(file.mimetype || file.mimeType || '').startsWith('audio/'))) throw new Error('AUDIO_REQUIRED');
+  if (mode === 'AUDIO' && !(files.length ? files : existingAssets).some((file) => String(file.mimetype || file.mimeType || '').startsWith('audio/'))) throw new Error('AUDIO_REQUIRED');
   if (mode === 'MIXED' && !text && !hasFiles) throw new Error('SUBMISSION_REQUIRED');
   const late = assignment.dueAt && new Date() > new Date(assignment.dueAt);
   const status = late ? 'LATE' : 'SUBMITTED';
@@ -550,6 +550,13 @@ async function submitStudentAssignment(assignmentIdValue, userIdValue, payload =
   const client=await pool.connect();
   try {
     await client.query('BEGIN');
+    // Grade and submit take the same lock so a concurrent submission cannot erase a grade.
+    await client.query('SELECT id FROM assignments WHERE id=$1 FOR UPDATE', [assignment.id]);
+    const locked = await client.query(
+      'SELECT status FROM assignment_submissions WHERE assignment_id=$1 AND student_id=$2',
+      [assignment.id, assignment.student.id],
+    );
+    if (locked.rows[0]?.status === 'GRADED') throw new Error('GRADED_LOCKED');
     const {rows}=await client.query(`INSERT INTO assignment_submissions
       (assignment_id,student_id,status,score,submitted_at,submission_text,teacher_feedback,rubric_scores,rubric_feedback,updated_at)
       VALUES($1,$2,$3,NULL,NOW(),NULLIF($4,''),NULL,'{}'::jsonb,NULL,NOW())

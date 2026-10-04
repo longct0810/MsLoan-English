@@ -9,4 +9,12 @@ function prioritizeAssignments(assignments) {
   });
 }
 
-module.exports = { prioritizeAssignments };
+function prioritizeTeacherAssignments(assignments) {
+  const rank = (item) => item.status === 'PUBLISHED'
+    && (Number(item.submitted) > Number(item.graded) || Number(item.total) > Number(item.submitted)) ? 0
+    : item.status === 'DRAFT' ? 1 : 2;
+  return [...assignments].sort((left, right) => rank(left) - rank(right)
+    || new Date(left.dueAt || '2999-12-31') - new Date(right.dueAt || '2999-12-31'));
+}
+
+module.exports = { prioritizeAssignments, prioritizeTeacherAssignments };

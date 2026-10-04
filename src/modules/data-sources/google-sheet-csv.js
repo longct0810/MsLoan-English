@@ -702,6 +702,22 @@ function inferAssessmentResult(group, row) {
 
   if (!cells.length) return null;
 
+  // Status codes are not scores: preserve them without rescaling to /10.
+  const statusCell = cells.find((cell) => [-1, -2].includes(cell.numeric));
+  if (statusCell) {
+    return {
+      rawScore: statusCell.numeric,
+      rawMaxScore: null,
+      normalizedScore: statusCell.numeric,
+      normalizedMaxScore: 10,
+      confidence: 100,
+      detectionMode: 'STATUS_CODE',
+      primaryColumnIndex: statusCell.index,
+      warning: null,
+      rawValues: cells.map(({ index, rawValue }) => ({ index, value: rawValue })),
+    };
+  }
+
   const fractionCell = cells.find((cell) => cell.fraction);
   if (fractionCell) {
     const { score, max } = fractionCell.fraction;
