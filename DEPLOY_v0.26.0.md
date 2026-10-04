@@ -2,7 +2,7 @@
 
 1. Sao lưu PostgreSQL rồi chạy toàn bộ `sql/upgrade_v0.26.0.sql` nếu chưa chạy.
 2. Triển khai source: `npm ci`, `npm start`. Không chạy cumulative `db/schema.sql` trên database production đang có dữ liệu.
-3. Giáo viên vào **Liên hệ phụ huynh** (`/teacher/social-links`) để lưu Facebook, Messenger và Zalo. Các nút xuất hiện trên header phụ huynh theo giáo viên của lớp học viên đang chọn.
+3. Giáo viên vào **Facebook / Messenger / Zalo** ở menu bên trái, hoặc **Cấu hình mạng xã hội** trong menu tài khoản (`/teacher/social-links`) để lưu Facebook, Messenger và Zalo. Các nút xuất hiện trên header phụ huynh và học viên, ngay trước menu tài khoản, theo giáo viên của lớp học viên đang chọn.
 4. Chạy đồng bộ lại Google Sheets để các ô `-1` và `-2` trước đây bị giữ ở staging được cập nhật thành kết quả.
 5. Kiểm tra nộp bài với các chế độ văn bản, file, audio và kết hợp. File hỗ trợ PDF, Word, Excel, PowerPoint, văn bản, hình ảnh, âm thanh và video MP4/WebM/MOV.
 

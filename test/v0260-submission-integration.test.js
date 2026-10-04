@@ -116,6 +116,9 @@ test('HTTP upload, ownership, CSRF and parent contact header work end to end', a
   store.students.push({ id: 999, fullName: 'Other student', classIds: [2] });
   store.assignmentSubmissionAssets.push({ id: 999, assignmentId: assignment.id, studentId: 999, content: Buffer.from('private'), sizeBytes: 7 });
   assert.equal((await student(`${path}/assets/999`)).status, 404);
+  const teacherDashboard = await teacher('/dashboard');
+  assert.match(teacherDashboard.body, /Cấu hình mạng xã hội/);
+  assert.match(teacherDashboard.body, /Facebook \/ Messenger \/ Zalo/);
   page = await teacher('/teacher/social-links');
   const links = { _csrf: csrf(page.body), facebookUrl: 'https://facebook.com/teacher', messengerUrl: 'https://m.me/teacher', zaloUrl: 'https://zalo.me/0900000000' };
   assert.equal((await teacher('/teacher/social-links', { method: 'POST', body: new URLSearchParams(links) })).status, 302);
@@ -126,11 +129,39 @@ test('HTTP upload, ownership, CSRF and parent contact header work end to end', a
   const progress = await parent('/parent/progress');
   assert.match(progress.body, /Quên phiếu bài/);
   assert.match(progress.body, /Chưa hoàn thành/);
-  for (const route of ['/parent', '/parent/progress', '/parent/reports', '/parent/notifications', '/parent/tuition']) {
+  for (const route of ['/parent', '/parent/progress', '/parent/reports', '/parent/notifications', '/parent/tuition', '/account/password']) {
     const result = await parent(route);
     assert.equal(result.status, 200, route);
     for (const url of [links.facebookUrl, links.messengerUrl, links.zaloUrl]) assert.ok(result.body.includes(`href="${url}"`), `${route} includes ${url}`);
   }
+  for (const route of ['/student', '/student/progress', '/student/materials', '/student/assignments', '/student/exams', '/account/password', path]) {
+    const result = await student(route);
+    assert.equal(result.status, 200, route);
+    for (const url of [links.facebookUrl, links.messengerUrl, links.zaloUrl]) assert.ok(result.body.includes(`href="${url}"`), `${route} includes ${url}`);
+    assert.ok(result.body.indexOf('parent-social-links') < result.body.indexOf('dropdown account-menu'), 'contacts precede the account menu');
+    assert.match(result.body, /class="ms-2 dropdown account-menu"/);
+  }
+  const formPage = await teacher('/teacher/social-links');
+  const savedToken = csrf(formPage.body);
+  const badSave = await teacher('/teacher/social-links', {
+    method: 'POST', body: new URLSearchParams({ ...links, _csrf: savedToken, facebookUrl: 'https://evil.example' }),
+  });
+  assert.equal(badSave.status, 400);
+  assert.ok((await parent('/parent')).body.includes(`href="${links.facebookUrl}"`));
+  store.classes.find(item => item.id === 3).teacherId = 991;
+  store.teacherSocialLinks.push({ teacherId: 991, facebookUrl: 'https://facebook.com/otherteacher' });
+  const otherChild = await parent('/account/password?childId=5');
+  assert.ok(otherChild.body.includes('href="https://facebook.com/otherteacher"'));
+  assert.ok(!otherChild.body.includes(`href="${links.facebookUrl}"`));
+  const invalidChild = await parent('/account/password?childId=999');
+  assert.ok(invalidChild.body.includes(`href="${links.facebookUrl}"`));
+  assert.equal((await teacher('/teacher/social-links', {
+    method: 'POST', body: new URLSearchParams({ _csrf: savedToken, facebookUrl: '', messengerUrl: '', zaloUrl: '' }),
+  })).status, 302);
+  const cleared = await parent('/parent');
+  for (const url of [links.facebookUrl, links.messengerUrl, links.zaloUrl]) assert.ok(!cleared.body.includes(`href="${url}"`));
+  const clearedStudent = await student('/student');
+  for (const url of [links.facebookUrl, links.messengerUrl, links.zaloUrl]) assert.ok(!clearedStudent.body.includes(`href="${url}"`));
 });
 
 
