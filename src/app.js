@@ -46,6 +46,10 @@ app.use(express.urlencoded({ extended: true, limit: env.app.urlencodedLimit }));
 app.use(express.json({ limit: env.app.jsonLimit }));
 app.use(express.static(path.join(__dirname, 'public')));
 
+// Public health/keep-alive routes run before session middleware.
+// This prevents cron pings from creating/loading PostgreSQL-backed sessions.
+app.use(healthRoutes);
+
 const sessionOptions = {
   name: env.session.cookieName,
   secret: env.session.secret,
@@ -81,7 +85,6 @@ app.get('/home', (req, res) => {
   res.redirect(req.session.user ? getRoleHome(req.session.user.role) : '/login');
 });
 
-app.use(healthRoutes);
 app.use(authRoutes);
 app.use(dashboardRoutes);
 app.use(classRoutes.web);

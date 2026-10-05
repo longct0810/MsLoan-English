@@ -4,6 +4,20 @@ const env = require('../../config/env');
 
 const router = express.Router();
 
+// v0.26.1: Lightweight public endpoint for external cron/uptime callers.
+// Intentionally avoids database/session access so keep-alive requests stay cheap.
+router.get('/api/cron/ping', (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.json({
+    status: 'ok',
+    service: 'cron-keepalive',
+    app: env.app.name,
+    version: env.app.version,
+    timestamp: new Date().toISOString(),
+    uptimeSeconds: Math.floor(process.uptime()),
+  });
+});
+
 router.get('/health', (req, res) => {
   res.json({
     status: 'ok',
