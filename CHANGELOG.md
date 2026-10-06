@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.26.2 - Nén video bài tập
+
+- Tự động chuyển video nộp bài sang MP4 H.264 (CRF 22, preset medium), giữ nguyên độ phân giải và mã hóa âm thanh AAC 128 kbps.
+- Chỉ lưu bản nén khi dung lượng nhỏ hơn tệp gốc; nếu lớn hơn thì giữ nguyên tệp gốc.
+- Không xử lý tài liệu, ảnh hoặc audio; file đính kèm tiếp tục lưu trong PostgreSQL như hiện tại.
+- Không cần migration DB. Máy chủ cần có FFmpeg; Dockerfile đi kèm cài FFmpeg trên Debian.
+
+
 ## v0.26.0 - Assignment Submission, Score Statuses & Teacher Contacts
 
 - Hoàn thiện nộp bài bằng văn bản, tệp, audio hoặc kết hợp; mở rộng các định dạng tài liệu và ảnh được phép đính kèm.

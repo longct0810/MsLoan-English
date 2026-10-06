@@ -1,4 +1,5 @@
 const service = require('./assignment.service');
+const { compressUploadedFiles } = require('../../shared/video-compression');
 
 const MESSAGES = {
   CLASS_REQUIRED: 'Vui lòng chọn lớp.',
@@ -113,7 +114,8 @@ async function studentDetail(req, res, next) {
 
 async function studentSubmit(req, res, next) {
   try {
-    await service.submitStudentAssignment(req.params.id, req.session.user.id, req.body, req.files || []);
+    const files = await compressUploadedFiles(req.files || []);
+    await service.submitStudentAssignment(req.params.id, req.session.user.id, req.body, files);
     res.redirect(`/student/assignments/${req.params.id}?submitted=1`);
   } catch (error) {
     if (['SUBMISSION_REQUIRED','FILE_REQUIRED','AUDIO_REQUIRED','GRADED_LOCKED'].includes(error.message)) {
@@ -130,6 +132,7 @@ async function uploadError(error, req, res, next) {
     LIMIT_FILE_SIZE: 'Tệp vượt quá dung lượng cho phép.',
     LIMIT_FILE_COUNT: 'Số tệp vượt quá giới hạn cho phép.',
     LIMIT_UNEXPECTED_FILE: 'Số tệp hoặc trường tải lên không hợp lệ.',
+    VIDEO_COMPRESSION_FAILED: 'Không thể nén video. Hãy kiểm tra video và thử tải lên lại.',
     INVALID_FILE_TYPE: 'Định dạng tệp không được hỗ trợ. Hãy chọn tài liệu, hình ảnh, âm thanh hoặc video.',
   };
   const message = messages[error.code || error.message];
