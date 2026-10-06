@@ -1,4 +1,4 @@
-# MsLoan-English v0.26.2
+# MsLoan-English v0.26.3
 
 ## Nâng cấp
 
@@ -7,6 +7,12 @@
 3. Cài dependencies bằng `npm ci`.
 4. Chạy kiểm thử bằng `npm test`.
 5. Khởi động ứng dụng bằng `npm start`.
+
+## Thay đổi v0.26.3
+
+- Đồng bộ tất cả nguồn Google Sheets đang bật vào 11:00 và 23:00 mỗi ngày theo APP_TIMEZONE (mặc định Asia/Ho_Chi_Minh).
+- Có thể cấu hình giờ chạy qua GOOGLE_SHEET_SYNC_TIMES, ví dụ `10:30,22:30`. Nguồn bị tắt sẽ được bỏ qua.
+- Không cần migration database.
 
 ## Thay đổi v0.26.2
 

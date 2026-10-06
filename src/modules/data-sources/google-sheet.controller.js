@@ -84,7 +84,7 @@ function createGoogleSheetController({ repository, service }) {
           classId,
           name: req.body.name || 'Theo dõi lớp - Google Sheets',
           url: req.body.source_url,
-          intervalMinutes: req.body.sync_interval_minutes || 4320,
+          intervalMinutes: 720,
           importFromDate: req.body.import_from_date || null,
         });
 

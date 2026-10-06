@@ -735,8 +735,7 @@ function createGoogleSheetService({ pool, repository, logger = console }) {
     }
   }
 
-  async function syncDueSources() {
-    const sources = await repository.listDueSources();
+  async function syncSources(sources) {
     const results = [];
     for (const source of sources) {
       try {
@@ -749,12 +748,21 @@ function createGoogleSheetService({ pool, repository, logger = console }) {
     return results;
   }
 
+  async function syncAllSources() {
+    return syncSources(await repository.listEnabledSources());
+  }
+
+  async function syncDueSources() {
+    return syncSources(await repository.listDueSources());
+  }
+
   return {
     createSource,
     inspectSource,
     saveSheetProfile,
     syncSource,
     syncDueSources,
+    syncAllSources,
     parseGoogleSheetUrl,
     buildCsvUrl,
   };

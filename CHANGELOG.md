@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.26.3 - Lịch đồng bộ Google Sheets
+
+- Đồng bộ tất cả nguồn Google Sheets đang bật vào 11:00 và 23:00 mỗi ngày theo múi giờ APP_TIMEZONE (mặc định Asia/Ho_Chi_Minh).
+- Thêm GOOGLE_SHEET_SYNC_TIMES để cấu hình giờ chạy; các nguồn tắt được bỏ qua.
+- Giữ nguyên chức năng đồng bộ thủ công; không cần migration database.
+
+
 ## v0.26.2 - Nén video bài tập
 
 - Tự động chuyển video nộp bài sang MP4 H.264 (CRF 22, preset medium), giữ nguyên độ phân giải và mã hóa âm thanh AAC 128 kbps.

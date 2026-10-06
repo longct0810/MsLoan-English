@@ -146,6 +146,15 @@ function createGoogleSheetRepository(pool) {
       await query(db, `UPDATE external_data_sources SET ${sets.join(',')},updated_at=NOW() WHERE id=$${values.length}`, values);
     },
 
+    async listEnabledSources() {
+      const { rows } = await pool.query(`
+        SELECT * FROM external_data_sources
+         WHERE enabled=TRUE
+         ORDER BY id
+      `);
+      return rows;
+    },
+
     async listDueSources() {
       const { rows } = await pool.query(`
         SELECT * FROM external_data_sources

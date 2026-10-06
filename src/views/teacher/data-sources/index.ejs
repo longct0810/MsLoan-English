@@ -32,8 +32,8 @@
           <input name="name" class="form-control" value="Theo dõi lớp - Google Sheets" maxlength="250" required>
         </div>
         <div class="col-md-2">
-          <label class="form-label">Chu kỳ (phút)</label>
-          <input name="sync_interval_minutes" type="number" min="5" max="10080" value="4320" class="form-control" required>
+          <label class="form-label">Lịch đồng bộ</label>
+          <div class="form-control bg-light">11:00 và 23:00 mỗi ngày</div>
         </div>
         <div class="col-md-2">
           <label class="form-label">Nhập từ ngày</label>
@@ -60,7 +60,7 @@
           <tr>
             <th>Nguồn</th>
             <th>Lớp</th>
-            <th>Chu kỳ</th>
+            <th>Lịch tự động</th>
             <th>Lần thành công</th>
             <th>Mapping</th>
             <th>Trạng thái</th>
@@ -75,7 +75,7 @@
             <tr>
               <td><strong><%= item.name %></strong><br><small class="text-muted">Google Sheets · gid=<%= item.sheet_gid %></small></td>
               <td><%= item.class_name %><br><small class="text-muted"><%= item.school_year %></small></td>
-              <td><%= item.sync_interval_minutes %> phút</td>
+              <td><%= item.enabled ? '11:00 và 23:00' : 'Đã tắt' %></td>
               <td><%= item.last_success_at ? new Date(item.last_success_at).toLocaleString('vi-VN') : 'Chưa đồng bộ' %></td>
               <td><span class="badge bg-success"><%= item.matched_students %> khớp</span> <span class="badge bg-warning text-dark"><%= item.unmatched_students %> cần xử lý</span></td>
               <td><span class="badge <%= item.enabled ? 'bg-success' : 'bg-secondary' %>"><%= item.enabled ? 'Hoạt động' : 'Tạm dừng' %></span></td>
