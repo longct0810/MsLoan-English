@@ -3,26 +3,49 @@
 ## Nâng cấp
 
 1. Không cần migration database.
-2. Máy chủ cần cài FFmpeg và gọi được bằng lệnh `ffmpeg`; có thể cấu hình `FFMPEG_PATH` nếu binary không nằm trong PATH.
-3. Với triển khai Docker, dùng Dockerfile trong repo để cài FFmpeg cùng ứng dụng.
-4. Cài dependencies bằng `npm ci`, chạy kiểm thử bằng `npm test`, khởi động bằng `npm start`.
+2. Máy chủ cần có FFmpeg trên `PATH`; có thể đặt `FFMPEG_PATH` nếu binary nằm ở vị trí khác. Khi triển khai bằng Docker, Dockerfile trong repo cài FFmpeg sẵn. Với Render, chạy service bằng Docker runtime.
+3. Cài dependencies bằng `npm ci`.
+4. Chạy kiểm thử bằng `npm test`.
+5. Khởi động ứng dụng bằng `npm start`.
 
 ## Thay đổi v0.26.2
 
-- Video học viên tải lên được chuyển sang MP4 H.264, CRF 22, preset medium, giữ nguyên độ phân giải và âm thanh AAC 128 kbps.
-- Nếu bản nén không nhỏ hơn tệp gốc, ứng dụng giữ nguyên file gốc.
-- Chỉ video được nén; tài liệu, ảnh và audio vẫn giữ nguyên.
-- Tệp video vẫn lưu trong PostgreSQL như trước; không đổi schema.
+- Nén video học viên tải lên thành MP4 H.264, CRF 22, preset medium; giữ nguyên độ phân giải và mã hóa âm thanh AAC 128 kbps.
+- Nếu bản nén không nhỏ hơn file gốc, hệ thống giữ nguyên file gốc. Tài liệu, ảnh và audio không bị xử lý.
+- File tiếp tục lưu trong PostgreSQL; không đổi schema.
 
-## Thay đổi kế thừa từ v0.26.1
+## Thay đổi v0.26.1
 
-- API public nhẹ dành riêng cho cron/keep-alive: `GET /api/cron/ping`.
-- Endpoint không truy vấn database và được mount trước session middleware.
+- Thêm API public nhẹ dành riêng cho cron/keep-alive: `GET /api/cron/ping`.
+- API không truy vấn database và được mount trước session middleware để tránh tạo/load PostgreSQL session khi cron gọi định kỳ.
+- Response trả về trạng thái, version, thời gian server và uptime của Node.js.
+- Giữ nguyên các API health hiện có: `GET /health` và `GET /health/db`.
+
+### Ví dụ gọi API
+
+```bash
+curl -fsS https://TEN-APP.onrender.com/api/cron/ping
+```
+
+Response mẫu:
+
+```json
+{
+  "status": "ok",
+  "service": "cron-keepalive",
+  "app": "MsLoan English",
+  "version": "0.26.2",
+  "timestamp": "2026-10-05T00:45:00.000Z",
+  "uptimeSeconds": 125
+}
+```
+
+Nên để tool cron bên ngoài Render gọi endpoint này khoảng 10 phút/lần.
 
 ## Nội dung kế thừa từ v0.26.0
 
-- Hỗ trợ nộp bài bằng văn bản, tệp, audio hoặc kết hợp.
+- Hỗ trợ nộp bài bằng văn bản, tệp, audio hoặc kết hợp; mở rộng định dạng tệp học tập được chấp nhận.
 - Bài chưa làm hoặc nộp trễ được ưu tiên ở đầu danh sách cần theo dõi.
-- Điểm `-1` hiển thị là “Quên phiếu bài”, `-2` là “Chưa hoàn thành”; điểm trung bình chỉ tính điểm lớn hơn 0.
+- Điểm `-1` hiển thị là “Quên phiếu bài”, `-2` là “Chưa hoàn thành”; cả hai và điểm 0 không tham gia trung bình.
 - Giáo viên cấu hình liên kết mạng xã hội; phụ huynh thấy liên kết trong header.
 - Tăng cỡ chữ cơ sở của giao diện thêm một nấc.
