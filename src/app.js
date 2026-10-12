@@ -73,6 +73,11 @@ if (!env.demo.enabled) {
 }
 
 app.use(session(sessionOptions));
+// Session-specific forms must never be reused from the browser cache.
+app.use((req, res, next) => {
+  res.set('Cache-Control', 'no-store');
+  next();
+});
 app.use(requireSameOrigin);
 app.use(ensureCsrfToken);
 app.use(requireCsrfToken);

@@ -93,8 +93,14 @@ async function changePassword(req, res, next) {
   }
 }
 
-function logout(req, res) {
-  req.session.destroy(() => res.redirect('/login'));
+function logout(req, res, next) {
+  req.session.regenerate((error) => {
+    if (error) return next(error);
+    req.session.save((saveError) => {
+      if (saveError) return next(saveError);
+      res.redirect('/login');
+    });
+  });
 }
 
 module.exports = {
