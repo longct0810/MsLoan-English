@@ -66,3 +66,17 @@ test('rejects parsed multipart form with a missing CSRF token', () => {
   requireParsedCsrfToken(req, res, () => assert.fail('request should be blocked'));
   assert.equal(res.statusCode, 403);
 });
+
+test('expired login form renders a fresh form without authenticating the user', () => {
+  const req = { method: 'POST', path: '/login', session: { csrfToken: 'fresh' }, body: { _csrf: 'expired' }, get() { return undefined; } };
+  const res = response();
+  requireCsrfToken(req, res, () => assert.fail('expired form must not authenticate'));
+  assert.equal(res.statusCode, 419);
+  assert.equal(res.view, 'auth/login');
+  assert.equal(res.body.csrfToken, 'fresh');
+  assert.equal(res.body.showDemoAccounts, false);
+  assert.equal(req.session.user, undefined);
+  const ejs = require('ejs');
+  const html = ejs.render(require('fs').readFileSync(require('path').join(__dirname, '../src/views/auth/login.ejs'), 'utf8'), res.body, { filename: require('path').join(__dirname, '../src/views/auth/login.ejs') });
+  assert.match(html, /value="fresh"/);
+});

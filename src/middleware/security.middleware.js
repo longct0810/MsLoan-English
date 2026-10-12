@@ -18,9 +18,10 @@ function sameOrigin(req) {
   return true;
 }
 
-function renderForbidden(req, res) {
+function renderForbidden(req, res, message) {
   return res.status(403).render('errors/403', {
     title: 'Yêu cầu không hợp lệ',
+    forbiddenMessage: message,
     appName: env.app.name,
     appShortName: env.app.shortName,
     appVersion: env.app.version,
@@ -33,7 +34,7 @@ function renderForbidden(req, res) {
 function requireSameOrigin(req, res, next) {
   if (['GET', 'HEAD', 'OPTIONS'].includes(req.method) || sameOrigin(req)) return next();
   if (req.path.startsWith('/api/')) return res.status(403).json({ message: 'Cross-site request blocked' });
-  return renderForbidden(req, res);
+  return renderForbidden(req, res, 'Yêu cầu bị chặn vì nguồn gửi không khớp với địa chỉ ứng dụng. Hãy mở lại trang bằng địa chỉ chính thức.');
 }
 
 function csrfTokenMatches(req) {
@@ -43,7 +44,21 @@ function csrfTokenMatches(req) {
 
 function rejectCsrf(req, res) {
   if (req.path.startsWith('/api/')) return res.status(403).json({ message: 'CSRF token invalid' });
-  return renderForbidden(req, res);
+  if (req.method === 'POST' && req.path === '/login') {
+    return res.status(419).render('auth/login', {
+      title: 'Đăng nhập',
+      error: 'Phiên đăng nhập của biểu mẫu đã hết hạn. Vui lòng nhập lại tài khoản và mật khẩu.',
+      appName: env.app.name,
+      appShortName: env.app.shortName,
+      appVersion: env.app.version,
+      demoMode: env.demo.enabled,
+      showDemoAccounts: false,
+      csrfToken: req.session.csrfToken,
+      bootstrapCssUrl: env.assets.bootstrapCssUrl,
+      bootstrapJsUrl: env.assets.bootstrapJsUrl,
+    });
+  }
+  return renderForbidden(req, res, 'Biểu mẫu đã hết hạn hoặc mã bảo mật không hợp lệ. Hãy tải lại trang và thử lại.');
 }
 
 function requireCsrfToken(req, res, next) {
