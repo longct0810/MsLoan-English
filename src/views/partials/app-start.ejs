@@ -65,9 +65,9 @@
   </aside>
 
   <main class="app-main">
-    <nav class="navbar bg-white border-bottom sticky-top px-3 px-lg-4">
+    <nav class="navbar app-navbar bg-white border-bottom sticky-top px-3 px-lg-4">
       <button class="btn btn-outline-secondary d-lg-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#mobileMenu">☰</button>
-      <div class="ms-2 ms-lg-0">
+      <div class="app-navbar-title ms-2 ms-lg-0">
         <div class="text-secondary small"><%= appName %></div>
         <strong><%= title %></strong>
       </div>
@@ -88,6 +88,7 @@
           class="btn account-menu-toggle d-flex align-items-center gap-2"
           type="button"
           data-bs-toggle="dropdown"
+          data-bs-display="static"
           aria-expanded="false"
           aria-label="Mở menu tài khoản"
         >

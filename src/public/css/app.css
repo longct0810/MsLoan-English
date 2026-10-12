@@ -300,3 +300,16 @@ textarea.exam-answer-input { min-height: 150px; resize: vertical; }
   .account-menu-toggle { padding: 3px; }
   .account-menu-caret { display: none; }
 }
+
+/* Keep account controls anchored inside the viewport on mobile. */
+.app-navbar { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 8px; }
+.app-navbar-title { min-width: 0; overflow-wrap: anywhere; }
+.app-navbar .account-menu { grid-column: 3; grid-row: 1; margin-left: 0 !important; justify-self: end; }
+.app-navbar .account-dropdown { right: 0; left: auto; }
+.app-navbar .parent-social-links { grid-column: 2 / 4; grid-row: 2; justify-self: end; flex-wrap: wrap; margin: 0 !important; padding-bottom: 4px; }
+@media (min-width: 992px) {
+  .app-navbar { display: flex; flex-wrap: nowrap; }
+  .app-navbar .account-menu { margin-left: auto !important; flex-shrink: 0; }
+  .app-navbar .parent-social-links { margin-left: auto !important; padding-bottom: 0; }
+  .app-navbar .parent-social-links + .account-menu { margin-left: 8px !important; }
+}
